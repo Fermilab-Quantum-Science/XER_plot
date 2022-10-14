@@ -1,8 +1,9 @@
-from hmac import trans_5C
+
 import graphviz as gv
 import networkx as nx
 from xerparser.reader import Reader
 import sys
+import datetime as dt
 
 def make_sample_graph():
     dot = gv.Digraph(comment='sched')
@@ -97,6 +98,19 @@ def process_gv(first_code, last_code):
 
     first = xer.activities.find_by_code(first_code)
     last = xer.activities.find_by_code(last_code)
+
+    # first= xer.activities.find_by_code('A1206140')
+    # print(dir(first))
+    # now = dt.datetime.now()
+    # st_date = first.target_start_date
+    # en_date = first.target_end_date
+    # stat_code = first.status_code
+    # dur = en_date - st_date
+    # till_end = en_date-now
+    # till_start = now-st_date
+    # print(f'{first.task_code} {stat_code} {st_date} {en_date} {till_start} {till_end}')
+    # sys.exit(0)
+
     use_gv(first, last, xer)
 
 alldb = set()
@@ -108,7 +122,18 @@ def nx_add_node(first_id, g, xer, tot):
         return
 
     extra = "M" if first.task_type=='TT_FinMile' else "T"
-    g.add_node(first.task_code, name=first.task_name, type=extra)
+
+    now = dt.datetime.now()
+    st_date = first.target_start_date
+    en_date = first.target_end_date
+    stat_code = first.status_code
+    dur = en_date - st_date
+    till_end = en_date-now
+    till_start = now-st_date
+    print(f'adding {first.task_code}; {st_date};{en_date};{stat_code};{st_date<now};{en_date>now}')
+
+
+    g.add_node(first.task_code, name=first.task_name, type=extra, start=st_date, end=en_date, dur=dur, until_end=till_end, until_start=till_start)
     alldb.add(first.task_code)
     preds = xer.relations.get_predecessors(first.task_id)
 
@@ -140,6 +165,9 @@ def process_nx(first_code, last_code):
     ps = nx.all_simple_paths(g, first_code, last_code)
 
     dot=gv.Digraph(comment='sched',strict=True, format='pdf')
+
+    # can color nodes if node attr until_start < dt.timedelta(seconds=0)
+    # or until_end < dt.timedelta(seconds=0)
 
     for p in ps:
         print(p)
