@@ -84,7 +84,7 @@ def use_gv(first, last, xer):
     dot=gv.Digraph(comment='sched',strict=True, format='pdf')
     gv_add_node(first.task_id,last, dot,xer,0)
     # gv_go_up(first.task_id,dot,xer,0)
-    fname=f'graph_{first.task_code}.gv'
+    fname=f'gv_{first.task_code}_{last.task_code}.gv'
     dot.render(fname).replace('\\', '/')
     dot.render(fname, view=True)
 
@@ -146,7 +146,7 @@ def process_nx(first_code, last_code):
         for i in range(len(p)-1):
             dot.edge(p[i],p[i+1], color='blue')
 
-    fname=f'graph_nx_{first.task_code}.gv'
+    fname=f'nx_{first_code}_{last_code}.gv'
     dot.render(fname).replace('\\', '/')
     dot.render(fname, view=True)
 
@@ -182,7 +182,7 @@ if __name__ == '__main__':
         last_code='A1503500'  # CRITICAL - civil design for shaft complete
 
     # using graphviz directly
-    #process_gv(first_code, last_code)
+    process_gv(first_code, last_code)
 
     # using networkx to find all paths from last to first
     process_nx(first_code, last_code)
