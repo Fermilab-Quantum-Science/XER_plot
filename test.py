@@ -5,6 +5,8 @@ from xerparser.reader import Reader
 import sys
 import datetime as dt
 
+output_format = 'png'
+
 def make_sample_graph():
     dot = gv.Digraph(comment='sched')
     dot.node("A","name1")
@@ -82,7 +84,7 @@ def gv_add_node(first_id, last, dot, xer, tot):
 def use_gv(first, last, xer):
     print(f"starting point: task_id={first.task_id}, task_code={first.task_code}, {first.task_name}, task_type={first.task_type}")
 
-    dot=gv.Digraph(comment='sched',strict=True, format='pdf')
+    dot=gv.Digraph(comment='sched',strict=True, format=output_format)
     gv_add_node(first.task_id,last, dot,xer,0)
     # gv_go_up(first.task_id,dot,xer,0)
     fname=f'gv_{first.task_code}_{last.task_code}.gv'
@@ -164,7 +166,7 @@ def process_nx(first_code, last_code):
     print("starting find of paths")
     ps = nx.all_simple_paths(g, first_code, last_code)
 
-    dot=gv.Digraph(comment='sched',strict=True, format='pdf')
+    dot=gv.Digraph(comment='sched',strict=True, format=output_format)
 
     # can color nodes if node attr until_start < dt.timedelta(seconds=0)
     # or until_end < dt.timedelta(seconds=0)
@@ -176,7 +178,7 @@ def process_nx(first_code, last_code):
 
     fname=f'nx_{first_code}_{last_code}.gv'
     dot.render(fname).replace('\\', '/')
-    dot.render(fname, view=True)
+    #dot.render(fname, view=True)
 
 
 if __name__ == '__main__':
