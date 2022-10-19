@@ -1,4 +1,5 @@
 
+from tkinter import W
 import graphviz as gv
 import networkx as nx
 from xerparser.reader import Reader
@@ -120,22 +121,48 @@ alldb = set()
 def nx_add_node(first_id, g, xer, tot):
     first = xer.activities.find_by_id(first_id)
 
-    if first.task_code in alldb:
-        return
+    if first.task_code in alldb:return
 
     extra = "M" if first.task_type=='TT_FinMile' else "T"
 
     now = dt.datetime.now()
     st_date = first.target_start_date
     en_date = first.target_end_date
+    ES = first.early_start_date
+    EF = first.early_end_date
+    LS = first.late_start_date
+    LF = first.late_end_date
+    duration = first.duration
     stat_code = first.status_code
-    dur = en_date - st_date
+    dur = (en_date - st_date).days
     till_end = en_date-now
     till_start = now-st_date
-    print(f'adding {first.task_code}; {st_date};{en_date};{stat_code};{st_date<now};{en_date>now}')
+
+    if not ES:
+        ES = st_date
+        LS = st_date
+        EF = en_date
+        LF = en_date
+
+    # print(f'adding {first.task_code}; {st_date};{en_date};{stat_code};{st_date<now};{en_date>now}')
+
+    if duration != dur or duration != (EF-ES).days:
+        print(f'adding {first.task_code}; {extra}; sched_dur={duration}; en-st={dur}; EF-ES={(EF-ES).days}; LF-LS={(LF-LS).days}')
+    else:
+        print(f'adding {first.task_code}; {extra}; sched_dur={duration}')
+    
+    # print(f'adding {first.task_code}; ES={ES}; EF={EF}; LS={LS}; LF={LF}; dur={duration},{dur}; {extra}; {stat_code}') if extra=='T' else None
+    #if first.task_code == 'A0100000':
+    #    dirs = dir(first)
+    #    print(dirs)
+    #    sys.exit(0)
 
 
-    g.add_node(first.task_code, name=first.task_name, type=extra, start=st_date, end=en_date, dur=dur, until_end=till_end, until_start=till_start)
+    g.add_node(first.task_code, name=first.task_name, type=extra
+        , target_start=st_date, target_end=en_date, duration=duration
+        , until_end=till_end, until_start=till_start
+        , early_start=ES, early_end=EF, late_start=LS, late_end=LF
+        )
     alldb.add(first.task_code)
     preds = xer.relations.get_predecessors(first.task_id)
 
@@ -150,8 +177,132 @@ def nx_add_node(first_id, g, xer, tot):
     for p in preds:    
         nx_add_node(p.pred_task_id,g,xer,tot+1)
 
-    print(f'done with node {first.task_code} level {tot}')
+    # print(f'done with node {first.task_code} level {tot}')
     return True
+
+# forward - from root to leaf, fill in start day as ES (and EF)
+# since dates are set, the only thing to do is propagate the t0 date so that
+# early_start - t0_date can be calculated (turn it into days).  I think I 
+# can do this for early_end, and perhaps for late_start and late_end.
+def process_longest_dur(g,root, leaf):
+
+    ps=list(g.successors(leaf)) # earlier tasks
+    #print(f'successors of leaf {leaf} are {ps}')
+    my_dur = g.nodes[leaf]['duration']
+    early_start = g.nodes[leaf]['early_start']
+    early_end = g.nodes[leaf]['early_end']
+    late_start = g.nodes[leaf]['late_start']
+    late_end = g.nodes[leaf]['late_end']
+
+    if not early_end or not early_start: 
+        print(leaf,g.nodes[leaf]['type'],"-------------")
+
+    # or should duration be my_dur? No.
+    # this should be early_end - t0_date I think.
+    duration = (early_end - early_start).days
+
+    if len(ps)==0:
+        # warning - this is hit on every path exploration
+        #print(f'at end of processing {leaf}')
+        LS=(late_start-early_start).days
+        LF=LS+my_dur
+        g.nodes[leaf]['longest_dur'] = my_dur
+        g.nodes[leaf]['t0_date'] = early_start
+        g.nodes[leaf]['ES'] = 0
+        g.nodes[leaf]['EF'] = my_dur
+        g.nodes[leaf]['LS'] = None #LS
+        g.nodes[leaf]['LF'] = None #LF
+        return (early_start,duration)
+
+    # example of finding the list of duractions for all predecessors
+    # durs=[g.nodes[x]['duration'] for x in ps]
+
+    # this is wrong calculation.  Needs to be max along each pred path
+
+    rcs = [process_longest_dur(g,root,p) for p in ps]    
+    durs = [x[1] for x in rcs]
+    maxEF = max(durs)
+    t0_date = rcs[0][0]
+    EF = (early_end - t0_date).days
+    g.nodes[leaf]['longest_dur'] = maxEF
+    g.nodes[leaf]['t0_date'] = t0_date # get this from return from this function
+    g.nodes[leaf]['ES'] = maxEF
+    g.nodes[leaf]['EF'] = maxEF + my_dur
+    g.nodes[leaf]['LS'] = None #(late_start - t0_date).days # needs filling later
+    g.nodes[leaf]['LF'] = None #(late_end - t0_date).days   # needs filling later
+
+    return (t0_date,maxEF+my_dur)
+
+# root = earliest task (first)
+# leaf = latest task (last)
+def process_edges(g,root,leaf):
+    #print(f"proc edges: root={root}; leaf={leaf}")
+
+    LS=g.nodes[root]['LS']
+    if LS: return LS 
+
+    EF=g.nodes[root]['EF']
+    dur=g.nodes[root]['duration']
+
+    ss=list(g.successors(root))   # earlier tasks
+    ps=list(g.predecessors(root)) # later tasks
+    #print(f'successors of root {root} are {ss}')
+    #print(f'predecessors of root {root} are {ps}')
+
+    if len(ps)==0: # at latest task in tree
+        g.nodes[root]['LF'] = EF
+        LS=EF-dur
+        g.nodes[root]['LS'] = LS
+        return LS
+
+    if True:
+        prev_LSs=[process_edges(g,p,leaf) for p in ps]
+        LS = min(prev_LSs)
+        g.nodes[root]['LF']=LS
+        g.nodes[root]['LS']=LS-dur
+
+    #print(f'done with successors of leaf {leaf} for root {root}')
+    return LS-dur
+
+# don't do this
+def nx_mark_crit(g,root,leaf):
+    EF=g.nodes[root]['EF']
+
+    ss=list(g.successors(root))   # earlier tasks
+    ps=list(g.predecessors(root)) # later tasks
+
+    for p in ss:
+        g[root][p]['crit'] = "Y" if g.nodes[p]['EF']==g.nodes[p]['LF'] else "N"
+
+
+
+def render_nx(g,ps):
+    dot=gv.Digraph(comment='sched',strict=True, format=output_format)
+
+    # can color nodes if node attr until_start < dt.timedelta(seconds=0)
+    # or until_end < dt.timedelta(seconds=0)
+
+    lps=list(ps)
+    all_nodes={ n for p in lps for n in p}
+
+    for n in all_nodes:
+        EF=g.nodes[n]['EF']
+        LF=g.nodes[n]['LF']
+        mylabel=f"{g.nodes[n]['type']}/{n}\nd={g.nodes[n]['duration']}\nES={g.nodes[n]['ES']}\nEF={g.nodes[n]['EF']}\nLS={g.nodes[n]['LS']}\nLF={g.nodes[n]['LF']}"
+        dot.node(n,label=mylabel,color='red' if EF==LF else 'black')
+
+
+    for p in lps:
+        # print(p)
+        for i in range(len(p)-1):
+            w=0 #g[p[i]][p[i+1]]['weight']
+            crit = 'N' #g[p[i]][p[i+1]]['crit']
+            dot.edge(p[i],p[i+1], label=f'{w}', color='blue' if crit=="N" else 'red')
+
+    fname=f'nx_{first_code}_{last_code}.gv'
+    dot.render(fname).replace('\\', '/')
+    dot.render(fname, view=True)
+
 
 def process_nx(first_code, last_code):
     xer = Reader("../MAGIS Status with August 2022 Input.xer")
@@ -166,20 +317,11 @@ def process_nx(first_code, last_code):
     print("starting find of paths")
     ps = nx.all_simple_paths(g, first_code, last_code)
 
-    dot=gv.Digraph(comment='sched',strict=True, format=output_format)
+    roots = [v for v, d in g.out_degree() if d == 0]
+    leaves = [v for v, d in g.in_degree() if d == 0]
 
-    # can color nodes if node attr until_start < dt.timedelta(seconds=0)
-    # or until_end < dt.timedelta(seconds=0)
-
-    for p in ps:
-        print(p)
-        for i in range(len(p)-1):
-            dot.edge(p[i],p[i+1], color='blue')
-
-    fname=f'nx_{first_code}_{last_code}.gv'
-    dot.render(fname).replace('\\', '/')
-    #dot.render(fname, view=True)
-
+    print(f'predecessor roots={roots}, leaves={leaves}')
+    return (g,roots, leaves, ps)
 
 if __name__ == '__main__':
 
@@ -195,6 +337,9 @@ if __name__ == '__main__':
 
     # other interesting starting / ending points
     # remember that last means furtherest predecessor, or earlier one
+    # root = first (earliest), leaf = last (latest)
+    # successors of leaf point earlier (confusing)
+    # predecessors of leaf point latest (confusing)
 
     #first_code='A1503560' # laser-atom interactions
     #first_code='A1503570' # INDICTOR - shaft modular section installed
@@ -208,14 +353,30 @@ if __name__ == '__main__':
     else:
         first_code='A1503560' # laser-atom interactions
         first_code='A1206110' # Milestone - Phase 2 shaft installation complete
+        #first_code='A1004010'  # DAQ for modular assembly shipped
+        first_code='A1503240' # construction bid
         last_code='A1004010'  # DAQ for modular assembly shipped
         last_code='A1503500'  # CRITICAL - civil design for shaft complete
+        last_code='A0101000'  # DOE project start
+        last_code='A0100000'  # start?
 
     # using graphviz directly
     process_gv(first_code, last_code)
 
     # using networkx to find all paths from last to first
-    process_nx(first_code, last_code)
+    g,root,leaf,ps=process_nx(first_code, last_code)
+    process_longest_dur(g,root[0],leaf[0])
+    print("finished with longest dur")
+    process_edges(g,root[0],leaf[0])
+    #nx_mark_crit(g,root[0],leaf[0])
+    render_nx(g,ps)
+    #print(g.edges.data('weight'))
+    #ps=list(g.predecessors(root[0]))
+    #for p in ps:
+    #    op = list(g.predecessors(p))
+    #    print(g.edges(op,data=True))
+
+
 
 
 
