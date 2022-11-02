@@ -121,7 +121,18 @@ def read_xer_dump():
     for n in cols:
         df[n]=pd.to_datetime(df[n])
     df.set_index("activity", inplace=True)
-    print(df.dtypes)
+    #print(df.dtypes)
+    return df
+
+def read_excel_report():
+    df = pd.read_excel("../Schedule with August 2022 Input - Outdated Baseline - 100422.xlsx", header=0, skiprows=1)
+    df['good'] = df['Activity Name'].transform(lambda x : not math.isnan(x) if type(x)==float else True)
+    df = df[df['good']==True]
+    df['Finish']=df['Finish'].transform(lambda x: pd.to_datetime(x[0:11]) if type(x)==str else x)
+    df['Start']=df['Start'].transform(lambda x: pd.to_datetime(x[0:11]) if type(x)==str else x)
+    df['BL Project Start']=df['BL Project Start'].transform(lambda x: pd.to_datetime(x[0:11]) if type(x)==str else x)
+    df['BL Project Finish']=df['BL Project Finish'].transform(lambda x: pd.to_datetime(x[0:11]) if type(x)==str else x)
+    df['diff'] = df.apply(lambda x: x['Finish']-x['BL Project Finish'], axis=1)
     return df
 
 if __name__ == '__main__':
@@ -143,14 +154,7 @@ if __name__ == '__main__':
     test_first_code='A1503540' # latest
 
     xer = read_xer_dump()
-
-    df = pd.read_excel("../Schedule with August 2022 Input - Outdated Baseline - 100422.xlsx", header=0, skiprows=1)
-    df['good'] = df['Activity Name'].transform(lambda x : not math.isnan(x) if type(x)==float else True)
-    df = df[df['good']==True]
-    df['Finish']=df['Finish'].transform(lambda x: pd.to_datetime(x[0:11]) if type(x)==str else x)
-    df['Start']=df['Start'].transform(lambda x: pd.to_datetime(x[0:11]) if type(x)==str else x)
-    df['BL Project Start']=df['BL Project Start'].transform(lambda x: pd.to_datetime(x[0:11]) if type(x)==str else x)
-    df['BL Project Finish']=df['BL Project Finish'].transform(lambda x: pd.to_datetime(x[0:11]) if type(x)==str else x)
+    df  = read_excel_report()
 
     print(df.dtypes)
     g, roots, _leaves = convert_to_nx(df, xer)
