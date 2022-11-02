@@ -166,6 +166,7 @@ def nx_add_node(first_id, g, xer, tot):
         , target_start=st_date, target_end=en_date, duration=duration
         , until_end=till_end, until_start=till_start
         , early_start=ES, early_end=EF, late_start=LS, late_end=LF
+        , start_date=first.start_date, end_date=first.end_date
         )
     alldb.add(first.task_code)
     preds = xer.relations.get_predecessors(first.task_id)
@@ -282,7 +283,7 @@ def nx_mark_crit(g,root,leaf):
 
 
 
-def render_nx(g,ps):
+def render_nx(g,ps, first_code, last_code):
     dot=gv.Digraph(comment='sched',strict=True, format=output_format)
 
     # can color nodes if node attr until_start < dt.timedelta(seconds=0)
@@ -328,6 +329,20 @@ def process_nx(first_code, last_code):
 
     print(f'predecessor roots={roots}, leaves={leaves}')
     return (g,roots, leaves, ps)
+
+def just_read_file():
+    xer = Reader("../MAGIS Status with August 2022 Input.xer")
+    acts = list(xer.activities)
+    rels = list(xer.relations)
+    return (xer,acts,rels)
+
+def just_write_graph(fname_prefix, last_code='A0100000', first_code='A1503340'):
+    g,root,leaf,ps=process_nx(first_code, last_code)
+    nx.write_gpickle(g,f'{fname_prefix}_{first_code}_{last_code}.gz')
+
+def just_read_graph(fname):
+    g = nx.read_gpickle(fname)
+    return g
 
 if __name__ == '__main__':
 
@@ -413,7 +428,7 @@ if __name__ == '__main__':
     print("finished with longest dur")
     process_edges(g,root[0],leaf[0])
     #nx_mark_crit(g,root[0],leaf[0])
-    render_nx(g,ps)
+    render_nx(g,ps, root[0], leaf[0])
     #print(g.edges.data('weight'))
     #ps=list(g.predecessors(root[0]))
     #for p in ps:
