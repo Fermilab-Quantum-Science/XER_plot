@@ -7,119 +7,6 @@ import sys
 import datetime as dt
 
 output_format = 'png'
-
-def make_sample_graph():
-    dot = gv.Digraph(comment='sched')
-    dot.node("A","name1")
-    dot.node("B","name2")
-    dot.edge("A","B", constraint='false')
-    dot.render('tmp.gv').replace('\\', '/')
-    dot.render('tmp.gv', view=True)
-
-
-def gv_go_up(first_id,dot, xer, tot):
-    first = xer.activities.find_by_id(first_id)
-    succs = xer.relations.get_successors(first.task_id)
-
-    if tot>5: return
-
-    for s in succs:
-        sact = xer.activities.find_by_id(s.task_id)
-        extra = sact.task_name if sact.task_type=='TT_FinMile' else "T"
-        if first.task_type == 'TT_FinMile' or True:
-            if sact.task_type != 'TT_FinMile' or True:
-                dot.node(str(sact.task_id), f'{sact.task_code}/{extra[0:20]}')
-
-            # print(f'  up edge id={s.task_id}, pred={s.pred_task_id}')
-            dot.edge(str(s.task_id), str(s.pred_task_id), color='gray')
-
-    for s in succs:    
-        gv_go_up(s.task_id,dot,xer, tot+1)
-
-gvdb = {}
-
-def gv_add_node(first_id, last, dot, xer, tot, special):
-    first = xer.activities.find_by_id(first_id)
-    #print(f'adding node {first.task_id}, {first.task_code} / {first.task_name}')
-    rc=False
-
-    if first.task_id in gvdb:
-        #print(f'{first.task_id} already processed completely')
-        return gvdb[first.task_id]
-
-    if first.task_type == 'TT_FinMile':
-        desc = f'{first.task_code}\n{first.task_name[0:]}'
-        col='purple'
-    else:
-        desc = f'{first.task_code}\n{first.task_name[0:25]}'
-        col='black'
-
-    shape = 'rect' if first.task_code in special else 'ellipse'
-
-    if first.task_id == last.task_id:
-        dot.node(str(first.task_id), label=desc,color=col, shape=shape)
-        #print("hit first == last")
-        return True
-
-    preds = xer.relations.get_predecessors(first.task_id)
-
-    if len(preds)==0:
-        # print(f"hit end of path {first.task_code}")
-        return False
-
-    for p in preds:
-        tmp = gvdb.get(p.pred_task_id,None)
-        #if tmp!=None and tmp==True: continue
-        if gv_add_node(p.pred_task_id,last, dot,xer, tot+1, special):
-        # pact = xer.activities.find_by_id(p.pred_task_id)
-            dot.edge(str(p.task_id), str(p.pred_task_id), color='blue')
-            rc=True
-
-    if rc:
-        #print(f'adding intermediate node {first.task_code}')
-        dot.node(str(first.task_id), label=desc,color=col,shape=shape)
-
-    gvdb[first.task_id] = rc
-
-    # depth of recursion allowed
-    # if tot>3: return
-    #print(f'finishing node {first.task_id}')
-    return rc
-
-def use_gv(first, last, xer, special):
-    print(f"starting point: task_id={first.task_id}, task_code={first.task_code}, {first.task_name}, task_type={first.task_type}")
-
-    dot=gv.Digraph(comment='sched',strict=True, format=output_format)
-    gv_add_node(first.task_id,last, dot,xer,0,special)
-    # gv_go_up(first.task_id,dot,xer,0)
-    fname=f'gv_{first.task_code}_{last.task_code}.gv'
-    dot.render(fname).replace('\\', '/')
-    dot.render(fname, view=True)
-
-
-def process_gv(first_code, last_code, special):
-    xer = Reader("../MAGIS Status with August 2022 Input.xer")
-    acts = list(xer.activities)
-    rels = list(xer.relations)
-    typ = 'TT_FinMile'
-
-    first = xer.activities.find_by_code(first_code)
-    last = xer.activities.find_by_code(last_code)
-
-    # first= xer.activities.find_by_code('A1206140')
-    # print(dir(first))
-    # now = dt.datetime.now()
-    # st_date = first.target_start_date
-    # en_date = first.target_end_date
-    # stat_code = first.status_code
-    # dur = en_date - st_date
-    # till_end = en_date-now
-    # till_start = now-st_date
-    # print(f'{first.task_code} {stat_code} {st_date} {en_date} {till_start} {till_end}')
-    # sys.exit(0)
-
-    use_gv(first, last, xer, special)
-
 alldb = set()
 
 def nx_add_node(first_id, g, xer, tot):
@@ -155,13 +42,6 @@ def nx_add_node(first_id, g, xer, tot):
     else:
         print(f'adding {first.task_code}; {extra}; sched_dur={duration}')
     
-    # print(f'adding {first.task_code}; ES={ES}; EF={EF}; LS={LS}; LF={LF}; dur={duration},{dur}; {extra}; {stat_code}') if extra=='T' else None
-    #if first.task_code == 'A0100000':
-    #    dirs = dir(first)
-    #    print(dirs)
-    #    sys.exit(0)
-
-
     g.add_node(first.task_code, name=first.task_name, type=extra
         , target_start=st_date, target_end=en_date, duration=duration
         , until_end=till_end, until_start=till_start
@@ -280,8 +160,6 @@ def nx_mark_crit(g,root,leaf):
 
     for p in ss:
         g[root][p]['crit'] = "Y" if g.nodes[p]['EF']==g.nodes[p]['LF'] else "N"
-
-
 
 def render_nx(g,ps, first_code, last_code):
     dot=gv.Digraph(comment='sched',strict=True, format=output_format)
@@ -417,11 +295,6 @@ if __name__ == '__main__':
     #last_code='A0101000'  # DOE project start
     #last_code='A0100000'  # start?
 
-
-    # using graphviz directly
-    process_gv(first_code, last_code,special)
-
-    sys.exit(0)
     # using networkx to find all paths from last to first
     g,root,leaf,ps=process_nx(first_code, last_code)
     process_longest_dur(g,root[0],leaf[0])
@@ -429,15 +302,6 @@ if __name__ == '__main__':
     process_edges(g,root[0],leaf[0])
     #nx_mark_crit(g,root[0],leaf[0])
     render_nx(g,ps, root[0], leaf[0])
-    #print(g.edges.data('weight'))
-    #ps=list(g.predecessors(root[0]))
-    #for p in ps:
-    #    op = list(g.predecessors(p))
-    #    print(g.edges(op,data=True))
-
-
-
-
 
 # example of get successors and predecessors
 #print(xer.relations.get_successors(acts[0].task_id))
