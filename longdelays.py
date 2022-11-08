@@ -10,6 +10,21 @@ import datetime as dt
 
 out_format = 'pdf'
 
+def no_start_diff(g,ps):
+    anp = []
+    for p in ps:
+        np=[]
+        for i in range(len(p)-1):
+            n = p[i]
+            diff_end = g.nodes[n]['diff_finish']
+            diff_start = g.nodes[n]['diff_start']
+            if diff_start==0:
+                np=p[i:] 
+                break
+        anp.append(np)
+    return anp
+
+
 def render_nx(g,ps, first_code,last_code, output_format=out_format):
     dot=gv.Digraph(comment='sched',strict=True, format=output_format)
 
@@ -64,7 +79,18 @@ print(df_out)
 
 first = 'A1503600'
 last  = 'A1503790'
-first = last
-last  = 'A0100000'
+#first = last
+first = 'A1206110'
+last  = 'A0100000' # 
+last = "A0101000" # DOE placeholder start
 ps = nx.all_simple_paths(g, first, last)
-render_nx(g,ps,first, last)
+
+# expensive to convert ps to list, avoid if possible
+#ps = list(ps)
+#for p in ps: 
+#    if "A0102010" in p:
+#        print(p)
+#print(ps)
+
+ps_zero = no_start_diff(g,ps)
+render_nx(g,ps_zero,first, last)
