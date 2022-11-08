@@ -69,6 +69,11 @@ if __name__ == '__main__':
     else:
         print(f'using starting code of {starting_code}')
 
+    if len(sys.argv)>3:
+        earliest_code = sys.arv[3]
+    else:
+        print(f'using earliest code of {earliest_code}')
+
     g = read_graph(fname)
     ps = nx.all_simple_paths(g, starting_code, earliest_code)
     render_nx(g,ps, starting_code, earliest_code)

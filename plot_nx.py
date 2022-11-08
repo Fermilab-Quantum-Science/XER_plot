@@ -69,6 +69,7 @@ def nx_add_node(first_id, g, xer, tot):
 # since dates are set, the only thing to do is propagate the t0 date so that
 # early_start - t0_date can be calculated (turn it into days).  I think I 
 # can do this for early_end, and perhaps for late_start and late_end.
+# forward action for critical path using ES, EF, and duration
 def process_longest_dur(g,root, leaf):
 
     ps=list(g.successors(leaf)) # earlier tasks
@@ -120,6 +121,7 @@ def process_longest_dur(g,root, leaf):
 
 # root = earliest task (first)
 # leaf = latest task (last)
+# backwards action for critical path using EF, LS, duration
 def process_edges(g,root,leaf):
     #print(f"proc edges: root={root}; leaf={leaf}")
 

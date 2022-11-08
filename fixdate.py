@@ -24,5 +24,6 @@ d = { 'A': list(range(len(dates)))
 }
 
 df = pd.DataFrame(data=d)
+df['B']=pd.to_datetime(df['B'], format='%Y-%b-s')
 
 print(df)
