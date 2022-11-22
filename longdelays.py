@@ -5,6 +5,10 @@ import networkx as nx
 import graphviz as gv
 import datetime as dt
 
+# This script read the P6 XER file and the standard spreadsheet report that
+# Alyssa produces (including the predessors) to produce a plot of tasks and
+# milestones where BL_start != start
+
 # NOTE: need to check the excel sheet for A0601000, (A1201020 looks similar)
 # the plot shows strange bad alignment of start->BL start and end->BL end
 
@@ -64,7 +68,7 @@ def render_nx(g,ps, first_code,last_code, output_format=out_format):
     print("done with all nodes/edges")
     fname=f'nx_{first_code}_{last_code}.gv'
     dot.render(fname).replace('\\', '/')
-    dot.render(fname, view=True)
+    #dot.render(fname, view=True)
 
 
 xer = rex.read_xer_dump()
@@ -82,6 +86,7 @@ last  = 'A1503790'
 #first = last
 first = 'A1206110'
 first = 'A1503560'
+first = 'A1207060'
 last  = 'A0100000' # 
 last = "A0101000" # DOE placeholder start
 ps = nx.all_simple_paths(g, first, last)

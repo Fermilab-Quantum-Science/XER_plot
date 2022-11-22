@@ -4,6 +4,9 @@ from xerparser.reader import Reader
 import csv
 import sys
 
+# this script reads the p6 XER file and puts basis information
+# into an CSV file named sheet.csv
+
 # for information on P6 XER files and reading from excel, see
 # https://www.planacademy.com/understanding-primavera-xer-files/
 
