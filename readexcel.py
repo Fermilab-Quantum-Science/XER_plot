@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
     starting_code = 'A1207060'
     earliest_code = 'A0100000'
-    fname = sys.argv[1]
+    fname_prefix = sys.argv[1]
 
     if len(sys.argv)>2:
         starting_code = sys.argv[2]
@@ -115,10 +115,12 @@ if __name__ == '__main__':
     df  = read_excel_report()
 
     #print(df.dtypes)
-    g, roots, _leaves = convert_to_nx(df, xer)
-    print("converted")
-    ps = nx.all_simple_paths(g, starting_code, earliest_code)
-    print("found simple paths")
+    g, roots, leaves = convert_to_nx(df, xer)
+    print("converted to networkx")
+    nx.write_gpickle(g,f'{fname_prefix}.gz')
+
+    #ps = nx.all_simple_paths(g, starting_code, earliest_code)
+    #print("found simple paths")
     #print(list(ps))
     #lps=list(ps)
-    print("converted to list")
+    #print("converted to list")

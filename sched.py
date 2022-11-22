@@ -60,6 +60,7 @@ if __name__ == '__main__':
         print("usage: file_name start_task_code")
         sys.exit(0)    
 
+    starting_code = 'A1503560'
     starting_code = 'A1207060'
     earliest_code = 'A0100000'
     fname = sys.argv[1]

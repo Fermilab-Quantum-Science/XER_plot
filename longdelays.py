@@ -81,6 +81,7 @@ first = 'A1503600'
 last  = 'A1503790'
 #first = last
 first = 'A1206110'
+first = 'A1503560'
 last  = 'A0100000' # 
 last = "A0101000" # DOE placeholder start
 ps = nx.all_simple_paths(g, first, last)

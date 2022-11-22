@@ -1,5 +1,4 @@
 
-from tkinter import W
 import graphviz as gv
 import networkx as nx
 from xerparser.reader import Reader
@@ -178,7 +177,7 @@ if __name__ == '__main__':
     if len(sys.argv)>1:
         special=sys.argv[1]
     else:
-        special=['1']
+        special='1' # ['1']
 
     print(f'using list named {inter_names[special]}')
     special = inter[special]
