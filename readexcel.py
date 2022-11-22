@@ -74,7 +74,7 @@ def convert_to_nx(df,xer):
 def read_xer_dump():
     cols=["start", "end", "duration", "target_start", "target_end", 
     "early_start", "early_end", "late_start", "late_end"]
-    df = pd.read_csv("sheet.csv", infer_datetime_format=True)
+    df = pd.read_csv("report_Aug2022.csv", infer_datetime_format=True)
     for n in cols:
         df[n]=pd.to_datetime(df[n])
     df.set_index("activity", inplace=True)
@@ -82,7 +82,7 @@ def read_xer_dump():
     return df
 
 def read_excel_report():
-    df = pd.read_excel("../Schedule with August 2022 Input - Outdated Baseline - 100422.xlsx", header=0, skiprows=1)
+    df = pd.read_excel("schedule_Aug2022.xlsx", header=0, skiprows=1)
     df['good'] = df['Activity Name'].transform(lambda x : not math.isnan(x) if type(x)==float else True)
     df = df[df['good']==True]
     df['Finish']=df['Finish'].transform(convert_fix_date)
@@ -93,10 +93,15 @@ def read_excel_report():
     df['diff_start'] = df.apply(lambda x: (x['Start']-x['BL Project Start']).days, axis=1)
     return df
 
+def just_read_graph(fname):
+    g = nx.read_gpickle(fname)
+    return g
+
 if __name__ == '__main__':
 
     if len(sys.argv)<2 or (len(sys.argv)>1 and (sys.argv[1]=='help' or sys.argv[1]=='--help')):
-        print("usage: file_name start_task_code")
+        print("usage: file_name <start_task_code>")
+        print("this script writes out a networkx graph to file file_name containing all nodes and edges.")
         sys.exit(0)    
 
     starting_code = 'A1207060'

@@ -1,18 +1,23 @@
 
-import test as p6
 from xerparser.reader import Reader
 import csv
 import sys
 
 # this script reads the p6 XER file and puts basis information
-# into an CSV file named sheet.csv
+# into an CSV file named sheet_<month><year>.csv
 
 # for information on P6 XER files and reading from excel, see
 # https://www.planacademy.com/understanding-primavera-xer-files/
 
-xer,acts,rels = p6.just_read_file()
+def just_read_file():
+    xer = Reader("schedule_Aug2022.xer")
+    acts = list(xer.activities)
+    rels = list(xer.relations)
+    return (xer,acts,rels)
 
-f = open("sheet.csv",'w',newline='')
+xer,acts,rels = just_read_file()
+
+f = open("report_Aug2022.csv",'w',newline='')
 w = csv.writer(f)
 w.writerow(
     ["activity", "start", "end", "duration", "target_start", "target_end", 

@@ -1,4 +1,8 @@
 
+# this scipt uses the dates in XER to do the rendering. 
+# the XER dates are not all consistent with the excel report that
+# has BL_project_start and BL_project_end
+
 import graphviz as gv
 import networkx as nx
 import sys
