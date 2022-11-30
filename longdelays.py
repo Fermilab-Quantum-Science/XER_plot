@@ -6,6 +6,7 @@ import graphviz as gv
 import datetime as dt
 import args
 import sys
+import csv
 
 # This script read the P6 XER file and the standard spreadsheet report that
 # Alyssa produces (including the predessors) to produce a plot of tasks and
@@ -60,7 +61,7 @@ def render_nx(g,ps, first_code,last_code, output_format, show_dates=False):
 
                 shape = 'rect' if typ=='M' else 'ellipse'
                 col='black' if diff_end==0 or diff_start==0 else 'purple'
-                mylabel=f"{typ}/{n}\n{name}\nd={dur} / bd={bldur}\nBS={BS} / S={S}\nF={end} / BF={BLend}\n{diff_start}/{diff_end}"
+                mylabel=f"{typ}/{n}\n{name}\nd={dur} / bd={bldur}\nBS={BS} / S={S}\nF={end} / BF={BLend}\n{diff_start}/{diff_end}" if show_dates else f"{typ}/{n}\n{name}"
                 #dot.node(n,label=mylabel,color='black' if typ=='T' else 'purple')
                 dot.node(n,label=mylabel,color=col,shape=shape)
             e = (p[i], p[i+1])
@@ -78,13 +79,13 @@ if __name__ == '__main__':
     first, last, special = args.process_args(sys.argv)
     xer = rex.read_xer_dump()
     df  = rex.read_excel_report()
-    g, roots, leaves = rex.convert_to_nx(df, xer)
+    g_orig, roots, leaves = rex.convert_to_nx(df, xer)
 
     df_top = df.sort_values(by="diff_finish", ascending=False).iloc[0:20].sort_values(by="BL Project Finish")
     df_out = df_top[['Activity ID', 'Activity Name', 'BL Project Start', 'Start', 'BL Project Finish','Finish', 'diff_start', 'diff_finish']]
 
-    print(df.columns)
-    print(df_out)
+    #print(df.columns)
+    #print(df_out)
 
     #first = 'A1503600'
     #last  = 'A1503790'
@@ -97,6 +98,22 @@ if __name__ == '__main__':
 
     # expensive to convert ps to list, avoid if possible
     # ps = list(ps)
+
+    g = nx.transitive_reduction(g_orig)
+    g_diff = nx.difference(g_orig,g)
+    g.add_nodes_from(g_orig.nodes(data=True))
+
+    # data is not carried into the output graph of transitive reduction, see the 
+    # following for an example of how to do it.
+    # https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.dag.transitive_reduction.html#networkx.algorithms.dag.transitive_reduction
+    # TR.add_nodes_from(DG.nodes(data=True))
+    # TR.add_edges_from((u, v, DG.edges[u, v]) for u, v in TR.edges)
+    
+    fname=f'nx_{first}_{last}_diff.csv'
+    csv_out = csv.writer(open(fname, 'w', newline=''))
+    csv_out.writerow(['N1','N2'])
+    for e in g_diff.edges:
+        csv_out.writerow(e)
 
     ps = nx.all_simple_paths(g, first, last)
     show_diffs=False

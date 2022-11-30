@@ -29,3 +29,17 @@ type
 Seems like a lot, but much of it is the standard python development environment that only needs installation once. 
 
 By the way, it should be very easy to color the nodes indicating if the tasks are started, in-progress, not started, not started and late, started but late, etc..
+
+# Note
+
+Use longdelays.py.   There is an option --help for what it can do now.
+It is the latest code and the name is misleading.   
+There will be options added to filter out nodes for a bigger view. 
+
+# example of removing transitive dependencies
+
+```
+python .\longdelays.py 5 A1503600 A1503280
+tred nx_A1503600_A1503280.gv | dot -Tpng -o out.png
+./out.png # or open ./out.png if Linux
+```
