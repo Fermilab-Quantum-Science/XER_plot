@@ -103,11 +103,15 @@ if __name__ == '__main__':
     g_diff = nx.difference(g_orig,g)
     g.add_nodes_from(g_orig.nodes(data=True))
 
+    print('total edges = ', len(g_orig.edges))
+
     # data is not carried into the output graph of transitive reduction, see the 
     # following for an example of how to do it.
     # https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.dag.transitive_reduction.html#networkx.algorithms.dag.transitive_reduction
     # TR.add_nodes_from(DG.nodes(data=True))
     # TR.add_edges_from((u, v, DG.edges[u, v]) for u, v in TR.edges)
+    # xer.relations.relations[4].get_tsv()
+    # for x in xer.relations.get_tsv(): print(x)
     
     fname=f'nx_{first}_{last}_diff.csv'
     csv_out = csv.writer(open(fname, 'w', newline=''))

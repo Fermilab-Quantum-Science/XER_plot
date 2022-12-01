@@ -24,6 +24,14 @@ w.writerow(
     "early_start", "early_end", "late_start", "late_end"]
 )
 
+fe = open("report_Aug2022_edges.csv",'w',newline='')
+we = csv.writer(fe)
+tsv = xer.relations.get_tsv()
+we.writerow(tsv[1:])
+
+for e in tsv[2:]:
+    we.writerow([e[2],e[3],e[6]])
+
 #print(dir(xer))
 #print(dir(xer.activities))
 #sys.exit(0)
