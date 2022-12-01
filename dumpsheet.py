@@ -27,10 +27,10 @@ w.writerow(
 fe = open("report_Aug2022_edges.csv",'w',newline='')
 we = csv.writer(fe)
 tsv = xer.relations.get_tsv()
-we.writerow(tsv[1:])
+we.writerow(tsv[1][1:])
 
 for e in tsv[2:]:
-    we.writerow([e[2],e[3],e[6]])
+    we.writerow(e[1:])
 
 #print(dir(xer))
 #print(dir(xer.activities))
