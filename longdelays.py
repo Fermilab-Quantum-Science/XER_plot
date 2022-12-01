@@ -4,9 +4,10 @@ import pandas as pd
 import networkx as nx
 import graphviz as gv
 import datetime as dt
-import args
 import sys
 import csv
+import get_args as getargs
+# import args # old way to do it
 
 # This script read the P6 XER file and the standard spreadsheet report that
 # Alyssa produces (including the predessors) to produce a plot of tasks and
@@ -76,8 +77,10 @@ def render_nx(g,ps, first_code,last_code, output_format, show_dates=False):
 
 
 if __name__ == '__main__':
-    first, last, special = args.process_args(sys.argv)
+    #first, last, special = args.process_args(sys.argv)
+    args = getargs.get_args()
     xer = rex.read_xer_dump()
+    edges = rex.read_xer_edges()
     df  = rex.read_excel_report()
     g_orig, roots, leaves = rex.convert_to_nx(df, xer)
 
@@ -113,18 +116,17 @@ if __name__ == '__main__':
     # xer.relations.relations[4].get_tsv()
     # for x in xer.relations.get_tsv(): print(x)
     
-    fname=f'nx_{first}_{last}_diff.csv'
+    # first==args.later_code, last=args.earlier_code
+    # WARNING: the edges.csv file has internal task_ids, not task_codes, they need translation!!!!
+    fname=f'nx_{args.later_code}_{args.earlier_code}_diff.csv'
     csv_out = csv.writer(open(fname, 'w', newline=''))
-    csv_out.writerow(['N1','N2'])
+    csv_out.writerow(['task_code','pred_task_code','pred_type'])
     for e in g_diff.edges:
         csv_out.writerow(e)
 
-    ps = nx.all_simple_paths(g, first, last)
-    show_diffs=False
-    show_dates=False
-    out_format = 'png'
+    ps = nx.all_simple_paths(g, args.later_code, args.earlier_code)
 
     # no option processing for this yet ...
-    ps_zero = no_start_diff(g,ps) if show_diffs else ps
+    ps_zero = no_start_diff(g,ps) if args.show_diffs else ps
 
-    render_nx(g,ps_zero,first, last, out_format, show_dates)
+    render_nx(g,ps_zero,args.later_code, args.earlier_code, args.output_format, args.show_dates)

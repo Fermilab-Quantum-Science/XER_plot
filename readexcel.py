@@ -81,6 +81,11 @@ def read_xer_dump():
     #print(df.dtypes)
     return df
 
+def read_xer_edges():
+    df = pd.read_csv("report_Aug2022_edges.csv", infer_datetime_format=True)
+    df.set_index(["task_id","pred_task_id"], inplace=True)
+    return df
+
 def read_excel_report():
     df = pd.read_excel("schedule_Aug2022.xlsx", header=0, skiprows=1)
     df['good'] = df['Activity Name'].transform(lambda x : not math.isnan(x) if type(x)==float else True)
