@@ -10,6 +10,7 @@ class Fake:
     show_diffs=False
     show_dates=False
     do_reduction=True
+    render=True
     special_list=[earlier_code, later_code]
     special=f'{earlier_code},{later_code}'
 
@@ -26,6 +27,7 @@ def get_args():
     parser.add_argument("-D","--BL-equals-planned", default=Fake.show_diffs, action='store_true', dest="show_diffs",help="Only show tasks where BL==planned start time")
     parser.add_argument("-d","--show-dates", default=Fake.show_dates, action='store_true', dest="show_dates",help="Show dates on graph")
     parser.add_argument("-t","--no-transitive-reduction", default=Fake.do_reduction, action='store_false', dest="do_reduction",help="Do not run transitive reduction algorithm")
+    parser.add_argument("-r","--no-render", default=Fake.render, action='store_false', dest="render",help="Do not view the graph")
     pp = parser.parse_args()
 
     pp.special_list=pp.special.split(',')
