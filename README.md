@@ -36,10 +36,23 @@ Use longdelays.py.   There is an option --help for what it can do now.
 It is the latest code and the name is misleading.   
 There will be options added to filter out nodes for a bigger view. 
 
-# example of removing transitive dependencies
+# example of producing a graph
+
+Option ```-l``` means later in time task code, option ```-e``` means earlier in time task code.
 
 ```
-python .\longdelays.py 5 A1503600 A1503280
-tred nx_A1503600_A1503280.gv | dot -Tpng -o out.png
-./out.png # or open ./out.png if Linux
+python ./longdelays.py -l A1503600 -e A0100000
 ```
+
+# important tasks from Linda
+
+Here are a few mechanical tasks which could be intermediate milestones for installation of 17 sections.  We’ll need civil also.
+
+* A1802580 - Assembly of 17, phase 1 (start)
+* A0507010 - connection node integration (start)
+* A0603020 - Magnetic shield and coupler procurement (start)
+* A1802490 - vacuum system - interferometry spool fabrication
+* A0705020 - bake procurement
+* A1803820 - strongback frame procurement
+
+

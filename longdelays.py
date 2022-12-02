@@ -102,7 +102,7 @@ if __name__ == '__main__':
     # expensive to convert ps to list, avoid if possible
     # ps = list(ps)
 
-    g = nx.transitive_reduction(g_orig)
+    g = nx.transitive_reduction(g_orig) if args.do_reduction else g_orig
     g_diff = nx.difference(g_orig,g)
     g.add_nodes_from(g_orig.nodes(data=True))
 
@@ -121,8 +121,11 @@ if __name__ == '__main__':
     fname=f'nx_{args.later_code}_{args.earlier_code}_diff.csv'
     csv_out = csv.writer(open(fname, 'w', newline=''))
     csv_out.writerow(['task_code','pred_task_code','pred_type'])
+    #print(edges.head())
+    #print(edges.loc["A1503340","A0101210"])
     for e in g_diff.edges:
-        csv_out.writerow(e)
+        row=edges.loc[e[0],e[1]]
+        csv_out.writerow([e[0],e[1],row['pred_type']])
 
     ps = nx.all_simple_paths(g, args.later_code, args.earlier_code)
 
