@@ -72,7 +72,8 @@ def render_nx(g,ps, args):
                 dot.edge(e[0],e[1], label=f'', color='black')
     
     print("done with all nodes/edges")
-    fname=f'nx_{args.later_code}_{args.earlier_code}.gv'
+    reduced = "wr" if args.do_reduction else "wor"
+    fname=f'nx_{args.later_code}_{args.earlier_code}_{reduced}.gv'
     dot.render(fname).replace('\\', '/')
     dot.render(fname, view=args.render)
 

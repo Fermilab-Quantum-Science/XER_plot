@@ -44,6 +44,8 @@ Option ```-l``` means later in time task code, option ```-e``` means earlier in 
 python ./longdelays.py -l A1503600 -e A0100000
 ```
 
+The program now supports many options, including output in PDF or PNG, or adding date information to the nodes.
+
 # important tasks from Linda
 
 Here are a few mechanical tasks which could be intermediate milestones for installation of 17 sections.  We’ll need civil also.
