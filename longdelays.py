@@ -116,14 +116,21 @@ if __name__ == '__main__':
     df  = rex.read_excel_report()
     g_orig, roots, leaves = rex.convert_to_nx(df, xer)
 
-    #an = g_orig.predecessors(args.earlier_code)
-    #an=list(an)
-    #print(len(an))
-    #for c in an:
-    #    args.earlier_code=c
-    #    process(g_orig,args)
-
-    process(g_orig, args)
+    if args.do_only_preds:
+        an = g_orig.predecessors(args.earlier_code)
+        an=list(an)
+        #print(len(an))
+        for c in an:
+            print(f'processing {c}')
+            args.earlier_code=c
+            args.render=False
+            args.output_format='pdf'
+            args.do_reduction=False
+            process(g_orig,args)
+            args.do_reduction=True
+            process(g_orig,args)
+    else:
+        process(g_orig, args)
 
     # old args to render_nx:
     # args.later_code, args.earlier_code,
