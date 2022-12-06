@@ -2,3 +2,5 @@ output/*.pdf
 output/*.dot
 output/*.gv
 output/*.csv
+output/*_wr
+output/*_wor
