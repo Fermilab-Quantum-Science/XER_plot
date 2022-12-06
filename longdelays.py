@@ -73,8 +73,8 @@ def render_nx(g,ps, args):
     
     print("done with all nodes/edges")
     reduced = "wr" if args.do_reduction else "wor"
-    fname=f'nx_{args.later_code}_{args.earlier_code}_{reduced}.gv'
-    dot.render(fname).replace('\\', '/')
+    fname=f'output/nx_{args.later_code}_{args.earlier_code}_{reduced}'
+    dot.render(fname+'.dot').replace('\\', '/')
     dot.render(fname, view=args.render)
 
 def reduce_graph(g_orig, args):
@@ -92,7 +92,7 @@ def reduce_graph(g_orig, args):
     # for x in xer.relations.get_tsv(): print(x)
     
     # first==args.later_code, last=args.earlier_code
-    fname=f'nx_{args.later_code}_{args.earlier_code}_diff.csv'
+    fname=f'output/nx_{args.later_code}_{args.earlier_code}_diff.csv'
     csv_out = csv.writer(open(fname, 'w', newline=''))
     csv_out.writerow(['task_code','pred_task_code','pred_type'])
     for e in g_diff.edges:

@@ -1,4 +1,3 @@
-
 # this scipt uses the dates in XER to do the rendering. 
 # the XER dates are not all consistent with the excel report that
 # has BL_project_start and BL_project_end
@@ -54,7 +53,7 @@ def render_nx(g,ps, first_code,last_code, output_format='pdf'):
             crit = 'N' #g[p[i]][p[i+1]]['crit']
             dot.edge(p[i],p[i+1], label=f'{w}', color='blue' if crit=="N" else 'red')
 
-    fname=f'nx_{first_code}_{last_code}.gv'
+    fname=f'output/nx_{first_code}_{last_code}.gv'
     dot.render(fname).replace('\\', '/')
     dot.render(fname, view=True)
 

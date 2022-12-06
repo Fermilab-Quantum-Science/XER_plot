@@ -186,7 +186,7 @@ def render_nx(g,ps, first_code, last_code):
             crit = 'N' #g[p[i]][p[i+1]]['crit']
             dot.edge(p[i],p[i+1], label=f'{w}', color='blue' if crit=="N" else 'red')
 
-    fname=f'nx_{first_code}_{last_code}.gv'
+    fname=f'output/nx_{first_code}_{last_code}.gv'
     dot.render(fname).replace('\\', '/')
     dot.render(fname, view=True)
 

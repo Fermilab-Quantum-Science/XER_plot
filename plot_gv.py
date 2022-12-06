@@ -72,7 +72,7 @@ def use_gv(first, last, xer, special):
     dot=gv.Digraph(comment='sched',strict=True, format=output_format)
     gv_add_node(first.task_id,last, dot,xer,0,special)
     # gv_go_up(first.task_id,dot,xer,0)
-    fname=f'gv_{first.task_code}_{last.task_code}.gv'
+    fname=f'output/gv_{first.task_code}_{last.task_code}.gv'
     dot.render(fname).replace('\\', '/')
     dot.render(fname, view=True)
 
