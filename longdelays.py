@@ -74,8 +74,8 @@ def render_nx(g,ps, args):
     print("done with all nodes/edges")
     reduced = "wr" if args.do_reduction else "wor"
     fname=f'output/nx_{args.later_code}_{args.earlier_code}_{reduced}'
-    dot.render(fname+'.dot').replace('\\', '/')
-    dot.render(fname, view=args.render)
+    #dot.render(fname+'.dot', view=False).replace('\\', '/')
+    dot.render(fname, view=args.render).replace('\\', '/')
 
 def reduce_graph(g_orig, args):
 
