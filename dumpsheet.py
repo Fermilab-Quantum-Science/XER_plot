@@ -1,6 +1,7 @@
 
 from xerparser.reader import Reader
 import csv
+import os
 import sys
 
 # this script reads the p6 XER file and puts basis information
@@ -9,15 +10,18 @@ import sys
 # for information on P6 XER files and reading from excel, see
 # https://www.planacademy.com/understanding-primavera-xer-files/
 
-def just_read_file():
-    xer = Reader("schedule_Aug2022.xer")
+def just_read_file(fname):
+    xer = Reader(fname)
     acts = list(xer.activities)
     rels = list(xer.relations)
     return (xer,acts,rels)
 
 if __name__ == "__main__":
 
-    xer,acts,rels = just_read_file()
+    fname="schedule_Aug2022.xer" if len(sys.argv)==1 else sys.argv[1]
+    fout=os.path.splitext(fname)[0]
+
+    xer,acts,rels = just_read_file(fname)
 
     f = open("report_Aug2022.csv",'w',newline='')
     w = csv.writer(f)

@@ -28,10 +28,13 @@ def convert_fix_date(attr):
     #print(f'convert_fix_date: {attr}, type = {type(attr)}')
     return check_fix_date(pd.to_datetime(attr[0:11]) if type(attr)==str else attr)
 
-def convert_to_nx(df,xer):
+def convert_to_nx(df,xer, xer_edges):
     typ = 'TT_FinMile'
     g=nx.DiGraph()
     preds={}
+
+    iedges=xer_edges.reset_index()
+    iedges.set_index("task_id", inplace=True)
 
     for idx,r in df.iterrows():
         #print(f'{r}')
@@ -53,7 +56,16 @@ def convert_to_nx(df,xer):
         #print(node, type(pred), pred)
         # print(f'{node} | {start} | {BLstart} | {end} | {BLend}')
         extra = "M" if name.find('Milestone')>=0  or name.find('milestone')>=0 else "T"
-        preds[node] = pred.split(', ') if type(pred)==type("") else []
+
+        if False:
+            # this is where we pull the predecessors out of the spreadsheet
+            preds[node] = pred.split(', ') if type(pred)==type("") else []
+        else:
+            preds[node] = list(iedges.loc[[node]].pred_task_id) if node in iedges.index else []
+            #preds[node] = list(iedges.get(node, default=[]))
+
+        print(preds[node])
+
         g.add_node(node, name=name, type=extra
             , start=start, end=end
             , duration=duration, BL_duration=BLduration

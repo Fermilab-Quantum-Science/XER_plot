@@ -77,7 +77,7 @@ def render_nx(g,ps, args):
     #dot.render(fname+'.dot', view=False).replace('\\', '/')
     dot.render(fname, view=args.render).replace('\\', '/')
 
-def reduce_graph(g_orig, args):
+def reduce_graph(g_orig, all_edges, args):
 
     if not args.do_reduction:
         return g_orig
@@ -96,13 +96,14 @@ def reduce_graph(g_orig, args):
     csv_out = csv.writer(open(fname, 'w', newline=''))
     csv_out.writerow(['task_code','pred_task_code','pred_type'])
     for e in g_diff.edges:
-        row=edges.loc[e[0],e[1]]
+        # print(f'locating {e[0]}, {e[1]}')
+        row=all_edges.loc[e[0],e[1]]
         csv_out.writerow([e[0],e[1],row['pred_type']])
 
     return g
 
-def process(gg_orig, args):
-    g = reduce_graph(gg_orig, args)
+def process(gg_orig, edges, args):
+    g = reduce_graph(gg_orig, edges, args)
     ps = nx.all_simple_paths(g, args.later_code, args.earlier_code)
     ps_zero = no_start_diff(g,ps) if args.show_diffs else ps
 
@@ -114,7 +115,7 @@ if __name__ == '__main__':
     xer = rex.read_xer_dump()
     edges = rex.read_xer_edges()
     df  = rex.read_excel_report()
-    g_orig, roots, leaves = rex.convert_to_nx(df, xer)
+    g_orig, roots, leaves = rex.convert_to_nx(df, xer, edges)
 
     if args.do_only_preds:
         an = g_orig.predecessors(args.earlier_code)
@@ -126,11 +127,11 @@ if __name__ == '__main__':
             args.render=False
             args.output_format='pdf'
             args.do_reduction=False
-            process(g_orig,args)
+            process(g_orig,edges, args)
             args.do_reduction=True
-            process(g_orig,args)
+            process(g_orig,edges, args)
     else:
-        process(g_orig, args)
+        process(g_orig,edges, args)
 
     # old args to render_nx:
     # args.later_code, args.earlier_code,
