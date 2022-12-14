@@ -64,7 +64,7 @@ def convert_to_nx(df,xer, xer_edges):
             preds[node] = list(iedges.loc[[node]].pred_task_id) if node in iedges.index else []
             #preds[node] = list(iedges.get(node, default=[]))
 
-        print(preds[node])
+        #print(preds[node])
 
         g.add_node(node, name=name, type=extra
             , start=start, end=end
