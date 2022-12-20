@@ -2,6 +2,7 @@
 import dumpsheet as ds
 import sys
 import pandas as pd
+import csv
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
@@ -44,7 +45,7 @@ def get_tables(xer):
     items=xer.activities.get_tsv()[2:]
     header=xer.activities.get_tsv()[1]
     df_acts = pd.DataFrame(list(items),columns=header)
-    df_acts_i = df_acts.set_index('task_code')
+    df_acts_i = df_acts #.set_index('task_code')
 
     return (df_acts_i, df_wbs)
 
@@ -83,14 +84,29 @@ def get_path(wbsid_start, df_wbs):
 
 task_code = 'A0206010'
 df_acts, df_wbs = get_tables(xer)
-wbs_id = df_acts.loc[task_code].wbs_id
-lastid, lastname = get_path(wbs_id, df_wbs)
-print(f'{task_code}, {wbs_id}, {lastid}, {lastname}')
+#wbs_id = df_acts.loc[task_code].wbs_id
+#lastid, lastname = get_path(wbs_id, df_wbs)
+#print(f'{task_code}, {wbs_id}, {lastid}, {lastname}')
 
-sys.exit(0)
+#print(df_acts.iloc[1])
+#print(df_wbs.iloc[1])
 
-for x in d:
-    item=getattr(xer,x)
-    print(x,"====>",dir(item))
-    itemlist=list(item)
-    print(x,"---->",itemlist)
+#sys.exit(0)
+
+f = open("report_Aug2022_parents.csv",'w',newline='')
+w = csv.writer(f)
+w.writerow(
+    ["task_id", "task_code", "wbs_id", "area", "parent_wbs_id", "parent_name"]
+    )
+
+id_set = set()
+for i,r in df_acts.iterrows():
+    lastid, lastname = get_path(r['wbs_id'], df_wbs)
+    id_set.add(lastid)
+area={v:k for k,v in enumerate(id_set)}
+
+for i,r in df_acts.iterrows():
+#for id,code in zip(df_acts.wbs_id, df_acts.task_code):
+    lastid, lastname = get_path(r['wbs_id'], df_wbs)
+    w.writerow([r['task_id'],r['task_code'], r['wbs_id'], area[lastid], lastid, lastname])
+    #print(f'{code}, {id}, {lastid}, {lastname}')

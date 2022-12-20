@@ -1,4 +1,5 @@
 output/*.pdf
+output/*.png
 output/*.dot
 output/*.gv
 output/*.csv

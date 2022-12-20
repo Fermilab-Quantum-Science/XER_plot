@@ -32,5 +32,5 @@ def get_args():
     parser.add_argument("-p","--only-preds", default=Fake.do_only_preds, action='store_true', dest="do_only_preds",help="Do ALL graphs of -l to predecessors to -e, with and witout -t")
     pp = parser.parse_args()
 
-    pp.special_list=pp.special.split(',')
+    pp.special_list=[ x.strip() for x in pp.special.split(',')]
     return pp

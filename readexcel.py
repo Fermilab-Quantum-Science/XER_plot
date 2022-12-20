@@ -28,7 +28,7 @@ def convert_fix_date(attr):
     #print(f'convert_fix_date: {attr}, type = {type(attr)}')
     return check_fix_date(pd.to_datetime(attr[0:11]) if type(attr)==str else attr)
 
-def convert_to_nx(df,xer, xer_edges):
+def convert_to_nx(df,xer, xer_edges, parents):
     typ = 'TT_FinMile'
     g=nx.DiGraph()
     preds={}
@@ -53,9 +53,11 @@ def convert_to_nx(df,xer, xer_edges):
         pred=r['Predecessors']
         diff_finish=r['diff_finish']
         diff_start=r['diff_start']
+        parent=parents.loc[node]
         #print(node, type(pred), pred)
         # print(f'{node} | {start} | {BLstart} | {end} | {BLend}')
         extra = "M" if name.find('Milestone')>=0  or name.find('milestone')>=0 else "T"
+        area = parent.area
 
         if False:
             # this is where we pull the predecessors out of the spreadsheet
@@ -70,7 +72,7 @@ def convert_to_nx(df,xer, xer_edges):
             , start=start, end=end
             , duration=duration, BL_duration=BLduration
             , BL_end=BLend, BL_start=BLstart
-            ,diff_finish = diff_finish, diff_start=diff_start
+            ,diff_finish = diff_finish, diff_start=diff_start, area=area
         )
 
     for k,v in preds.items():
@@ -96,6 +98,11 @@ def read_xer_dump():
 def read_xer_edges():
     df = pd.read_csv("report_Aug2022_edges.csv", infer_datetime_format=True)
     df.set_index(["task_id","pred_task_id"], inplace=True)
+    return df
+
+def read_xer_parents():
+    df = pd.read_csv("report_Aug2022_parents.csv", infer_datetime_format=True)
+    df.set_index(["task_code"], inplace=True)
     return df
 
 def read_excel_report():

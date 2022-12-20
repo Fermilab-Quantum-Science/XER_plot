@@ -30,6 +30,12 @@ def no_start_diff(g,ps):
         anp.append(np)
     return anp
 
+colors={
+    0:'azure', 1:'aqua', 2:'aquamarine', 3:'darkolivegreen1', 4:'cadetblue3', 5:'chartreuse',
+    6:'chocolate', 7:'coral', 8:'cornflowerblue', 9:'antiquewhite', 10:'darkorange',
+    11:'darkseagreen', 12:'cyan3', 13:'forestgreen', 14:'gold2', 15:'gray',
+    16:'darksalmon'
+}
 
 def render_nx(g,ps, args):
     # first_code,last_code, output_format, show_dates=False, view=False):
@@ -60,12 +66,14 @@ def render_nx(g,ps, args):
                 dur=g.nodes[n]['duration']
                 typ=g.nodes[n]['type']
                 bldur=g.nodes[n]['BL_duration']
-
+                areacol = colors[g.nodes[n]['area']]
                 shape = 'rect' if typ=='M' else 'ellipse'
-                col='black' if diff_end==0 or diff_start==0 else 'purple'
+                #col='black' if diff_end==0 or diff_start==0 else 'crimson'
+                col='crimson' if n in args.special_list else 'black'
+                pw = 1.0 if col=='black' else 15.0
                 mylabel=f"{typ}/{n}\n{name}\nd={dur} / bd={bldur}\nBS={BS} / S={S}\nF={end} / BF={BLend}\n{diff_start}/{diff_end}" if args.show_dates else f"{typ}/{n}\n{name}"
                 #dot.node(n,label=mylabel,color='black' if typ=='T' else 'purple')
-                dot.node(n,label=mylabel,color=col,shape=shape)
+                dot.node(n,label=mylabel,color=col,shape=shape, fillcolor=areacol, style='filled',penwidth=str(pw))
             e = (p[i], p[i+1])
             if e not in all_edges:
                 all_edges.add(e)
@@ -114,8 +122,10 @@ if __name__ == '__main__':
     args = getargs.get_args()
     xer = rex.read_xer_dump()
     edges = rex.read_xer_edges()
+    parents = rex.read_xer_parents()
     df  = rex.read_excel_report()
-    g_orig, roots, leaves = rex.convert_to_nx(df, xer, edges)
+    print(f'special_list = {args.special_list}')
+    g_orig, roots, leaves = rex.convert_to_nx(df, xer, edges, parents)
 
     if args.do_only_preds:
         an = g_orig.predecessors(args.earlier_code)
