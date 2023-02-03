@@ -30,12 +30,51 @@ def no_start_diff(g,ps):
         anp.append(np)
     return anp
 
+def filter_by_wbs(g, wbs_item):
+    wbs='.'.join(wbs_item)
+    print(f"filtering on {wbs}")
+    anp=set()
+    # nodes is list of (node_num, node_data)
+    for n in g.nodes(data=True):
+        if n[1]['wbs'].startswith(wbs): 
+            anp.add(n[0])
+            for n in g.in_edges(n[0]):
+                anp.add(n[0])
+                anp.add(n[1])
+            for n in g.out_edges(n[0]):
+                anp.add(n[0])
+                anp.add(n[1])
+    print(f'added {anp}')
+    return g.subgraph(list(anp))
+
 colors={
     0:'azure', 1:'aqua', 2:'aquamarine', 3:'darkolivegreen1', 4:'cadetblue3', 5:'chartreuse',
     6:'chocolate', 7:'coral', 8:'cornflowerblue', 9:'antiquewhite', 10:'darkorange',
     11:'darkseagreen', 12:'cyan3', 13:'forestgreen', 14:'gold2', 15:'gray',
-    16:'darksalmon'
+    16:'darksalmon', 17:'darkorchid1', 18:'deeppink2'
 }
+
+class GNode:
+    def __init__(self,g,n):
+        self.n = n
+        self.end=g.nodes[n]['end']
+        self.BLend=g.nodes[n]['BL_end']
+        self.diff_end = g.nodes[n]['diff_finish']
+        self.diff_start = g.nodes[n]['diff_start']
+        self.S=g.nodes[n]['start']
+        self.BS=g.nodes[n]['BL_start']
+        self.name=g.nodes[n]['name']
+        self.dur=g.nodes[n]['duration']
+        self.typ=g.nodes[n]['type']
+        self.bldur=g.nodes[n]['BL_duration']
+        self.areacol = colors[g.nodes[n]['area']]
+        self.shape = 'rect' if typ=='M' else 'ellipse'
+
+    def long_name(self):
+        return f"{self.typ}/{self.n}\n{self.name}\nd={self.dur} / bd={self.bldur}\nBS={self.BS} / S={self.S}\nF={self.end} / BF={self.BLend}\n{self.diff_start}/{self.diff_end}"
+
+    def short_name(self):
+        return f"{self.typ}/{self.n}\n{self.name}"
 
 def render_nx(g,ps, args):
     # first_code,last_code, output_format, show_dates=False, view=False):
@@ -66,6 +105,8 @@ def render_nx(g,ps, args):
                 dur=g.nodes[n]['duration']
                 typ=g.nodes[n]['type']
                 bldur=g.nodes[n]['BL_duration']
+                #print(f"area={g.nodes[n]['area']}")
+                #print(g.nodes[n])
                 areacol = colors[g.nodes[n]['area']]
                 shape = 'rect' if typ=='M' else 'ellipse'
                 #col='black' if diff_end==0 or diff_start==0 else 'crimson'
@@ -110,8 +151,16 @@ def reduce_graph(g_orig, all_edges, args):
 
     return g
 
+import matplotlib.pyplot as plt
+
 def process(gg_orig, edges, args):
-    g = reduce_graph(gg_orig, edges, args)
+    g_init = reduce_graph(gg_orig, edges, args)
+    g = filter_by_wbs(g_init,args.wbs_item) if args.wbs_filter else g_init
+    #print(g.nodes())
+    nx.draw(g)
+    plt.show()
+    # filtering likely will remove the codes that trace paths
+    # perhaps just render full graph at this point instead of paths from end points
     ps = nx.all_simple_paths(g, args.later_code, args.earlier_code)
     ps_zero = no_start_diff(g,ps) if args.show_diffs else ps
 
@@ -165,4 +214,4 @@ if __name__ == '__main__':
 
     # expensive to convert ps to list, avoid if possible
     # ps = list(ps)
-    # print('total edges = ', len(g_orig.edges))
+    #   ('total edges = ', len(g_orig.edges))

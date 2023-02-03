@@ -8,6 +8,7 @@ import datetime as dt
 import csv
 import math
 
+datepart='Dec2022'
 out_format = 'pdf'
 
 # attend to NaT and make sure everything is dt.date
@@ -58,6 +59,7 @@ def convert_to_nx(df,xer, xer_edges, parents):
         # print(f'{node} | {start} | {BLstart} | {end} | {BLend}')
         extra = "M" if name.find('Milestone')>=0  or name.find('milestone')>=0 else "T"
         area = parent.area
+        wbs = f'{parent.L1}.{parent.L2}.{parent.L3}'
 
         if False:
             # this is where we pull the predecessors out of the spreadsheet
@@ -72,7 +74,7 @@ def convert_to_nx(df,xer, xer_edges, parents):
             , start=start, end=end
             , duration=duration, BL_duration=BLduration
             , BL_end=BLend, BL_start=BLstart
-            ,diff_finish = diff_finish, diff_start=diff_start, area=area
+            ,diff_finish = diff_finish, diff_start=diff_start, area=area, wbs=wbs
         )
 
     for k,v in preds.items():
@@ -88,7 +90,7 @@ def convert_to_nx(df,xer, xer_edges, parents):
 def read_xer_dump():
     cols=["start", "end", "duration", "target_start", "target_end", 
     "early_start", "early_end", "late_start", "late_end"]
-    df = pd.read_csv("report_Aug2022.csv", infer_datetime_format=True)
+    df = pd.read_csv(f"report_{datepart}.csv", infer_datetime_format=True)
     for n in cols:
         df[n]=pd.to_datetime(df[n])
     df.set_index("activity", inplace=True)
@@ -96,23 +98,26 @@ def read_xer_dump():
     return df
 
 def read_xer_edges():
-    df = pd.read_csv("report_Aug2022_edges.csv", infer_datetime_format=True)
+    df = pd.read_csv(f"report_{datepart}_edges.csv", infer_datetime_format=True)
     df.set_index(["task_id","pred_task_id"], inplace=True)
     return df
 
 def read_xer_parents():
-    df = pd.read_csv("report_Aug2022_parents.csv", infer_datetime_format=True)
+    df = pd.read_csv(f"report_{datepart}_parents.csv", infer_datetime_format=True)
     df.set_index(["task_code"], inplace=True)
     return df
 
 def read_excel_report():
-    df = pd.read_excel("schedule_Aug2022.xlsx", header=0, skiprows=1)
+    df = pd.read_excel(f"schedule_{datepart}.xlsx", header=0, skiprows=1)
     df['good'] = df['Activity Name'].transform(lambda x : not math.isnan(x) if type(x)==float else True)
     df = df[df['good']==True]
     df['Finish']=df['Finish'].transform(convert_fix_date)
     df['Start']=df['Start'].transform(convert_fix_date)
-    df['BL Project Start']=df['BL Project Start'].transform(convert_fix_date)
-    df['BL Project Finish']=df['BL Project Finish'].transform(convert_fix_date)
+    # NOTE: these used to be like this, but changed to the other names
+    #df['BL Project Start']=df['BL Project Start'].transform(convert_fix_date)
+    #df['BL Project Finish']=df['BL Project Finish'].transform(convert_fix_date)
+    df['BL Project Start']=df['BL Start'].transform(convert_fix_date)
+    df['BL Project Finish']=df['BL Finish'].transform(convert_fix_date)
     df['diff_finish'] = df.apply(lambda x: (x['Finish']-x['BL Project Finish']).days, axis=1)
     df['diff_start'] = df.apply(lambda x: (x['Start']-x['BL Project Start']).days, axis=1)
     return df

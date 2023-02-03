@@ -4,6 +4,8 @@ import csv
 import os
 import sys
 
+datepart = 'Dec2022'
+
 # this script reads the p6 XER file and puts basis information
 # into an CSV file named sheet_<month><year>.csv
 
@@ -18,19 +20,19 @@ def just_read_file(fname):
 
 if __name__ == "__main__":
 
-    fname="schedule_Aug2022.xer" if len(sys.argv)==1 else sys.argv[1]
+    fname=f"schedule_{datepart}.xer" if len(sys.argv)==1 else sys.argv[1]
     fout=os.path.splitext(fname)[0]
 
     xer,acts,rels = just_read_file(fname)
 
-    f = open("report_Aug2022.csv",'w',newline='')
+    f = open(f"report_{datepart}.csv",'w',newline='')
     w = csv.writer(f)
     w.writerow(
         ["activity", "start", "end", "duration", "target_start", "target_end", 
         "early_start", "early_end", "late_start", "late_end"]
     )
 
-    fe = open("report_Aug2022_edges.csv",'w',newline='')
+    fe = open(f"report_{datepart}_edges.csv",'w',newline='')
     we = csv.writer(fe)
     tsv = xer.relations.get_tsv()
     we.writerow(tsv[1][1:])

@@ -4,12 +4,17 @@ import sys
 import pandas as pd
 import csv
 
+datepart='Dec2022'
+head=6370897
+search_start='A1803050'
+old_top=13425503
+
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 # pd.set_option('display.max_colwidth', -1)
 
-xer,acts,rels = ds.just_read_file("schedule_Aug2022.xer")
+xer,acts,rels = ds.just_read_file(f"schedule_{datepart}.xer")
 
 # this is all the WBS information.  See wbs_id, parent_wbs_id, 
 
@@ -38,6 +43,7 @@ def get_tables(xer):
     items=xer.wbss.get_tsv()[2:]
     header=xer.wbss.get_tsv()[1]
     df_wbs = pd.DataFrame(list(items),columns=header)
+    df_wbs.to_csv("tmp_wbs.csv")
     #df_wbs.set_index("parent_wbs_id",inplace=True)
     #df_wbs.reset_index(names=["parent_wbs_id"],inplace=True)
     df_wbs.set_index("wbs_id",inplace=True)
@@ -45,6 +51,7 @@ def get_tables(xer):
     items=xer.activities.get_tsv()[2:]
     header=xer.activities.get_tsv()[1]
     df_acts = pd.DataFrame(list(items),columns=header)
+    df_acts.to_csv("tmp_acts.csv")
     df_acts_i = df_acts #.set_index('task_code')
 
     return (df_acts_i, df_wbs)
@@ -57,24 +64,31 @@ def get_tables(xer):
 # print(df_wbs.loc[13425503]) # children of parent of all
 #for x in df_acts.iterrows(): id = x
 
+# WARNING: working schedule WBS ID can change, the head seems to remain the same
 # MAGIS working schedule = 13425503
 # Head of all = 6370897
 
-def get_path(wbsid_start, df_wbs):
+def get_path(wbsid_start, df_wbs, top):
     last=None
     lastid=None
     #currid = df_acts_i.loc['A0206010'].wbs_id
     currid = wbsid_start
-    path=[]
-    while currid!=13425503: 
+    path=[(0,'None')]
+    while currid!=top: 
+        if not currid in df_wbs.index: break
         curr=df_wbs.loc[ currid ]
         nextid=curr.parent_wbs_id
         name=curr.wbs_name
-        #print(f"current {currid}, parent {nextid}, name {name}")
+        #print(f"start {wbsid_start} current {currid}, parent {nextid}, name {name}")
+        #print(curr.wbs_short_name)
+        #path.append((currid,curr.wbs_name))
+        path.append((curr.wbs_short_name,curr.wbs_name))
         last=curr
         lastid=currid
         currid=nextid
-    return (lastid, last.wbs_name)
+        #if currid not in df_wbs: break
+    #print(currid, lastid, path[-3:])
+    return (currid, lastid, last.wbs_name, path[-3:])
 
 #print(f"good one = {last['wbs_id']}, name is {last['wbs_name']}")
 
@@ -90,23 +104,35 @@ df_acts, df_wbs = get_tables(xer)
 
 #print(df_acts.iloc[1])
 #print(df_wbs.iloc[1])
+#print(df_wbs.head())
 
+top = xer.activities.find_by_code(search_start)
+print(top.task_id, top.task_name, top.wbs_id)
+top_id = top.wbs_id
+top_curr_id, top_last_id, top_last_name, path = get_path(top_id, df_wbs, 0)
+# I want top_last_id
+print(top_id, top_curr_id, top_last_id, top_last_name)
 #sys.exit(0)
 
-f = open("report_Aug2022_parents.csv",'w',newline='')
+f = open(f"report_{datepart}_parents.csv",'w',newline='')
 w = csv.writer(f)
 w.writerow(
-    ["task_id", "task_code", "wbs_id", "area", "parent_wbs_id", "parent_name"]
+    ["task_id", "task_code", "wbs_id", "area", "parent_wbs_id", "parent_name", 'L3', "L2", "L1", "N3","N2","N1"]
     )
 
 id_set = set()
 for i,r in df_acts.iterrows():
-    lastid, lastname = get_path(r['wbs_id'], df_wbs)
+    curr_id, lastid, lastname, path = get_path(r['wbs_id'], df_wbs, top_last_id)
     id_set.add(lastid)
 area={v:k for k,v in enumerate(id_set)}
 
+#for a in area.items():
+#    print(f'area {a[0]}={a[1]}')
+
 for i,r in df_acts.iterrows():
 #for id,code in zip(df_acts.wbs_id, df_acts.task_code):
-    lastid, lastname = get_path(r['wbs_id'], df_wbs)
-    w.writerow([r['task_id'],r['task_code'], r['wbs_id'], area[lastid], lastid, lastname])
+    #if r['task_code']=='A0902010': 
+    #    print(f"---------------got it: {r}")
+    currid, lastid, lastname, path = get_path(r['wbs_id'], df_wbs, top_last_id)
+    w.writerow([r['task_id'],r['task_code'], r['wbs_id'], area[lastid], lastid, lastname, path[0][0],path[1][0],path[2][0],path[0][1],path[1][1],path[2][1] ])
     #print(f'{code}, {id}, {lastid}, {lastname}')
