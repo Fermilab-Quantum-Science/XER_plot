@@ -31,19 +31,19 @@ def no_start_diff(g,ps):
     return anp
 
 def filter_by_wbs(g, wbs_item):
-    wbs='.'.join(wbs_item)
+    wbs=wbs_item
     print(f"filtering on {wbs}")
     anp=set()
     # nodes is list of (node_num, node_data)
     for n in g.nodes(data=True):
         if n[1]['wbs'].startswith(wbs): 
             anp.add(n[0])
-            for n in g.in_edges(n[0]):
-                anp.add(n[0])
-                anp.add(n[1])
-            for n in g.out_edges(n[0]):
-                anp.add(n[0])
-                anp.add(n[1])
+            for e in g.in_edges(n[0]):
+                anp.add(e[0])
+                anp.add(e[1])
+            for e in g.out_edges(n[0]):
+                anp.add(e[0])
+                anp.add(e[1])
     print(f'added {anp}')
     return g.subgraph(list(anp))
 
@@ -56,6 +56,7 @@ colors={
 
 class GNode:
     def __init__(self,g,n):
+        print(f'building GNode for {n}')
         self.n = n
         self.end=g.nodes[n]['end']
         self.BLend=g.nodes[n]['BL_end']
@@ -68,13 +69,30 @@ class GNode:
         self.typ=g.nodes[n]['type']
         self.bldur=g.nodes[n]['BL_duration']
         self.areacol = colors[g.nodes[n]['area']]
-        self.shape = 'rect' if typ=='M' else 'ellipse'
+        self.shape = 'rect' if self.typ=='M' else 'ellipse'
 
     def long_name(self):
         return f"{self.typ}/{self.n}\n{self.name}\nd={self.dur} / bd={self.bldur}\nBS={self.BS} / S={self.S}\nF={self.end} / BF={self.BLend}\n{self.diff_start}/{self.diff_end}"
 
     def short_name(self):
         return f"{self.typ}/{self.n}\n{self.name}"
+
+def render_all(g,args):
+    dot=gv.Digraph(comment='sched',strict=True, format=args.output_format)
+    for n in g.nodes(data=True):
+        node = GNode(g,n[0])
+        col='crimson' if n[0] in args.special_list else 'black'
+        pw = 1.0 if col=='black' else 15.0
+        mylabel=node.long_name() if args.show_dates else node.short_name()
+        dot.node(n[0],label=mylabel,color=col,shape=node.shape, fillcolor=node.areacol, style='filled',penwidth=str(pw))
+    for e in g.edges():
+        dot.edge(e[0],e[1], label=f'', color='black')
+
+    reduced = "wr" if args.do_reduction else "wor"
+    fname=f'output/nx_{args.wbs_item}_{reduced}'
+    #dot.render(fname+'.dot', view=False).replace('\\', '/')
+    dot.render(fname, view=args.render).replace('\\', '/')
+
 
 def render_nx(g,ps, args):
     # first_code,last_code, output_format, show_dates=False, view=False):
@@ -93,28 +111,14 @@ def render_nx(g,ps, args):
     for p in ps:
         for i in range(len(p)-1):
             n = p[i]
-            end=g.nodes[n]['end']
-            BLend=g.nodes[n]['BL_end']
-            diff_end = g.nodes[n]['diff_finish']
-            diff_start = g.nodes[n]['diff_start']
             if n not in all_nodes: # and end>now: # and diff_end>0: 
                 all_nodes.add(n)
-                S=g.nodes[n]['start']
-                BS=g.nodes[n]['BL_start']
-                name=g.nodes[n]['name']
-                dur=g.nodes[n]['duration']
-                typ=g.nodes[n]['type']
-                bldur=g.nodes[n]['BL_duration']
-                #print(f"area={g.nodes[n]['area']}")
-                #print(g.nodes[n])
-                areacol = colors[g.nodes[n]['area']]
-                shape = 'rect' if typ=='M' else 'ellipse'
-                #col='black' if diff_end==0 or diff_start==0 else 'crimson'
+                node = GNode(g,n)
                 col='crimson' if n in args.special_list else 'black'
                 pw = 1.0 if col=='black' else 15.0
-                mylabel=f"{typ}/{n}\n{name}\nd={dur} / bd={bldur}\nBS={BS} / S={S}\nF={end} / BF={BLend}\n{diff_start}/{diff_end}" if args.show_dates else f"{typ}/{n}\n{name}"
+                mylabel=node.long_name() if args.show_dates else node.short_name()
                 #dot.node(n,label=mylabel,color='black' if typ=='T' else 'purple')
-                dot.node(n,label=mylabel,color=col,shape=shape, fillcolor=areacol, style='filled',penwidth=str(pw))
+                dot.node(n,label=mylabel,color=col,shape=node.shape, fillcolor=node.areacol, style='filled',penwidth=str(pw))
             e = (p[i], p[i+1])
             if e not in all_edges:
                 all_edges.add(e)
@@ -155,16 +159,19 @@ import matplotlib.pyplot as plt
 
 def process(gg_orig, edges, args):
     g_init = reduce_graph(gg_orig, edges, args)
-    g = filter_by_wbs(g_init,args.wbs_item) if args.wbs_filter else g_init
-    #print(g.nodes())
-    nx.draw(g)
-    plt.show()
-    # filtering likely will remove the codes that trace paths
-    # perhaps just render full graph at this point instead of paths from end points
-    ps = nx.all_simple_paths(g, args.later_code, args.earlier_code)
-    ps_zero = no_start_diff(g,ps) if args.show_diffs else ps
 
-    render_nx(g,ps_zero,args) 
+    if args.wbs_filter:
+        g = filter_by_wbs(g_init,args.wbs_item)
+        render_all(g,args)
+        #print(g.nodes())
+        #nx.draw(g)
+        #plt.show()
+        # filtering likely will remove the codes that trace paths
+        # perhaps just render full graph at this point instead of paths from end points
+    else:    
+        ps = nx.all_simple_paths(g_init, args.later_code, args.earlier_code)
+        ps_zero = no_start_diff(g_init,ps) if args.show_diffs else ps
+        render_nx(g_init,ps_zero,args) 
 
 if __name__ == '__main__':
     #first, last, special = args.process_args(sys.argv)

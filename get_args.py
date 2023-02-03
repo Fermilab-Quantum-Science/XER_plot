@@ -38,7 +38,8 @@ def get_args():
     pp.special_list=[ x.strip() for x in pp.special.split(',')]
     pp.wbs_filter = False if pp.wbs_item == None else True
 
-    if pp.wbs_filter:
-        pp.wbs_item = pp.wbs_item.split('.')
+    # leave in the dot format
+    #if pp.wbs_filter:
+    #    pp.wbs_item = pp.wbs_item.split('.')
 
     return pp
