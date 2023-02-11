@@ -1,0 +1,93 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+```
+
+'Kronos Summary Report (By Task)_Q1903_20230205.xlsx'
+'Kronos Summary Report (By Task)_Q1903_20230130.xlsx'
+
+Home Project	Home Task	Transfer Project	Transfer Task	Activity Name	Activity Description	Department	Fermi ID	Last Name	First Name	Timecard Start	Timecard End	Transaction Date	Job Functional Code	Hours	Expenditure Type	He Indicator	Historical Date	Project	Charge Task Code	DSC	WBS Name	Full Name	WBS	Timecard End : Month	Timecard End: Year	Units	Task Name	Long Task Name	Description	Function Role	Function Category
+
+Columns 1, 2, and 18 need to be forced to text type
+there are a total of 32 columns
+```{r}
+
+chg.cols = rep('guess',32)
+chg.cols[1]='text'
+chg.cols[2]='text'
+chg.cols[18]='text'
+
+c1 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230205.xlsx', col_types=chg.cols)
+c2 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230130.xlsx', col_types=chg.cols)
+all.charges <- bind_rows(c1,c2)
+names(all.charges) <- make.names(colnames(all.charges))
+```
+
+Budget spreadsheet
+'MAGIS FY23 Budget for cuts v8.xlsx'
+
+Task Name and Notes contain the task code names that we need.
+Each of the important Notes starts with Q, and we then want up to semi-colon.
+
+```{r}
+all.budget <- read_excel('../../MAGIS FY23 Budget for cuts v8.xlsx', sheet='Data Entry', skip=1)
+names(all.budget) <- make.names(colnames(all.budget))
+```
+
+Pull out year and month from timecard start dates
+Add these columns to the charges dataframe
+
+```{r}
+tmp<-as.POSIXlt(all.charges$Timecard.Start)
+all.charges <- all.charges %>% mutate(year=tmp$year-100+2000,month=tmp$mon)
+```
+
+
+unlist(as.POSIXlt(all.charges$Timecard.End[5001]))
+sec   min  hour  mday   mon  year  wday  yday isdst 
+  0     0     0    22     4   122     0   141     0 
+  
+What I really want are two new columns for each row: Year, Month
+then group_by Task.Name, Year, Month, summarizing Hours
+
+This is accumulated hours by task name and year.
+
+```{r}
+hours.by.task <- all.charges %>% group_by(Task.Name, year, month) %>% summarise(Hours=sum(Hours)) 
+hours.by.task <- hours.by.task %>% group_by(Task.Name, year) %>% mutate(cs=cumsum(Hours))
+
+hours.by.cat <- all.charges %>% group_by(Function.Category, year, month) %>% summarise(Hours=sum(Hours)) 
+hours.by.cat <- hours.by.cat %>% group_by(Function.Category, year) %>% mutate(cs=cumsum(Hours)) 
+
+hours.task.total <- all.charges %>% group_by(Task.Name,year) %>% summarise(Hours=sum(Hours))
+hours.cat.total <- all.charges %>% group_by(Function.Category,year) %>% summarise(Hours=sum(Hours))
+
+```
+
+```{r}
+hours.task.plot <- ggplot(hours.by.task, aes(month,cs)) + geom_point()
+hours.cat.plot <- ggplot(hours.by.cat, aes(month,cs)) + geom_point()
+
+hours.task.plot <- hours.task.plot  + facet_grid(vars(Task.Name),vars(year))
+hours.cat.plot <- hours.cat.plot  + facet_grid(vars(Function.Category),vars(year))
+```
+
+
+```{r}
+print(hours.task.plot)
+print(hours.cat.plot)
+ggsave(hours.task.plot, filename="hoursbyyearbytask.pdf",units="in", height=10, device="pdf")
+ggsave(hours.cat.plot, filename="hoursbyyearbyfunction.pdf",units="in", height=10, device="pdf")
+```
+
+```{r}
+print(hours.task.total)
+print(hours.cat.total)
+```
+
