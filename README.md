@@ -86,3 +86,34 @@ xer.activities.get_tsv()[1]
 'target_equip_qty', 'act_equip_qty', 'remain_equip_qty', 'cstr_date', 'act_start_date', 'act_end_date', 'late_start_date', 'late_end_date', 'expect_end_date', 'early_start_date', 'early_end_date', 'restart_date', 'reend_date', 'target_start_date', 'target_end_date', 'rem_late_start_date', 'rem_late_end_date', 'cstr_type', 'priority_type', 'suspend_date', 'resume_date', 'float_path', 
 'float_path_order', 'guid', 'tmpl_guid', 'cstr_date2', 'cstr_type2', 'driving_path_flag', 'act_this_per_work_qty', 'act_this_per_equip_qty', 'external_early_start_date', 'external_late_end_date', 'create_date', 'update_date', 'create_user', 'update_user', 'location_id']
 
+
+All the tables
+
+```
+%T      CURRTYPE
+%T      NONWORK
+%T      OBS
+%T      PCATTYPE
+%T      RCATTYPE
+%T      UDFTYPE
+%T      PCATVAL
+%T      RCATVAL
+%T      ROLES
+%T      PROJECT
+%T      ROLERATE
+%T      CALENDAR
+%T      DOCUMENT
+%T      PROJPCAT
+%T      SCHEDOPTIONS
+%T      PROJWBS
+%T      RSRC
+%T      ACTVTYPE
+%T      RSRCRATE
+%T      RSRCRCAT
+%T      TASK
+%T      ACTVCODE
+%T      TASKPRED
+%T      TASKRSRC
+%T      TASKACTV
+%T      UDFVALUE
+```

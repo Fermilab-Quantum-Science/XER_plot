@@ -7,6 +7,28 @@ output: html_notebook
 library(tidyverse)
 library(ggplot2)
 library(readxl)
+library(stringr)
+
+FY <- function(year)
+{
+  function(rec)
+  {
+    (rec$year==(year-1) & rec$month>=9)|(rec$year==year & rec$month<9)
+  }
+}
+
+fiscal.yr<-function(year, month)
+{
+  year <- year + ifelse(month>=9,1,0)
+}
+fiscal.year<-function(recs)
+{
+  fiscal.yr(recs$year, recs$month)
+}
+fiscal.month<-function(recs)
+{
+  recs$month + ifelse(recs$month>=9, -9, +3)
+}
 ```
 
 'Kronos Summary Report (By Task)_Q1903_20230205.xlsx'
@@ -16,6 +38,10 @@ Home Project	Home Task	Transfer Project	Transfer Task	Activity Name	Activity Des
 
 Columns 1, 2, and 18 need to be forced to text type
 there are a total of 32 columns
+
+Pull out year and month from timecard start dates
+Add these columns to the charges dataframe
+
 ```{r}
 
 chg.cols = rep('guess',32)
@@ -27,6 +53,13 @@ c1 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230205.xlsx', co
 c2 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230130.xlsx', col_types=chg.cols)
 all.charges <- bind_rows(c1,c2)
 names(all.charges) <- make.names(colnames(all.charges))
+
+tmp<-as.POSIXlt(all.charges$Timecard.Start)
+all.charges <- all.charges %>% mutate(year=tmp$year-100+2000,month=tmp$mon)
+
+# add a fiscal year field
+all.charges$fiscal.year <- fiscal.year(all.charges)
+all.charges$fiscal.month <- fiscal.month(all.charges)
 ```
 
 Budget spreadsheet
@@ -35,17 +68,34 @@ Budget spreadsheet
 Task Name and Notes contain the task code names that we need.
 Each of the important Notes starts with Q, and we then want up to semi-colon.
 
+Want to group using: FWP.category, new.code, BPS.rr
+Hours are in FY.1.Hours
+Eventually want to use Task...Name
+
 ```{r}
 all.budget <- read_excel('../../MAGIS FY23 Budget for cuts v8.xlsx', sheet='Data Entry', skip=1)
 names(all.budget) <- make.names(colnames(all.budget))
+all.budget <- filter(all.budget, Employee.Name!='Na')
+all.budget$new.code<-str_extract(all.budget$Notes,'^Q\\w+\\.\\w+')
+all.budget$fiscal.year<-2023
+all.budget$monthly.hours<-all.budget$FY.1.Hours/12
+all.budget$Hours<-all.budget$FY.1.Hours
+all.budget$Last.Name<-toupper(str_extract(all.budget$Employee.Name, '^\\w+'))
 ```
 
-Pull out year and month from timecard start dates
-Add these columns to the charges dataframe
 
 ```{r}
-tmp<-as.POSIXlt(all.charges$Timecard.Start)
-all.charges <- all.charges %>% mutate(year=tmp$year-100+2000,month=tmp$mon)
+bud.by.task <- group_by(all.budget,Task.Number, fiscal.year) %>% summarise(Hours=sum(Hours))
+bud.by.code <- group_by(all.budget,new.code, fiscal.year) %>% summarise(Hours=sum(Hours))
+bud.by.div <- group_by(all.budget,Division, fiscal.year) %>% summarise(Hours=sum(Hours))
+bud.by.person <- group_by(all.budget,Employee.Name, fiscal.year) %>% summarise(Hours=sum(Hours))
+bud.by.name <- group_by(all.budget,Last.Name, fiscal.year) %>% summarise(Hours=sum(Hours))
+bud.by.cat <- group_by(all.budget,FWP.category, fiscal.year) %>% summarise(Hours=sum(Hours))
+
+bud.by.div.person <- group_by(all.budget,Division, Employee.Name, fiscal.year) %>% summarise(Hours=sum(Hours))
+bud.by.div.task <- group_by(all.budget,Division, Task.Number, fiscal.year) %>% summarise(Hours=sum(Hours))
+bud.by.div.code <- group_by(all.budget,Division, new.code, fiscal.year) %>% summarise(Hours=sum(Hours))
+
 ```
 
 
@@ -59,14 +109,23 @@ then group_by Task.Name, Year, Month, summarizing Hours
 This is accumulated hours by task name and year.
 
 ```{r}
-hours.by.task <- all.charges %>% group_by(Task.Name, year, month) %>% summarise(Hours=sum(Hours)) 
-hours.by.task <- hours.by.task %>% group_by(Task.Name, year) %>% mutate(cs=cumsum(Hours))
+hours.by.task <- group_by(all.charges,Task.Name, fiscal.year, fiscal.month) %>% summarise(Hours=sum(Hours))
+hours.by.task <- group_by(hours.by.task,Task.Name, fiscal.year) %>% mutate(cs=cumsum(Hours))
 
-hours.by.cat <- all.charges %>% group_by(Function.Category, year, month) %>% summarise(Hours=sum(Hours)) 
-hours.by.cat <- hours.by.cat %>% group_by(Function.Category, year) %>% mutate(cs=cumsum(Hours)) 
+hours.by.cat <- group_by(all.charges,Function.Category,fiscal.year,fiscal.month)%>%summarise(Hours=sum(Hours)) 
+hours.by.cat <- group_by(hours.by.cat,Function.Category, fiscal.year) %>% mutate(cs=cumsum(Hours)) 
 
-hours.task.total <- all.charges %>% group_by(Task.Name,year) %>% summarise(Hours=sum(Hours))
-hours.cat.total <- all.charges %>% group_by(Function.Category,year) %>% summarise(Hours=sum(Hours))
+hours.by.div <- group_by(all.charges,DSC, fiscal.year, fiscal.month) %>% summarise(Hours=sum(Hours))
+hours.by.div <- group_by(hours.by.div,DSC, fiscal.year) %>% mutate(cs=cumsum(Hours))
+
+hours.by.person <- group_by(all.charges,Last.Name,fiscal.year,fiscal.month)%>%summarise(Hours=sum(Hours)) 
+hours.by.person <- group_by(hours.by.person,Last.Name, fiscal.year) %>% mutate(cs=cumsum(Hours)) 
+
+hours.task.total <- group_by(all.charges,Task.Name,fiscal.year) %>% summarise(Hours=sum(Hours))
+hours.cat.total <- group_by(all.charges,Function.Category,fiscal.year) %>% summarise(Hours=sum(Hours))
+hours.person.total <- group_by(all.charges,Last.Name,fiscal.year) %>% summarise(Hours=sum(Hours))
+hours.div.total <- group_by(all.charges,DSC,fiscal.year) %>% summarise(Hours=sum(Hours))
+hours.div.task.total <- group_by(all.charges,DSC,Task.Name,fiscal.year) %>% summarise(Hours=sum(Hours))
 
 ```
 
@@ -87,7 +146,62 @@ ggsave(hours.cat.plot, filename="hoursbyyearbyfunction.pdf",units="in", height=1
 ```
 
 ```{r}
-print(hours.task.total)
-print(hours.cat.total)
+view(hours.task.total)
+#print(hours.cat.total)
+```
+
+```{r}
+taskrsrc<-read.csv("../extracted/tab_TASKRSRC_Dec2022FY24Scenario.csv")
+rsrc<-read.csv("../extracted/tab_RSRC_Dec2022FY24Scenario.csv")
+wbs<-read.csv("../extracted/tab_PROJWBS_Dec2022FY24Scenario.csv")
+tasks<-read.csv("../extracted/tab_TASK_Dec2022FY24Scenario.csv")
+```
+
+Sequence is 
+Find line in TASKRSRC, first two columns are IDs: taskrsrc_id, task_id
+Find task_id in TASK: there is a task ID and task name here, and task_id,proj_id,wbs_id.
+Find wbs_id in PROJWBS: the name of this area is found here
+
+```{r}
+costs <- filter(taskrsrc,target_cost>0) %>% left_join(tasks,by=join_by(task_id))%>%left_join(wbs, by=join_by(wbs_id)) %>% select( task_id, target_cost, cost_per_qty, target_start_date.x, target_end_date.x, task_code, task_name, wbs_id, wbs_name, wbs_short_name) %>% arrange(target_start_date.x)
+view(costs)
+```
+
+Want to group using: FWP.category, new.code, BPS.rr
+Hours are in FY.1.Hours
+
+```{r}
+div=filter(all.budget,Division=='AD')
+select(div,FWP.category, FY.1.Hours) %>% group_by(FWP.category) %>% summarise(Hours = sum(FY.1.Hours))
+select(div,new.code, FY.1.Hours) %>% group_by(new.code) %>% summarise(Hours =     sum(FY.1.Hours))
+select(div,BPS.rr, FY.1.Hours) %>% group_by(BPS.rr) %>% summarise(Hours = sum(FY.1.Hours))
+select(div,Task...Name, FY.1.Hours) %>% group_by(Task...Name) %>% summarise(Hours = sum(FY.1.Hours))
+select(div,Employee.Name, FY.1.Hours) %>% group_by(Employee.Name) %>% summarise(Hours = sum(FY.1.Hours))
+```
+
+
+all.charges:   want column DSC=="AD"
+```{r}
+
+f<-FY(2023)
+FY23.charges.AD <- filter(all.charges,DSC=="AD")
+FY23.charges.AD <- filter(FY23.charges.AD, f(FY23.charges.AD))
+FY23.task.total <- FY23.charges.AD %>% group_by(Task.Name) %>% summarise(Hours=sum(Hours))
+FY23.cat.total <- FY23.charges.AD %>% group_by(Function.Category) %>% summarise(Hours=sum(Hours))
+FY23.person.total <- FY23.charges.AD %>% group_by(Last.Name) %>% summarise(Hours=sum(Hours))
+```
+
+
+
+```{r}
+
+person.bud <- filter(hours.by.person, fiscal.year==2023) %>% left_join(bud.by.name, by=join_by(Last.Name), suffix=c('.charges','.budget'))
+
+tmp<-group_by(person.bud,Last.Name, fiscal.year.charges) %>% mutate(cs.bud=cumsum(Hours.budget/12))
+
+hours.plot <- ggplot(tmp%>%filter(Last.Name=='KELLETT'), aes(fiscal.month)) + geom_point(aes(x=fiscal.month, y=cs)) + geom_point(aes(x=fiscal.month, y=cs.bud),colour='blue')
+hours.plot <- hours.plot  + facet_grid(vars(Last.Name))
+print(hours.plot)
+
 ```
 
