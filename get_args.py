@@ -7,6 +7,7 @@ class Fake:
     earlier_code='A0100000'
     later_code='A1503600'
     output_format='png'
+    date_part='Dec2022FY24ScenarioUpdated'
     wbs_filter=False
     wbs_item=None
     show_diffs=False
@@ -26,6 +27,7 @@ def get_args():
     parser.add_argument("-e","--earlier-code", default=Fake.earlier_code, dest="earlier_code",help="Earliest task code to track back to")
     parser.add_argument("-l","--later-code", default=Fake.later_code, dest="later_code",help="Latest task code to starting tracking back from")
     parser.add_argument("-f","--format", default=Fake.output_format, dest="output_format",help="Output format for viewing graph (png/pdf)")
+    parser.add_argument("-x","--datepart", default=Fake.date_part, dest="date_part",help="Date part of the XER tables we are reading")
     parser.add_argument("-s","--special", default=Fake.special, dest="special",help="List of task codes to show as squares in graph (comma separated)")
     parser.add_argument("-D","--BL-equals-planned", default=Fake.show_diffs, action='store_true', dest="show_diffs",help="Only show tasks where BL==planned start time")
     parser.add_argument("-d","--show-dates", default=Fake.show_dates, action='store_true', dest="show_dates",help="Show dates on graph")

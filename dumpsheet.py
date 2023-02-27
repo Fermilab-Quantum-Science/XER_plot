@@ -4,7 +4,7 @@ import csv
 import os
 import sys
 
-datepart = 'Dec2022'
+datepart = 'Dec2022FY24ScenarioUpdated'
 
 # this script reads the p6 XER file and puts basis information
 # into an CSV file named sheet_<month><year>.csv

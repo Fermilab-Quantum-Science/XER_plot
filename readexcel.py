@@ -8,7 +8,7 @@ import datetime as dt
 import csv
 import math
 
-datepart='Dec2022'
+datepart='Dec2022FY24ScenarioUpdated'
 out_format = 'pdf'
 
 # attend to NaT and make sure everything is dt.date

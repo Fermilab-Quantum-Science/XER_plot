@@ -5,8 +5,7 @@ import sys
 
 # Extractor
 
-datepart = 'Dec2022'
-datepart = 'Dec2022FY24Scenario'
+datepart = 'Dec2022FY24ScenarioUpdated'
 
 def write_tab(tab,mid):
     name = tab[0][1]
