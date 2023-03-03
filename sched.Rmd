@@ -61,7 +61,7 @@ read.my.file <- function(datepart, tab)
 taskrsrc<-read.my.file(datepart, 'TASKRSRC')
 rsrc<-read.my.file(datepart, "RSRC")
 wbs<-read.my.file(datepart, "PROJWBS")
-tasks<-read.csv(datepart,"TASK")
+tasks<-read.my.file(datepart,"TASK")
 # this is a summary of the above out of reader.py -P -d
 all.data<-read.csv("output/alltasks.csv")
 ```
