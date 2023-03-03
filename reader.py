@@ -65,6 +65,8 @@ def make_task_graph(tables, args):
         extra = "M" if name.find('Milestone')>=0  or name.find('milestone')>=0 else "T"
         wbs, short, long = wbs_name(tab, r['wbs_id'])
 
+        # print(id, r['act_start_date'], r['act_end_date'])
+
         if id in tabr.index:
             rrec = tabr.loc[[id]].iloc[0]
             rtype= rrec.rsrc_type
@@ -79,8 +81,8 @@ def make_task_graph(tables, args):
             ,name=name 
             ,type=extra
             , target_start=r['target_start_date'], target_end=r['target_end_date']
-            , early_start=r['target_start_date'], early_end=r['target_end_date']
-            , late_start=r['target_start_date'], late_end=r['target_end_date']
+            , early_start=r['early_start_date'], early_end=r['early_end_date']
+            , late_start=r['late_start_date'], late_end=r['late_end_date']
             , driving_flag=r['driving_path_flag'] 
             , status=r['status_code']
             , task_type=r['task_type']
@@ -90,6 +92,8 @@ def make_task_graph(tables, args):
             , target_cost = rcost
             , rsrc_type = rtype
             , area=short[0]
+            , wbs_high=long[0]
+            , wbs_low=long[-1]
             , wbs=wbs
         )
 
@@ -98,9 +102,108 @@ def make_task_graph(tables, args):
 
     return g
 
+# late <- (TK_Active | TK_NotStart) & (target_end < now)
+# delayed <- TK_NotStart & (target_start < now)
+# 
+
+        # category information
+        # assembly: has assemble, assembly
+        # qualify: qualification, qualify
+        # procurement: procure, procurement
+        # other: ??
+        # ground level installation: install, installation
+        # shaft installation: 
+        # design: 
+        # integration: 
+
+def get_category(n):
+    cat = 'o'
+    if 'test' in n.lower(): cat = 't' 
+    if 'verify' in n.lower(): cat = 't' 
+    if 'qualif' in n.lower(): cat = 'a' 
+    if "assembl" in n.lower(): cat = 'a'
+    if "procure" in n.lower(): cat = 'p'
+    if 'install' in n.lower(): cat = 'i' 
+    if 'integrat' in n.lower(): cat = 't' 
+    if 'shaft' in n.lower(): cat = 's' 
+    if 'require' in n.lower():  cat = 'r' 
+    if 'design' in n.lower():  cat = 'd' 
+    if "ground" in n.lower(): cat = 'g'
+    return cat
+
+# this is not correct - not sure how to make it so.
+def get_group_bad(area):
+    grp=''
+    if area=='16' or area=='17': grp='17-16'
+    if area=='02': grp+='-2'
+    elif area=='05' or area=='08': grp+='-5-8'
+    elif area=='08': grp+='-8'
+    elif area=='09' or area=='12': grp+='-9-12'
+    elif area=='12': grp='-12'
+    elif area=='06': grp='-6'
+    elif area=='10': grp='-10'
+    elif area=='13': grp='-13'
+    elif area=='04': grp='-4'
+    elif area=='03' or area=='11': grp='3-11'
+    elif area=='11': grp='-11'
+    elif area=='03': grp='-3'
+    return grp
+
+def get_group(an, ahigh, alow):
+    n=an.lower()
+    high=ahigh.lower()
+    low=alow.lower()
+    grp='none'
+    if 'cooling' in n: grp='cooling' # ok
+    if 'comb' in n or 'comb' in high: grp='comb' # ok
+    if '(lts)' in n or '(lts)' in low: grp='laser-tran' # ok
+    if 'interlock' in n: grp='interlocks' # ok
+    if 'compress' in n: grp='air' # ok
+    elif 'room' in n: grp='laser-room' # ok
+
+    if 'interfero' in n or 'interfero' in high: grp='interferometry' # ok
+    if 'vacuum' in n or 'vacuum' in high or 'vacuum' in low: grp='vac-sys' # ok
+    if 'chamber' in n or 'tube' in n: grp='vac-tube' # ok
+    if 'control' in n or 'control' in high: grp='controls' #ok
+    # if 'DAQ' in n and 'sensor' in n: grp='DAQ-sensor' # leaving this one out for now
+    if 'DAQ comput' in high: grp='DAQ-comp' # ok
+    if 'electrical power' in n or 'electrical power' in low: grp='electrical'
+    if 'mobile work' in n or 'mobile work' in low: grp='mobile'
+    if 'platform' in n or 'platform' in low: grp='platform'
+    if 'adjustable' in low: grp='supports'
+
+    if 'fixture' in low: grp='assem-fix'
+    if 'fixture' in low and 'install' in n: grp='install-fix'
+    if 'fixture' in low and 'assembly' in n: grp='assem-fix'
+    if 'crane' in n: grp='crane'
+    if 'retroreflective mirror' in n or 'retroreflective mirror' in low: grp='mirror'
+    if 'section camera' in n: grp='diag-camera'
+    if 'science camera' in n: grp='sci-camera'
+    if 'strongback' in n: grp='strongback'
+    if 'rod end' in n: grp='rod'
+    if 'magnetic field system' in high: grp='mag-field'
+    if 'magnetic shield' in low: grp='mag-field'
+    if 'strontium atom sourc' in high: grp='atom-src'
+    if 'atom source' in n: grp='atom-src'
+    if 'connection node' in high: grp='atom-connect'
+    if 'wall of shaft' in low: grp='shaft-wall'
+
+    return grp
+
+
 class GNode:
+    header = ['code', 'name', 'wbs', 'area', 'status', 'drv_flag','task_type', 'type', 'rsrc_type', 'cost','dur', 
+              'category', 'group', 'wbs_high', 'wbs_low',
+              'target_start', 'target_end', 'early_start','early_end','late_start','late_end']
+
+    def record(self):
+        return [self.n, self.name, self.wbs, self.area, self.status, self.drv, self.task_type, self.typ, 
+                self.rsrc, self.cost, self.dur, self.category, self.group, self.wbs_high, self.wbs_low,
+                self.t_start, self.t_end, self.e_start, self.e_end, self.l_start, self.l_end]
+
     def __init__(self,g,n):
-        print(f'building GNode for {n}')
+        #print(f'building GNode for {n}')
+        now = dt.datetime.now().date()
         self.n = g.nodes[n]['id']
         self.t_end=g.nodes[n]['target_end']
         self.e_end=g.nodes[n]['early_end']
@@ -117,26 +220,49 @@ class GNode:
         self.typ=g.nodes[n]['type']
         self.rsrc=g.nodes[n]['rsrc_type']
         self.cost=g.nodes[n]['target_cost']
-        area=int(g.nodes[n]['area'])
-        self.areacol=funs.colors[area]
+        self.area=int(g.nodes[n]['area'])
+        self.wbs_high=g.nodes[n]['wbs_high']
+        self.wbs_low=g.nodes[n]['wbs_low']
+        self.category=get_category(self.name)
+        self.group=get_group(self.name, self.wbs_high, self.wbs_low)
+        self.areacol=funs.colors[self.area]
         #print(self.areacol)
-        self.shape = 'rect' if self.typ=='M' else 'ellipse'
+        tmp_end = pd.to_datetime(self.t_end).date()
+        tmp_start = pd.to_datetime(self.t_start).date()
+        self.late = (self.status=='TK_Active' or self.status=='TK_NotStart') and tmp_end<now
+        self.delayed = (self.status=='TK_NotStart') and tmp_start<now
+        #print(f'flag = {tmp_late}, {tmp_delayed}')
+        self.fontcolor = 'yellow' if self.late else 'white' if self.delayed else 'black'
+        self.shape = 'box3d' if self.drv=='Y' else 'rect' if self.typ=='M' else 'ellipse'
+
 
     def long_name(self):
         rc = f"{self.typ}/{self.n}\n{self.name}\nTS={self.t_start} / TE={self.t_end}"
-        rc = rc + f"\ndrv={self.drv}/wbs={self.wbs}/d={self.dur}"
-        rc = rc + f"\nstatus={self.status}/cost={self.cost}/rsrc={self.rsrc}"
         if self.t_start!=self.e_start or self.t_end!=self.e_end:
             rc = rc + f'\nES={self.e_start} / EE={self.e_end}' 
         if self.t_start!=self.l_start or self.t_end!=self.l_end:
-            rc = rc + f'\nLS={self.l_start}/LE={self.l_end}'
+            rc = rc + f'\nLS={self.l_start} / LE={self.l_end}'
+        rc = rc + f"\nwbs={self.wbs} / drv={self.drv} / dur={self.dur} / status={self.status}"
+        if self.cost != '-' or self.rsrc != '-':
+            rc = rc + f"\ncost={self.cost}/rsrc={self.rsrc}"
         return rc
 
     def short_name(self):
         return f"{self.typ}/{self.n}\n{self.name}\ndrv={self.drv}/wbs={self.wbs}"
 
 
+def write_all(g,args):
+    fname=f'output/alltasks.csv'
+    f = open(fname,'w',newline='', encoding='utf-8')
+    w = csv.writer(f)
+    w.writerow(GNode.header)
+    #w.writerows(tab[2:])
+    for n in g.nodes(data=True):
+        node = GNode(g,n[0])
+        w.writerow(node.record())
+
 def render_all(g,args):
+
     dot=gv.Digraph(comment='sched',strict=True, format=args.output_format)
     for n in g.nodes(data=True):
         node = GNode(g,n[0])
@@ -144,7 +270,8 @@ def render_all(g,args):
         pw = 1.0 if col=='black' else 15.0
         mylabel=node.long_name() if args.show_dates else node.short_name()
         #print(mylabel, col, node.shape, n[0])
-        dot.node(str(n[0]),label=mylabel,color=col,shape=node.shape, fillcolor=node.areacol, style='filled',penwidth=str(pw))
+        dot.node(str(n[0]),label=mylabel,color=col,shape=node.shape, fillcolor=node.areacol, fontcolor=node.fontcolor, style='filled',penwidth=str(pw))
+
     for e in g.edges():
         dot.edge(str(e[0]),str(e[1]), label=f'', color='black')
 
@@ -153,6 +280,20 @@ def render_all(g,args):
     #dot.render(fname+'.dot', view=False).replace('\\', '/')
     dot.render(fname, view=args.render).replace('\\', '/')
 
+def filter_driving(g,args):
+    anp=set()
+    # nodes is list of (node_num, node_data)
+    for n in g.nodes(data=True):
+        if n[1]['driving_flag']=='Y': 
+            anp.add(n[0])
+            #for e in g.in_edges(n[0]):
+            #    anp.add(e[0])
+            #    anp.add(e[1])
+            #for e in g.out_edges(n[0]):
+            #    anp.add(e[0])
+            #    anp.add(e[1])
+    print(f'added {anp}')
+    return g.subgraph(list(anp))
 
 
 if __name__ == "__main__":
@@ -161,11 +302,16 @@ if __name__ == "__main__":
     tables = {t:read_tab(t,args.date_part) for t in tabs}
 
     g_init = make_task_graph(tables, args)
+    write_all(g_init, args)
+    g = g_init
 
     if args.wbs_filter:
-        g = funs.filter_by_wbs(g_init,args.wbs_item)
+        g = funs.filter_by_wbs(g,args.wbs_item)
+    if args.only_driving:
+        g = filter_driving(g,args)
 
-    render_all(g,args)
+    if not args.only_driving:
+        render_all(g,args)
 
 
 #    for i,r in tables['RSRC'].iterrows():
