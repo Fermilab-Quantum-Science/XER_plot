@@ -1,7 +1,14 @@
 output/*.pdf
 output/*.png
 output/*.dot
+output/*.csv
+*.csv
+*.xer
+*.xlsx
 output/*.gv
 output/*.csv
 output/*_wr
 output/*_wor
+charges/*.pdf
+charges/*.html
+charges/*.Rhistory

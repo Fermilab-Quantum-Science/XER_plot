@@ -151,16 +151,53 @@ view(hours.task.total)
 ```
 
 ```{r}
-taskrsrc<-read.csv("../extracted/tab_TASKRSRC_Dec2022FY24Scenario.csv")
+datepart<-'Dec2022FY24Scenario'
+datepart<-'Dec2022FY24ScenarioUpdated' # with delayed M&S
+datepart<-'Dec2022FY23' # limited to 5.4M spending
+datepart<-'Dec2022StatusInput'
+
+read.my.file <- function(datepart, tab)
+{
+  fname<-paste('../extracted/tab_',tab,'_',datepart,'.csv',sep='')
+  df <- read.csv(fname)
+  df
+}
+
+taskrsrc<-read.my.file(datepart, 'TASKRSRC')
 rsrc<-read.csv("../extracted/tab_RSRC_Dec2022FY24Scenario.csv")
 wbs<-read.csv("../extracted/tab_PROJWBS_Dec2022FY24Scenario.csv")
 tasks<-read.csv("../extracted/tab_TASK_Dec2022FY24Scenario.csv")
+all.data<-read.csv("../output/alltasks.csv")
 ```
 
 Sequence is 
 Find line in TASKRSRC, first two columns are IDs: taskrsrc_id, task_id
 Find task_id in TASK: there is a task ID and task name here, and task_id,proj_id,wbs_id.
 Find wbs_id in PROJWBS: the name of this area is found here
+
+```{r}
+#view(all.data%>%select(name, wbs, category, group, wbs_high, wbs_low))
+library(lubridate)
+
+all.data<-filter(all.data, year(target_start)>2021)
+all.data$g=as.numeric(as.factor(all.data$group))
+gp<-ggplot(all.data, aes(xmin = as.Date(target_start), xmax = as.Date(target_end), 
+                   y=group,# ymin = g, ymax = g+.8, 
+                   fill = category)) +
+  geom_rect(aes(ymin = g, ymax = g+.8)) +
+  scale_y_discrete("group") +
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3)
+
+ggsave(gp, filename="vs.pdf",units="in", height=10, width=24, device="pdf")
+#print(gp)
+```
+
+```{r}
+sched <- tasks %>% left_join(wbs, by=join_by(wbs_id)) %>% select( task_id, target_start_date, target_end_date, task_code, task_name, wbs_id, wbs_name, wbs_short_name) %>% arrange(target_start_date)
+```
+
 
 ```{r}
 costs <- filter(taskrsrc,target_cost>0) %>% left_join(tasks,by=join_by(task_id))%>%left_join(wbs, by=join_by(wbs_id)) %>% select( task_id, target_cost, cost_per_qty, target_start_date.x, target_end_date.x, task_code, task_name, wbs_id, wbs_name, wbs_short_name) %>% arrange(target_start_date.x)

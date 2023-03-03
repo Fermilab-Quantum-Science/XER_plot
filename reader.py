@@ -117,18 +117,18 @@ def make_task_graph(tables, args):
         # integration: 
 
 def get_category(n):
-    cat = 'o'
-    if 'test' in n.lower(): cat = 't' 
-    if 'verify' in n.lower(): cat = 't' 
-    if 'qualif' in n.lower(): cat = 'a' 
-    if "assembl" in n.lower(): cat = 'a'
-    if "procure" in n.lower(): cat = 'p'
-    if 'install' in n.lower(): cat = 'i' 
-    if 'integrat' in n.lower(): cat = 't' 
-    if 'shaft' in n.lower(): cat = 's' 
-    if 'require' in n.lower():  cat = 'r' 
-    if 'design' in n.lower():  cat = 'd' 
-    if "ground" in n.lower(): cat = 'g'
+    cat = 'other'
+    if 'test' in n.lower(): cat = 'test' 
+    if 'verify' in n.lower(): cat = 'test' 
+    if 'qualif' in n.lower(): cat = 'qual' 
+    if "assembl" in n.lower(): cat = 'assemble'
+    if "procure" in n.lower(): cat = 'procure'
+    if 'install' in n.lower(): cat = 'install' 
+    if 'integrat' in n.lower(): cat = 'integrate' 
+    if 'shaft' in n.lower(): cat = 'shaft' 
+    if 'require' in n.lower():  cat = 'require' 
+    if 'design' in n.lower():  cat = 'design' 
+    if "ground" in n.lower(): cat = 'ground'
     return cat
 
 # this is not correct - not sure how to make it so.
