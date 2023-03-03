@@ -1,0 +1,139 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(stringr)
+library(lubridate)
+
+print(getwd())
+
+FY <- function(year)
+{
+  function(rec)
+  {
+    (rec$year==(year-1) & rec$month>=9)|(rec$year==year & rec$month<9)
+  }
+}
+
+fiscal.yr<-function(year, month)
+{
+  year <- year + ifelse(month>=9,1,0)
+}
+fiscal.year<-function(recs)
+{
+  fiscal.yr(recs$year, recs$month)
+}
+fiscal.month<-function(recs)
+{
+  recs$month + ifelse(recs$month>=9, -9, +3)
+}
+```
+
+EXAMPLES of how to adjust date columns:
+names(all.charges) <- make.names(colnames(all.charges))
+tmp<-as.POSIXlt(all.charges$Timecard.Start)
+all.charges <- all.charges %>% mutate(year=tmp$year-100+2000,month=tmp$mon)
+
+unlist(as.POSIXlt(all.charges$Timecard.End[5001]))
+sec   min  hour  mday   mon  year  wday  yday isdst 
+  0     0     0    22     4   122     0   141     0 
+  
+
+```{r}
+datepart<-'Dec2022FY24Scenario'
+datepart<-'Dec2022FY24ScenarioUpdated' # with delayed M&S
+datepart<-'Dec2022FY23' # limited to 5.4M spending
+datepart<-'Dec2022StatusInput'
+
+read.my.file <- function(datepart, tab)
+{
+  fname<-paste('extracted/tab_',tab,'_',datepart,'.csv',sep='')
+  df <- read.csv(fname)
+  df
+}
+
+# these come from XER extractor
+taskrsrc<-read.my.file(datepart, 'TASKRSRC')
+rsrc<-read.my.file(datepart, "RSRC")
+wbs<-read.my.file(datepart, "PROJWBS")
+tasks<-read.csv(datepart,"TASK")
+# this is a summary of the above out of reader.py -P -d
+all.data<-read.csv("output/alltasks.csv")
+```
+
+Sequence is 
+Find line in TASKRSRC, first two columns are IDs: taskrsrc_id, task_id
+Find task_id in TASK: there is a task ID and task name here, and task_id,proj_id,wbs_id.
+Find wbs_id in PROJWBS: the name of this area is found here
+
+```{r}
+#view(all.data%>%select(name, wbs, category, group, wbs_high, wbs_low))
+
+all.data<-filter(all.data, year(target_start)>2021)
+all.data$g=as.numeric(as.factor(all.data$group))
+gp<-ggplot(all.data, aes(xmin = as.Date(target_start), xmax = as.Date(target_end), 
+                   y=group,# ymin = g, ymax = g+.8, 
+                   fill = category)) +
+  geom_rect(aes(ymin = g, ymax = g+.8)) +
+  scale_y_discrete("group") +
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3)
+
+ggsave(gp, filename="vs.pdf",units="in", height=10, width=24, device="pdf")
+#print(gp)
+```
+
+```{r}
+sched <- tasks %>% left_join(wbs, by=join_by(wbs_id)) %>% select( task_id, target_start_date, target_end_date, task_code, task_name, wbs_id, wbs_name, wbs_short_name) %>% arrange(target_start_date)
+```
+
+
+```{r}
+costs <- filter(taskrsrc,target_cost>0) %>% left_join(tasks,by=join_by(task_id))%>%left_join(wbs, by=join_by(wbs_id)) %>% select( task_id, target_cost, cost_per_qty, target_start_date.x, target_end_date.x, task_code, task_name, wbs_id, wbs_name, wbs_short_name) %>% arrange(target_start_date.x)
+view(costs)
+```
+
+Want to group using: FWP.category, new.code, BPS.rr
+Hours are in FY.1.Hours
+
+```{r}
+div=filter(all.budget,Division=='AD')
+select(div,FWP.category, FY.1.Hours) %>% group_by(FWP.category) %>% summarise(Hours = sum(FY.1.Hours))
+select(div,new.code, FY.1.Hours) %>% group_by(new.code) %>% summarise(Hours =     sum(FY.1.Hours))
+select(div,BPS.rr, FY.1.Hours) %>% group_by(BPS.rr) %>% summarise(Hours = sum(FY.1.Hours))
+select(div,Task...Name, FY.1.Hours) %>% group_by(Task...Name) %>% summarise(Hours = sum(FY.1.Hours))
+select(div,Employee.Name, FY.1.Hours) %>% group_by(Employee.Name) %>% summarise(Hours = sum(FY.1.Hours))
+```
+
+
+all.charges:   want column DSC=="AD"
+```{r}
+
+f<-FY(2023)
+FY23.charges.AD <- filter(all.charges,DSC=="AD")
+FY23.charges.AD <- filter(FY23.charges.AD, f(FY23.charges.AD))
+FY23.task.total <- FY23.charges.AD %>% group_by(Task.Name) %>% summarise(Hours=sum(Hours))
+FY23.cat.total <- FY23.charges.AD %>% group_by(Function.Category) %>% summarise(Hours=sum(Hours))
+FY23.person.total <- FY23.charges.AD %>% group_by(Last.Name) %>% summarise(Hours=sum(Hours))
+```
+
+
+
+```{r}
+
+person.bud <- filter(hours.by.person, fiscal.year==2023) %>% left_join(bud.by.name, by=join_by(Last.Name), suffix=c('.charges','.budget'))
+
+tmp<-group_by(person.bud,Last.Name, fiscal.year.charges) %>% mutate(cs.bud=cumsum(Hours.budget/12))
+
+hours.plot <- ggplot(tmp%>%filter(Last.Name=='KELLETT'), aes(fiscal.month)) + geom_point(aes(x=fiscal.month, y=cs)) + geom_point(aes(x=fiscal.month, y=cs.bud),colour='blue')
+hours.plot <- hours.plot  + facet_grid(vars(Last.Name))
+print(hours.plot)
+
+```
+
