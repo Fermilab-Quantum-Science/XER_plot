@@ -48,7 +48,7 @@ sec   min  hour  mday   mon  year  wday  yday isdst
 datepart<-'Dec2022FY24Scenario'
 datepart<-'Dec2022FY24ScenarioUpdated' # with delayed M&S
 datepart<-'Dec2022FY23' # limited to 5.4M spending
-datepart<-'Dec2022StatusInput'
+#datepart<-'Dec2022StatusInput'
 
 read.my.file <- function(datepart, tab)
 {
@@ -74,16 +74,16 @@ Find wbs_id in PROJWBS: the name of this area is found here
 ```{r}
 #view(all.data%>%select(name, wbs, category, group, wbs_high, wbs_low))
 
-all.data<-filter(all.data, year(target_start)>2021)
-all.data$g=as.numeric(as.factor(all.data$group))
-gp<-ggplot(all.data, aes(xmin = as.Date(target_start), xmax = as.Date(target_end), 
+tmp<-filter(all.data, year(target_start)>2021 & type!='M' & wbs!='01.01')
+tmp$g=as.numeric(as.factor(tmp$group))
+gp<-ggplot(tmp, aes(xmin = as.Date(target_start), xmax = as.Date(target_end), 
                    y=group,# ymin = g, ymax = g+.8, 
                    fill = category)) +
   geom_rect(aes(ymin = g, ymax = g+.8)) +
   scale_y_discrete("group") +
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
   theme(axis.text.x = element_text(angle = 90)) + 
-  geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3)
+  geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3)#, check_overlap = TRUE)
 
 ggsave(gp, filename="vs.pdf",units="in", height=10, width=24, device="pdf")
 #print(gp)
@@ -96,44 +96,40 @@ sched <- tasks %>% left_join(wbs, by=join_by(wbs_id)) %>% select( task_id, targe
 
 ```{r}
 costs <- filter(taskrsrc,target_cost>0) %>% left_join(tasks,by=join_by(task_id))%>%left_join(wbs, by=join_by(wbs_id)) %>% select( task_id, target_cost, cost_per_qty, target_start_date.x, target_end_date.x, task_code, task_name, wbs_id, wbs_name, wbs_short_name) %>% arrange(target_start_date.x)
-view(costs)
-```
-
-Want to group using: FWP.category, new.code, BPS.rr
-Hours are in FY.1.Hours
-
-```{r}
-div=filter(all.budget,Division=='AD')
-select(div,FWP.category, FY.1.Hours) %>% group_by(FWP.category) %>% summarise(Hours = sum(FY.1.Hours))
-select(div,new.code, FY.1.Hours) %>% group_by(new.code) %>% summarise(Hours =     sum(FY.1.Hours))
-select(div,BPS.rr, FY.1.Hours) %>% group_by(BPS.rr) %>% summarise(Hours = sum(FY.1.Hours))
-select(div,Task...Name, FY.1.Hours) %>% group_by(Task...Name) %>% summarise(Hours = sum(FY.1.Hours))
-select(div,Employee.Name, FY.1.Hours) %>% group_by(Employee.Name) %>% summarise(Hours = sum(FY.1.Hours))
+#view(costs)
 ```
 
 
-all.charges:   want column DSC=="AD"
 ```{r}
-
-f<-FY(2023)
-FY23.charges.AD <- filter(all.charges,DSC=="AD")
-FY23.charges.AD <- filter(FY23.charges.AD, f(FY23.charges.AD))
-FY23.task.total <- FY23.charges.AD %>% group_by(Task.Name) %>% summarise(Hours=sum(Hours))
-FY23.cat.total <- FY23.charges.AD %>% group_by(Function.Category) %>% summarise(Hours=sum(Hours))
-FY23.person.total <- FY23.charges.AD %>% group_by(Last.Name) %>% summarise(Hours=sum(Hours))
 ```
 
+```{r}
+stop.code.list <- read.csv("code_list.csv",header=TRUE)
+```
+
+The lines that are wrong values are:
+
+179259425 A1701AA10   rsrc_type = RT_Equip for the 240 in taskrsrc
+179259423 A1701N10    Same thing is true for this one, for the 240
+
+X Now task_id 179259445 is missing!!! (value of 60 hours) task_code A1803770
+
+A1802700 is missing
+A1803460 seems to be missing
+A1803770 is missing
 
 
 ```{r}
+# get all the tasks that match our task_code
+stopped.tasks <- left_join(stop.code.list, tasks, by=join_by(task_code)) %>% select(task_id, task_code, target_work_qty,rsrc_id, task_name)
 
-person.bud <- filter(hours.by.person, fiscal.year==2023) %>% left_join(bud.by.name, by=join_by(Last.Name), suffix=c('.charges','.budget'))
+# get all the taskrsrc records that match our task_id
+stopped.taskrsrc <- left_join(stopped.tasks, filter(taskrsrc,rsrc_type=='RT_Labor'),multiple='all', by=join_by(task_id)) %>% select(task_id, task_code, rsrc_id.x, rsrc_id.y, target_qty, target_work_qty, rsrc_type)
 
-tmp<-group_by(person.bud,Last.Name, fiscal.year.charges) %>% mutate(cs.bud=cumsum(Hours.budget/12))
+stopped.rsrcs <- stopped.taskrsrc %>% left_join(filter(rsrc,rsrc_type=='RT_Labor'),by=join_by(rsrc_id.y==rsrc_id)) %>% select(task_id, task_code, rsrc_name, rsrc_id.y, target_qty, target_work_qty, rsrc_name, rsrc_type.x) %>% filter(!is.na(target_qty))
 
-hours.plot <- ggplot(tmp%>%filter(Last.Name=='KELLETT'), aes(fiscal.month)) + geom_point(aes(x=fiscal.month, y=cs)) + geom_point(aes(x=fiscal.month, y=cs.bud),colour='blue')
-hours.plot <- hours.plot  + facet_grid(vars(Last.Name))
-print(hours.plot)
+
+hours.sum <-select(stopped.rsrcs,rsrc_id.y,task_code,rsrc_name,target_qty) %>% group_by(rsrc_name) %>% summarise(total.hours=sum(target_qty))
 
 ```
 
