@@ -2,6 +2,11 @@ output/*.pdf
 output/*.png
 output/*.dot
 output/*.csv
+input/*.pdf
+input/*.png
+input/*.csv
+input/*.xlsx
+input/*.xer
 *.csv
 *.pdf
 *.xer
