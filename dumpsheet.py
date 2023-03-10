@@ -20,19 +20,19 @@ def just_read_file(fname):
 
 if __name__ == "__main__":
 
-    fname=f"schedule_{datepart}.xer" if len(sys.argv)==1 else sys.argv[1]
+    fname=f"input/schedule_{datepart}.xer" if len(sys.argv)==1 else sys.argv[1]
     fout=os.path.splitext(fname)[0]
 
     xer,acts,rels = just_read_file(fname)
 
-    f = open(f"report_{datepart}.csv",'w',newline='')
+    f = open(f"input/report_{datepart}.csv",'w',newline='')
     w = csv.writer(f)
     w.writerow(
         ["activity", "start", "end", "duration", "target_start", "target_end", 
         "early_start", "early_end", "late_start", "late_end"]
     )
 
-    fe = open(f"report_{datepart}_edges.csv",'w',newline='')
+    fe = open(f"input/report_{datepart}_edges.csv",'w',newline='')
     we = csv.writer(fe)
     tsv = xer.relations.get_tsv()
     we.writerow(tsv[1][1:])

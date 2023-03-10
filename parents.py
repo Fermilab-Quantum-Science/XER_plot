@@ -14,7 +14,7 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 # pd.set_option('display.max_colwidth', -1)
 
-xer,acts,rels = ds.just_read_file(f"schedule_{datepart}.xer")
+xer,acts,rels = ds.just_read_file(f"input/schedule_{datepart}.xer")
 
 # this is all the WBS information.  See wbs_id, parent_wbs_id, 
 
@@ -43,7 +43,7 @@ def get_tables(xer):
     items=xer.wbss.get_tsv()[2:]
     header=xer.wbss.get_tsv()[1]
     df_wbs = pd.DataFrame(list(items),columns=header)
-    df_wbs.to_csv("tmp_wbs.csv")
+    df_wbs.to_csv("input/tmp_wbs.csv")
     #df_wbs.set_index("parent_wbs_id",inplace=True)
     #df_wbs.reset_index(names=["parent_wbs_id"],inplace=True)
     df_wbs.set_index("wbs_id",inplace=True)
@@ -51,7 +51,7 @@ def get_tables(xer):
     items=xer.activities.get_tsv()[2:]
     header=xer.activities.get_tsv()[1]
     df_acts = pd.DataFrame(list(items),columns=header)
-    df_acts.to_csv("tmp_acts.csv")
+    df_acts.to_csv("input/tmp_acts.csv")
     df_acts_i = df_acts #.set_index('task_code')
 
     return (df_acts_i, df_wbs)
@@ -114,7 +114,7 @@ top_curr_id, top_last_id, top_last_name, path = get_path(top_id, df_wbs, 0)
 print(top_id, top_curr_id, top_last_id, top_last_name)
 #sys.exit(0)
 
-f = open(f"report_{datepart}_parents.csv",'w',newline='')
+f = open(f"input/report_{datepart}_parents.csv",'w',newline='')
 w = csv.writer(f)
 w.writerow(
     ["task_id", "task_code", "wbs_id", "area", "parent_wbs_id", "parent_name", 'L3', "L2", "L1", "N3","N2","N1"]

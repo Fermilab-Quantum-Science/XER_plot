@@ -90,7 +90,7 @@ def convert_to_nx(df,xer, xer_edges, parents):
 def read_xer_dump():
     cols=["start", "end", "duration", "target_start", "target_end", 
     "early_start", "early_end", "late_start", "late_end"]
-    df = pd.read_csv(f"report_{datepart}.csv", infer_datetime_format=True)
+    df = pd.read_csv(f"input/report_{datepart}.csv", infer_datetime_format=True)
     for n in cols:
         df[n]=pd.to_datetime(df[n])
     df.set_index("activity", inplace=True)
@@ -98,17 +98,17 @@ def read_xer_dump():
     return df
 
 def read_xer_edges():
-    df = pd.read_csv(f"report_{datepart}_edges.csv", infer_datetime_format=True)
+    df = pd.read_csv(f"input/report_{datepart}_edges.csv", infer_datetime_format=True)
     df.set_index(["task_id","pred_task_id"], inplace=True)
     return df
 
 def read_xer_parents():
-    df = pd.read_csv(f"report_{datepart}_parents.csv", infer_datetime_format=True)
+    df = pd.read_csv(f"input/report_{datepart}_parents.csv", infer_datetime_format=True)
     df.set_index(["task_code"], inplace=True)
     return df
 
 def read_excel_report():
-    df = pd.read_excel(f"schedule_{datepart}.xlsx", header=0, skiprows=1)
+    df = pd.read_excel(f"input/schedule_{datepart}.xlsx", header=0, skiprows=1)
     df['good'] = df['Activity Name'].transform(lambda x : not math.isnan(x) if type(x)==float else True)
     df = df[df['good']==True]
     df['Finish']=df['Finish'].transform(convert_fix_date)

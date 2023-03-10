@@ -25,22 +25,22 @@ def write_tab(tab,mid):
 if __name__ == "__main__":
 
     args = getargs.get_args()
-    fname=f"schedule_{args.date_part}.xer"
+    fname=f"input/schedule_{args.date_part}.xer"
     fout_prefix=os.path.splitext(fname)[0]
     middle = fout_prefix.split('_')[1]
     xer = Reader(fname)
 
-tabs = [
-    xer.activityresources.get_tsv()
-    ,xer.wbss.get_tsv()
-    ,xer.resources.get_tsv()
-    ,xer.relations.get_tsv()
-    ,xer.activities.get_tsv()
-    ,xer.udfvalues.get_tsv()
-    ,xer.udftypes.get_tsv()
-]
+    tabs = [
+        xer.activityresources.get_tsv()
+        ,xer.wbss.get_tsv()
+        ,xer.resources.get_tsv()
+        ,xer.relations.get_tsv()
+        ,xer.activities.get_tsv()
+        ,xer.udfvalues.get_tsv()
+        ,xer.udftypes.get_tsv()
+    ]
 
-for t in tabs:
-    write_tab(t, middle)
+    for t in tabs:
+        write_tab(t, middle)
 
 
