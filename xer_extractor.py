@@ -2,10 +2,12 @@ from xerparser.reader import Reader
 import csv
 import os
 import sys
+import get_args as getargs
 
 # Extractor
 
 datepart = 'Dec2022FY24ScenarioUpdated'
+datepart = 'Dec2022Current'
 
 def write_tab(tab,mid):
     name = tab[0][1]
@@ -22,7 +24,8 @@ def write_tab(tab,mid):
 
 if __name__ == "__main__":
 
-    fname=f"schedule_{datepart}.xer" if len(sys.argv)==1 else sys.argv[1]
+    args = getargs.get_args()
+    fname=f"schedule_{args.date_part}.xer"
     fout_prefix=os.path.splitext(fname)[0]
     middle = fout_prefix.split('_')[1]
     xer = Reader(fname)
@@ -33,6 +36,8 @@ tabs = [
     ,xer.resources.get_tsv()
     ,xer.relations.get_tsv()
     ,xer.activities.get_tsv()
+    ,xer.udfvalues.get_tsv()
+    ,xer.udftypes.get_tsv()
 ]
 
 for t in tabs:

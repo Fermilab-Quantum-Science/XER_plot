@@ -14,7 +14,7 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 
 
-datepart = 'Dec2022FY24ScenarioUpdated'
+# datepart = 'Dec2022FY24ScenarioUpdated'
 
 tabs = ['PROJWBS', 'RSRC', 'TASKPRED', 'TASKRSRC', 'TASK']
 
@@ -257,9 +257,24 @@ def write_all(g,args):
     w = csv.writer(f)
     w.writerow(GNode.header)
     #w.writerows(tab[2:])
+    collect_areas = set()
     for n in g.nodes(data=True):
         node = GNode(g,n[0])
+        collect_areas.add(node.area)
         w.writerow(node.record())
+    return collect_areas
+
+def write_areas(g_init,areas):
+    print(f'writing all areas')
+    fname=f'output/allareas.csv'
+    f = open(fname,'w',newline='', encoding='utf-8')
+    w = csv.writer(f)
+    w.writerow(["code", "path"])
+    for a in areas:
+        g = funs.filter_by_wbs(g_init,f'{a:02d}')
+        for n in g.nodes(data=True):
+            node = GNode(g,n[0])
+            w.writerow([node.n,a])
 
 def render_all(g,args):
 
@@ -302,8 +317,12 @@ if __name__ == "__main__":
     tables = {t:read_tab(t,args.date_part) for t in tabs}
 
     g_init = make_task_graph(tables, args)
-    write_all(g_init, args)
+    areas=write_all(g_init, args)
     g = g_init
+
+    if args.only_wbs_paths:
+        write_areas(g,areas)
+        sys.exit()
 
     if args.wbs_filter:
         g = funs.filter_by_wbs(g,args.wbs_item)
@@ -313,6 +332,13 @@ if __name__ == "__main__":
     if not args.only_driving:
         render_all(g,args)
 
+    if not args.wbs_filter:
+        later_id=tables['TASK'].loc[tables['TASK']['task_code']==args.later_code].task_id.iloc[0]
+        earlier_id=tables['TASK'].loc[tables['TASK']['task_code']==args.earlier_code].task_id.iloc[0]
+        #ps = nx.all_simple_paths(g_init, later_id, earlier_id)
+        #print(f'number of simple paths: {len(list(ps))}')
+
+    
 
 #    for i,r in tables['RSRC'].iterrows():
 #        print(i,r)

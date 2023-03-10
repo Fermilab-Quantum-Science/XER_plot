@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_notebook: default
+  pdf_document: default
 ---
 
 ```{r}
@@ -49,6 +51,7 @@ datepart<-'Dec2022FY24Scenario'
 datepart<-'Dec2022FY24ScenarioUpdated' # with delayed M&S
 datepart<-'Dec2022FY23' # limited to 5.4M spending
 #datepart<-'Dec2022StatusInput'
+datapart<-'Dec2022Current'
 
 read.my.file <- function(datepart, tab)
 {
@@ -64,7 +67,13 @@ wbs<-read.my.file(datepart, "PROJWBS")
 tasks<-read.my.file(datepart,"TASK")
 # this is a summary of the above out of reader.py -P -d
 all.data<-read.csv("output/alltasks.csv")
+all.paths<-read.csv("output/allareas.csv")
 ```
+
+```{r}
+path.data <- left_join(all.paths, all.data, by=join_by(code))
+```
+
 
 Sequence is 
 Find line in TASKRSRC, first two columns are IDs: taskrsrc_id, task_id
@@ -74,19 +83,26 @@ Find wbs_id in PROJWBS: the name of this area is found here
 ```{r}
 #view(all.data%>%select(name, wbs, category, group, wbs_high, wbs_low))
 
-tmp<-filter(all.data, year(target_start)>2021 & type!='M' & wbs!='01.01')
+tmp<-filter(path.data, year(target_start)>2021 & type!='Q' & wbs!='01.01')
 tmp$g=as.numeric(as.factor(tmp$group))
+tmp$a=as.numeric(as.factor(tmp$area))
+tmp$p=as.numeric(as.factor(tmp$path))
+
+# started with label=code
+# y_discrete = "group"
+# y = group
+# ymin = g, ymax = g+.8
 gp<-ggplot(tmp, aes(xmin = as.Date(target_start), xmax = as.Date(target_end), 
-                   y=group,# ymin = g, ymax = g+.8, 
+                   y=as.factor(path),# ymin = g, ymax = g+.8, 
                    fill = category)) +
-  geom_rect(aes(ymin = g, ymax = g+.8)) +
-  scale_y_discrete("group") +
+  geom_rect(aes(ymin = p, ymax = p+.8)) +
+  scale_y_discrete("path") +
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
   theme(axis.text.x = element_text(angle = 90)) + 
   geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3)#, check_overlap = TRUE)
 
 ggsave(gp, filename="vs.pdf",units="in", height=10, width=24, device="pdf")
-#print(gp)
+print(gp)
 ```
 
 ```{r}
@@ -101,6 +117,12 @@ costs <- filter(taskrsrc,target_cost>0) %>% left_join(tasks,by=join_by(task_id))
 
 
 ```{r}
+group.cat <- ggplot(all.data,aes(x=group, y=category)) + theme(axis.text.x = element_text(angle = 90)) + geom_count()
+group.area <- ggplot(all.data,aes(x=group, y=wbs_high)) + theme(axis.text.x = element_text(angle = 90)) + geom_count()
+cat.area <- ggplot(all.data,aes(x=category, y=wbs_high)) + theme(axis.text.x = element_text(angle = 90)) + geom_count()
+print(group.cat)
+print(group.area)
+print(cat.area)
 ```
 
 ```{r}
