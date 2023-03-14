@@ -7,7 +7,8 @@ class Fake:
     earlier_code='A0100000'
     later_code='A1503600'
     output_format='png'
-    date_part='Dec2022Current'
+    #date_part='Dec2022Current'
+    date_part='Dec22WSCurrent'
     wbs_filter=False
     wbs_item=None
     show_diffs=False

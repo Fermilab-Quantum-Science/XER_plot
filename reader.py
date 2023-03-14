@@ -191,6 +191,26 @@ def get_group(an, ahigh, alow):
     return grp
 
 
+def filter_by_paths(g, ps, later_id, earlier_id):
+    print(f"filtering by paths")
+    anp=set()
+    # nodes is list of (node_num, node_data)
+    for p in ps:
+        for n in p:
+            anp.add(n)
+
+    # for n in g.nodes(data=True):
+    #     if n[1]['wbs'].startswith(wbs): 
+    #         anp.add(n[0])
+    #         for e in g.in_edges(n[0]):
+    #             anp.add(e[0])
+    #             anp.add(e[1])
+    #         for e in g.out_edges(n[0]):
+    #             anp.add(e[0])
+    #             anp.add(e[1])
+
+    return g.subgraph(list(anp))
+
 class GNode:
     header = ['code', 'name', 'wbs', 'area', 'status', 'drv_flag','task_type', 'type', 'rsrc_type', 'cost','dur', 
               'category', 'group', 'wbs_high', 'wbs_low',
@@ -322,21 +342,25 @@ if __name__ == "__main__":
 
     if args.only_wbs_paths:
         write_areas(g,areas)
-        sys.exit()
+        sys.exit(0)
 
     if args.wbs_filter:
         g = funs.filter_by_wbs(g,args.wbs_item)
+        render_all(g,args)
+        sys.exit(0)
+
     if args.only_driving:
         g = filter_driving(g,args)
-
-    if not args.only_driving:
         render_all(g,args)
+        sys.exit(0)
 
-    if not args.wbs_filter:
-        later_id=tables['TASK'].loc[tables['TASK']['task_code']==args.later_code].task_id.iloc[0]
-        earlier_id=tables['TASK'].loc[tables['TASK']['task_code']==args.earlier_code].task_id.iloc[0]
-        #ps = nx.all_simple_paths(g_init, later_id, earlier_id)
-        #print(f'number of simple paths: {len(list(ps))}')
+    # otherwise track from later id back to earlier id
+    later_id=tables['TASK'].loc[tables['TASK']['task_code']==args.later_code].task_id.iloc[0]
+    earlier_id=tables['TASK'].loc[tables['TASK']['task_code']==args.earlier_code].task_id.iloc[0]
+    ps = nx.all_simple_paths(g_init, later_id, earlier_id)
+    g = filter_by_paths(g, ps, later_id, earlier_id)
+    render_all(g,args)
+    print(f'number of simple paths: {len(list(ps))}')
 
     
 
