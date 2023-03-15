@@ -1,0 +1,5 @@
+graphviz==0.20.1
+networkx==2.8.8
+pandas==1.5.2
+PyP6Xer==1.14.3
+xerparser==0.8.2

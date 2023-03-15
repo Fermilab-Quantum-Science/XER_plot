@@ -155,8 +155,6 @@ def reduce_graph(g_orig, all_edges, args):
 
     return g
 
-import matplotlib.pyplot as plt
-
 def process(gg_orig, edges, args):
     g_init = reduce_graph(gg_orig, edges, args)
 
@@ -164,8 +162,6 @@ def process(gg_orig, edges, args):
         g = filter_by_wbs(g_init,args.wbs_item)
         render_all(g,args)
         #print(g.nodes())
-        #nx.draw(g)
-        #plt.show()
         # filtering likely will remove the codes that trace paths
         # perhaps just render full graph at this point instead of paths from end points
     else:    
