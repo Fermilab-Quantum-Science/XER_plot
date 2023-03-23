@@ -1,0 +1,161 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(stringr)
+library(lubridate)
+
+FY <- function(year)
+{
+  function(rec)
+  {
+    (rec$year==(year-1) & rec$month>=9)|(rec$year==year & rec$month<9)
+  }
+}
+
+fiscal.yr<-function(year, month)
+{
+  year <- year + ifelse(month>=9,1,0)
+}
+fiscal.year<-function(recs)
+{
+  fiscal.yr(recs$year, recs$month)
+}
+fiscal.month<-function(recs)
+{
+  recs$month + ifelse(recs$month>=9, -9, +3)
+}
+```
+
+```{r}
+datepart<-'Dec22WSCurrent'
+
+read.my.file <- function(datepart, tab)
+{
+  fname<-paste('../extracted/tab_',tab,'_',datepart,'.csv',sep='')
+  df <- read.csv(fname)
+  df
+}
+
+adjust.date <- function(tab, col,ending) 
+{ 
+  name.s <- paste(col,"_start",ending,sep='')
+  name.e <- paste(col,"_end",ending,sep='')
+  tab[[name.s]] <- as.Date(tab[[name.s]]) 
+  tab[[name.e]] <- as.Date(tab[[name.e]]) 
+  tab
+}
+
+# these come from XER extractor
+taskrsrc<-read.my.file(datepart, 'TASKRSRC')
+rsrc<-read.my.file(datepart, "RSRC")
+wbs<-read.my.file(datepart, "PROJWBS")
+tasks<-read.my.file(datepart,"TASK")
+udf.type<-read.my.file(datepart,"UDFTYPE")
+udf.value<-read.my.file(datepart,"UDFVALUE")
+
+tasks<-adjust.date(tasks,"target","_date")
+tasks<-adjust.date(tasks,"early","_date")
+tasks<-adjust.date(tasks,"late","_date")
+
+# this is a summary of the above out of reader.py -P -d
+# it already has the wbs info merged with the tasks
+all.data<-read.csv(paste("../output/alltasks_",datepart,".csv",sep=''))
+all.paths<-read.csv(paste("../output/allareas_",datepart,".csv",sep=''))
+all.data<-adjust.date(all.data,"target","")
+all.data<-adjust.date(all.data,"early","")
+all.data<-adjust.date(all.data,"late","")
+
+```
+
+Information about CPM and PERT in R:
+https://cran.r-project.org/web/packages/critpath/vignettes/CPMandPERT.html
+
+PERT charts are mentioned here, along with burndown charts:
+https://www.projectmanager.com/blog/3-best-project-management-charts
+https://www.projectmanager.com/guides/pert-chart
+
+```{r}
+ctc.id <- (filter(udf.type, udf_type_label=='user_text1') %>% select(udf_type_id))[[1]]
+ctc.recs <- filter(udf.value, udf_type_id==ctc.id) %>% select(task_id=fk_id, ctc=udf_text)
+all.data <- left_join(all.data, ctc.recs, by=join_by(task_id))
+```
+
+```{r}
+
+```
+
+
+alternative way using all.data.   This is using alltasks.
+What is missing: chargeable task code.   Should add task_id also for reference.
+should add a switch on reader to generate this alltasks file, and decorate with the "datepart".
+
+
+
+```{r}
+all.data.labor<- filter(all.data,rsrc_type=='RT_Labor')
+#dates.seq<- seq.Date(from = as.Date('2022-06-06'), to = max(all.data$target_end), by = 'weeks')
+#dates.seq<- seq.Date(from = min(all.data.labor$target_start), to = max(all.data.labor$target_end), by = 'weeks')
+#a.1 <- hist(tasks$target_start, "weeks", plot=FALSE)
+
+date.list <- function(a,b,c)
+{
+  tmp<-seq.Date(from=a, to=b, by='weeks')
+  data.frame(d=floor_date(tmp,"weeks",week_start=1),hours=c/(length(tmp)))
+}
+
+plot.sum <- function(data, grp)
+{
+a.2<- select(all.data.labor, s=target_start, e=target_end, d=dur, g=grp) %>% rowwise() %>% mutate(dl=list(date.list(s,e,d)))
+a.2<- unnest(a.2,cols=c(dl),names_sep='.') %>% arrange(g,s)
+tot.hours.tmp<- group_by(a.2,g,dl.d) %>% summarise(sum=sum(dl.hours),.groups='keep')
+tot.hours<- arrange(tot.hours.tmp,g,dl.d) %>% group_by(g) %>% mutate(csum=cumsum(sum))
+
+print(ggplot(tot.hours,aes(x=dl.d, y=csum,colour=as.factor(g))) + geom_line())
+print(ggplot(tot.hours,aes(x=dl.d, y=sum,colour=as.factor(g))) + geom_line())
+}
+
+plot.sum(all.data.labor, 'area')
+ # + facet_grid(rows=vars(area))
+
+```
+
+
+
+```{r}
+all.data.2021<-filter(all.data, year(target_start)>2021)
+all.data.2021$g=as.numeric(as.factor(all.data.2021$group))
+gp<-ggplot(all.data.2021, aes(xmin = as.Date(target_start), xmax = as.Date(target_end), 
+                   y=group,# ymin = g, ymax = g+.8, 
+                   fill = category)) +
+  geom_rect(aes(ymin = g, ymax = g+.8)) +
+  scale_y_discrete("group") +
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3)
+```
+
+Original way ...
+```{r}
+dates.seq<- seq.Date(from = as.Date('2022-06-06'), to = max(tasks$target_end_date), by = 'weeks')
+a.1 <- hist(tasks$target_start_date, "weeks", plot=FALSE)
+
+date.list <- function(a,b,c)
+{
+  data.frame(d=seq.Date(from=a, to=b, by='weeks'),hours=c)
+}
+
+a.2<- select(tasks, s=target_start_date, e=target_end_date, d=target_drtn_hr_cnt) %>% rowwise() %>% mutate(dl=list(date.list(s,e,d)))
+a.2<- unnest(a.2,cols=c(dl),names_sep='.') %>% arrange(s)
+tot.hours<- group_by(a.2,dl.d) %>% summarise(sum=sum(dl.hours))
+tot.hours<- arrange(tot.hours, dl.d) %>% mutate(csum=cumsum(sum))
+
+# ggplot(tot.hours,aes(x=tot.hours$dl.d, y=tot.hours$csum)) + geom_line()
+
+```
+

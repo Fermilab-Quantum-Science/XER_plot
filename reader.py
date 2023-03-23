@@ -80,6 +80,7 @@ def make_task_graph(tables, args):
             ,id=r['task_code'] 
             ,name=name 
             ,type=extra
+            , task_id=id
             , target_start=r['target_start_date'], target_end=r['target_end_date']
             , early_start=r['early_start_date'], early_end=r['early_end_date']
             , late_start=r['late_start_date'], late_end=r['late_end_date']
@@ -213,18 +214,19 @@ def filter_by_paths(g, ps, later_id, earlier_id):
 
 class GNode:
     header = ['code', 'name', 'wbs', 'area', 'status', 'drv_flag','task_type', 'type', 'rsrc_type', 'cost','dur', 
-              'category', 'group', 'wbs_high', 'wbs_low',
+              'category', 'group', 'wbs_high', 'wbs_low', 'task_id',
               'target_start', 'target_end', 'early_start','early_end','late_start','late_end']
 
     def record(self):
         return [self.n, self.name, self.wbs, self.area, self.status, self.drv, self.task_type, self.typ, 
-                self.rsrc, self.cost, self.dur, self.category, self.group, self.wbs_high, self.wbs_low,
+                self.rsrc, self.cost, self.dur, self.category, self.group, self.wbs_high, self.wbs_low, self.task_id,
                 self.t_start, self.t_end, self.e_start, self.e_end, self.l_start, self.l_end]
 
     def __init__(self,g,n):
         #print(f'building GNode for {n}')
         now = dt.datetime.now().date()
         self.n = g.nodes[n]['id']
+        self.task_id = g.nodes[n]['task_id']
         self.t_end=g.nodes[n]['target_end']
         self.e_end=g.nodes[n]['early_end']
         self.l_end = g.nodes[n]['late_end']
@@ -272,7 +274,7 @@ class GNode:
 
 
 def write_all(g,args):
-    fname=f'output/alltasks.csv'
+    fname=f'output/alltasks_{args.date_part}.csv'
     f = open(fname,'w',newline='', encoding='utf-8')
     w = csv.writer(f)
     w.writerow(GNode.header)
@@ -284,9 +286,9 @@ def write_all(g,args):
         w.writerow(node.record())
     return collect_areas
 
-def write_areas(g_init,areas):
+def write_areas(g_init,areas,args):
     print(f'writing all areas')
-    fname=f'output/allareas.csv'
+    fname=f'output/allareas_{args.date_part}.csv'
     f = open(fname,'w',newline='', encoding='utf-8')
     w = csv.writer(f)
     w.writerow(["code", "path"])
@@ -337,11 +339,16 @@ if __name__ == "__main__":
     tables = {t:read_tab(t,args.date_part) for t in tabs}
 
     g_init = make_task_graph(tables, args)
-    areas=write_all(g_init, args)
+    
+    if args.write_csv:
+        areas=write_all(g_init, args)
+        sys.exit(0)
+    
     g = g_init
 
     if args.only_wbs_paths:
-        write_areas(g,areas)
+        areas=write_all(g_init, args)
+        write_areas(g,areas, args)
         sys.exit(0)
 
     if args.wbs_filter:

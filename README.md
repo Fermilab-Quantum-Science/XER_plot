@@ -117,3 +117,13 @@ All the tables
 %T      TASKACTV
 %T      UDFVALUE
 ```
+
+Missing path:
+C:\Users\jimk\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\Scripts
+
+For reference: 
+
+```
+def is_overlapping_date_range(a,b):
+    if (a.end-b.start)*(b.end-a.start)>=0: return True
+```

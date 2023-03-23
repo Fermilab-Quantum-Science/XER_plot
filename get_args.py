@@ -13,6 +13,7 @@ class Fake:
     wbs_item=None
     show_diffs=False
     show_dates=False
+    write_csv=False
     only_driving=False
     only_wbs_paths=False
     do_reduction=True
@@ -34,6 +35,7 @@ def get_args():
     parser.add_argument("-s","--special", default=Fake.special, dest="special",help="List of task codes to show as squares in graph (comma separated)")
     parser.add_argument("-D","--BL-equals-planned", default=Fake.show_diffs, action='store_true', dest="show_diffs",help="Only show tasks where BL==planned start time")
     parser.add_argument("-d","--show-dates", default=Fake.show_dates, action='store_true', dest="show_dates",help="Show dates on graph")
+    parser.add_argument("-S","--write-csv", default=Fake.write_csv, action='store_true', dest="write_csv",help="Write out the alltasks csv file only")
     parser.add_argument("-P","--only_driving_paths", default=Fake.only_driving, action='store_true', dest="only_driving",help="Show only driving paths on graph")
     parser.add_argument("-W","--only_wbs_paths", default=Fake.only_wbs_paths, action='store_true', dest="only_wbs_paths",help="Save all paths by WBS area")
     parser.add_argument("-t","--no-transitive-reduction", default=Fake.do_reduction, action='store_false', dest="do_reduction",help="Do not run transitive reduction algorithm")

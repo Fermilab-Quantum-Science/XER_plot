@@ -3,7 +3,7 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(readxl)
@@ -49,9 +49,11 @@ chg.cols[1]='text'
 chg.cols[2]='text'
 chg.cols[18]='text'
 
+c3 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230305.xlsx', col_types=chg.cols)
+c2 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230219.xlsx', col_types=chg.cols)
 c1 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230205.xlsx', col_types=chg.cols)
-c2 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230130.xlsx', col_types=chg.cols)
-all.charges <- bind_rows(c1,c2)
+c0 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230130.xlsx', col_types=chg.cols)
+all.charges <- bind_rows(bind_rows(bind_rows(c0,c1),c2),c3)
 names(all.charges) <- make.names(colnames(all.charges))
 
 tmp<-as.POSIXlt(all.charges$Timecard.Start)

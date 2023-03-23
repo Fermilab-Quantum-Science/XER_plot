@@ -5,7 +5,7 @@ output:
   pdf_document: default
 ---
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(readxl)
@@ -51,7 +51,8 @@ datepart<-'Dec2022FY24Scenario'
 datepart<-'Dec2022FY24ScenarioUpdated' # with delayed M&S
 datepart<-'Dec2022FY23' # limited to 5.4M spending
 #datepart<-'Dec2022StatusInput'
-datapart<-'Dec2022Current'
+#datapart<-'Dec2022Current'
+datepart<-'Dec22WSCurrent'
 
 read.my.file <- function(datepart, tab)
 {
@@ -126,7 +127,7 @@ print(cat.area)
 ```
 
 ```{r}
-stop.code.list <- read.csv("code_list.csv",header=TRUE)
+stop.code.list <- read.csv("input/code_list.csv",header=TRUE)
 ```
 
 The lines that are wrong values are:
@@ -153,5 +154,18 @@ stopped.rsrcs <- stopped.taskrsrc %>% left_join(filter(rsrc,rsrc_type=='RT_Labor
 
 hours.sum <-select(stopped.rsrcs,rsrc_id.y,task_code,rsrc_name,target_qty) %>% group_by(rsrc_name) %>% summarise(total.hours=sum(target_qty))
 
+```
+
+
+```{r}
+alltask.lv <-read_excel("output/alltasks LV edit.xlsx") 
+alltask.lv <- select(alltask.lv, code, category, group, 'New Category', 'New Group', 'Label Type', LABEL) %>% arrange(code)
+names(alltask.lv)<-c('code','old.category','old.group','new.category','new.group','label.type','label')
+
+new.ones.grp<-!is.na(alltask.lv$new.group)
+new.ones.cat<-!is.na(alltask.lv$new.category)
+alltask.lv<-mutate(alltask.lv, category=alltask.lv$old.category, group=alltask.lv$old.group)
+alltask.lv$category[new.ones.cat]<-alltask.lv$new.category[new.ones.cat]
+alltask.lv$group[new.ones.grp]<-alltask.lv$new.group[new.ones.grp]
 ```
 
