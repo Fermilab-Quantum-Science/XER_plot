@@ -111,21 +111,22 @@ date.list <- function(a,b,c)
 
 plot.sum <- function(data, grp)
 {
-a.2<- select(all.data.labor, s=target_start, e=target_end, d=dur, g=grp) %>% rowwise() %>% mutate(dl=list(date.list(s,e,d)))
+a.2<- select(data, s=target_start, e=target_end, d=dur, g=grp) %>% rowwise() %>% mutate(dl=list(date.list(s,e,d)))
 a.2<- unnest(a.2,cols=c(dl),names_sep='.') %>% arrange(g,s)
 tot.hours.tmp<- group_by(a.2,g,dl.d) %>% summarise(sum=sum(dl.hours),.groups='keep')
 tot.hours<- arrange(tot.hours.tmp,g,dl.d) %>% group_by(g) %>% mutate(csum=cumsum(sum))
 
 print(ggplot(tot.hours,aes(x=dl.d, y=csum,colour=as.factor(g))) + geom_line())
 print(ggplot(tot.hours,aes(x=dl.d, y=sum,colour=as.factor(g))) + geom_line())
+tot.hours
 }
 
-plot.sum(all.data.labor, 'area')
+tot.sum<-plot.sum(all.data.labor, 'area')
  # + facet_grid(rows=vars(area))
 
 ```
 
-
+Don't run this one
 
 ```{r}
 all.data.2021<-filter(all.data, year(target_start)>2021)

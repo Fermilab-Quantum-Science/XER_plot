@@ -6,11 +6,13 @@ output:
 ---
 
 ```{r message=FALSE, warning=FALSE}
+#```{r}
 library(tidyverse)
 library(ggplot2)
 library(readxl)
 library(stringr)
 library(lubridate)
+
 
 print(getwd())
 
@@ -61,14 +63,27 @@ read.my.file <- function(datepart, tab)
   df
 }
 
+adjust.date <- function(tab, col,ending) 
+{ 
+  name.s <- paste(col,"_start",ending,sep='')
+  name.e <- paste(col,"_end",ending,sep='')
+  tab[[name.s]] <- as.Date(tab[[name.s]]) 
+  tab[[name.e]] <- as.Date(tab[[name.e]]) 
+  tab
+}
+
 # these come from XER extractor
 taskrsrc<-read.my.file(datepart, 'TASKRSRC')
 rsrc<-read.my.file(datepart, "RSRC")
 wbs<-read.my.file(datepart, "PROJWBS")
 tasks<-read.my.file(datepart,"TASK")
 # this is a summary of the above out of reader.py -P -d
-all.data<-read.csv("output/alltasks.csv")
-all.paths<-read.csv("output/allareas.csv")
+all.data<-read.csv(paste("output/alltasks_",datepart,".csv",sep=''))
+all.paths<-read.csv(paste("output/allareas_",datepart,".csv",sep=''))
+all.data<-adjust.date(all.data,"target","")
+all.data<-adjust.date(all.data,"early","")
+all.data<-adjust.date(all.data,"late","")
+
 ```
 
 ```{r}
@@ -169,3 +184,77 @@ alltask.lv$category[new.ones.cat]<-alltask.lv$new.category[new.ones.cat]
 alltask.lv$group[new.ones.grp]<-alltask.lv$new.group[new.ones.grp]
 ```
 
+reports for 
+What activities are ongoing now? -> now within [start, end]
+What was supposed to start? -> status==TK_NotStart  and planned_start < now
+What was supposed to end? -> status==started and planned_end < now
+What is coming up next? -> status==not started and planned_start within [now, now+1 month]
+
+What has been active for >6 months
+What has a gap between target start and late start of greater than X months?
+What has a gap between target end and late end of greater than X months?
+
+
+```{r}
+now <- Sys.Date()
+target <- interval(all.data$target_start, all.data$target_end)
+active <- all.data[now %within% target,] %>% arrange(desc(target_start))
+no.start <- all.data %>% filter(status=='TK_NotStart' & target_start<now)
+should.end <- all.data %>% filter(status=='TK_Active' & target_end<now)
+up.next <- all.data %>% filter(status=='TK_NotStart' & target_start %within% interval(now,now+months(1)))
+start.gap <- all.data %>% filter((late_start-target_start)>months(9))
+end.gap <- all.data %>% filter((late_end-target_end)>months(9))
+```
+
+
+```{r}
+gp<-ggplot(active%>%filter(target_start<as.Date("2026-10-01")), aes( 
+                   y=reorder(code,target_start))) +
+  geom_linerange(aes(xmin = early_start, xmax = early_end),colour='red',position=position_nudge(y=0.0)) +
+  geom_linerange(aes(xmin = late_start, xmax = late_end), colour='green',position=position_nudge(y=0.0)) +
+  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=1.0) +
+  geom_text(aes(x = target_start, label = name), nudge_x=9.6, nudge_y=.4, size=1) +
+  geom_text(aes(x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1) +
+  #geom_point(aes(x=now)) +
+  #scale_y_discrete("code") +
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=8)) #+ 
+print(gp)
+
+ggsave(gp, filename="active.pdf",units="in", height=10, width=24, device="pdf")
+
+```
+```{r}
+tmp<-select(active,code)[,1]
+tmp2<-tasks[(tasks$task_code %in% tmp),]
+tmp2.1<-tmp2 %>% filter((target_drtn_hr_cnt-remain_drtn_hr_cnt)==0 ) %>% select(task_code, remain_drtn_hr_cnt, target_drtn_hr_cnt, task_name)
+
+```
+
+
+```{r}
+gp2<-ggplot(active%>%filter(area>10|area==1), 
+            aes( colour=as.factor(area), y=reorder(code,target_start))
+            ) +
+  geom_linerange(aes(xmin = target_start, xmax = target_end), linewidth=1.0)+ #, colour='blue') +
+  #scale_y_discrete("code") +
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=8)) #+ 
+print(gp2)
+ggsave(gp2, filename="active2.pdf",units="in", height=10, width=24, device="pdf")
+```
+
+```{r}
+gp3<-ggplot(all.data%>%filter(type=='M'), 
+            aes( colour=as.factor(area), y=reorder(code,target_start))
+            ) +
+  geom_linerange(aes(xmin = target_end, xmax = late_end), linewidth=.10)+ #, colour='blue') +
+  #geom_point(aes(x=late_end)) +
+  geom_point(aes(x=target_end)) +
+
+  #scale_y_discrete("code") +
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=8)) #+ 
+print(gp3)
+ggsave(gp3, filename="milestones.pdf",units="in", height=10, width=24, device="pdf")
+```

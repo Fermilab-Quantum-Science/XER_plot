@@ -8,6 +8,8 @@ library(tidyverse)
 library(ggplot2)
 library(readxl)
 library(stringr)
+library(lubridate)
+
 
 FY <- function(year)
 {
@@ -63,6 +65,21 @@ all.charges <- all.charges %>% mutate(year=tmp$year-100+2000,month=tmp$mon)
 all.charges$fiscal.year <- fiscal.year(all.charges)
 all.charges$fiscal.month <- fiscal.month(all.charges)
 ```
+
+```{r}
+plot.sum <- function(data, grp)
+{
+tmp<- select(data, d=Timecard.Start, Hours=Hours, g=grp)
+tmp<- group_by(tmp,g, d) %>% summarise(sum=sum(Hours),.groups='keep')
+tot.hours<- arrange(tmp,g,d) %>% group_by(g) %>% mutate(csum=cumsum(sum))
+
+print(ggplot(tot.hours,aes(x=d, y=csum,colour=as.factor(g))) + geom_line())
+print(ggplot(tot.hours,aes(x=d, y=sum,colour=as.factor(g))) + geom_line())
+}
+
+plot.sum(all.charges, 'Task.Name')
+```
+
 
 Budget spreadsheet
 'MAGIS FY23 Budget for cuts v8.xlsx'
@@ -179,7 +196,6 @@ Find wbs_id in PROJWBS: the name of this area is found here
 
 ```{r}
 #view(all.data%>%select(name, wbs, category, group, wbs_high, wbs_low))
-library(lubridate)
 
 all.data<-filter(all.data, year(target_start)>2021)
 all.data$g=as.numeric(as.factor(all.data$group))

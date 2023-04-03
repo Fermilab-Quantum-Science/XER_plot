@@ -90,6 +90,8 @@ def make_task_graph(tables, args):
             , dur_type=r['duration_type']
             , target_dur_hr=r['target_drtn_hr_cnt']
             , target_work_qty=r['target_work_qty']
+            , total_float_hr=r['total_float_hr_cnt']
+            , free_float_hr=r['free_float_hr_cnt']
             , target_cost = rcost
             , rsrc_type = rtype
             , area=short[0]
@@ -214,12 +216,13 @@ def filter_by_paths(g, ps, later_id, earlier_id):
 
 class GNode:
     header = ['code', 'name', 'wbs', 'area', 'status', 'drv_flag','task_type', 'type', 'rsrc_type', 'cost','dur', 
-              'category', 'group', 'wbs_high', 'wbs_low', 'task_id',
+              'category', 'group', 'wbs_high', 'wbs_low', 'task_id', 'total_float', 'free_float',
               'target_start', 'target_end', 'early_start','early_end','late_start','late_end']
 
     def record(self):
         return [self.n, self.name, self.wbs, self.area, self.status, self.drv, self.task_type, self.typ, 
                 self.rsrc, self.cost, self.dur, self.category, self.group, self.wbs_high, self.wbs_low, self.task_id,
+                self.total_float_hr, self.free_float_hr,
                 self.t_start, self.t_end, self.e_start, self.e_end, self.l_start, self.l_end]
 
     def __init__(self,g,n):
@@ -235,6 +238,8 @@ class GNode:
         self.l_start=g.nodes[n]['late_start']
         self.name=g.nodes[n]['name']
         self.dur=g.nodes[n]['target_dur_hr']
+        self.total_float_hr=g.nodes[n]['total_float_hr']
+        self.free_float_hr=g.nodes[n]['free_float_hr']
         self.drv=g.nodes[n]['driving_flag']
         self.wbs=g.nodes[n]['wbs']
         self.status=g.nodes[n]['status']
@@ -332,6 +337,13 @@ def filter_driving(g,args):
     print(f'added {anp}')
     return g.subgraph(list(anp))
 
+def filter_no_inout(g):
+    anp=set()
+    for n in g.nodes(data=True):
+        if len(g.in_edges(n[0])) == 0:
+            print(f"zero in edges: {n[0]}")
+        if len(g.out_edges(n[0])) == 0:
+            print(f"zero out edges: {n[0]}")
 
 if __name__ == "__main__":
 
@@ -345,6 +357,7 @@ if __name__ == "__main__":
         sys.exit(0)
     
     g = g_init
+    filter_no_inout(g)
 
     if args.only_wbs_paths:
         areas=write_all(g_init, args)
