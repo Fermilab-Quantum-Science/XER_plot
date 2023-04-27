@@ -74,9 +74,13 @@ adjust.date <- function(tab, col,ending)
 
 # these come from XER extractor
 taskrsrc<-read.my.file(datepart, 'TASKRSRC')
+taskpred<-read.my.file(datepart, 'TASKPRED')
 rsrc<-read.my.file(datepart, "RSRC")
 wbs<-read.my.file(datepart, "PROJWBS")
 tasks<-read.my.file(datepart,"TASK")
+roles<-read.my.file(datepart,"ROLE")
+udf.type<-read.my.file(datepart,"UDFTYPE")
+udf.value<-read.my.file(datepart, "UDFVALUE")
 # this is a summary of the above out of reader.py -P -d
 all.data<-read.csv(paste("output/alltasks_",datepart,".csv",sep=''))
 all.paths<-read.csv(paste("output/allareas_",datepart,".csv",sep=''))
@@ -208,13 +212,13 @@ end.gap <- all.data %>% filter((late_end-target_end)>months(9))
 
 
 ```{r}
-gp<-ggplot(active%>%filter(target_start<as.Date("2026-10-01")), aes( 
+gp<-ggplot(active%>%filter(target_start<as.Date("2026-10-01")&target_start>as.Date("2022-07-01")&(area>10|area==1)), aes( 
                    y=reorder(code,target_start))) +
   geom_linerange(aes(xmin = early_start, xmax = early_end),colour='red',position=position_nudge(y=0.0)) +
   geom_linerange(aes(xmin = late_start, xmax = late_end), colour='green',position=position_nudge(y=0.0)) +
   geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=1.0) +
-  geom_text(aes(x = target_start, label = name), nudge_x=9.6, nudge_y=.4, size=1) +
-  geom_text(aes(x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1) +
+  geom_text(aes(x = target_start, label = name), nudge_x=9.6, nudge_y=.4, size=1.8) +
+  geom_text(aes(x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1.5) +
   #geom_point(aes(x=now)) +
   #scale_y_discrete("code") +
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
@@ -227,7 +231,22 @@ ggsave(gp, filename="active.pdf",units="in", height=10, width=24, device="pdf")
 ```{r}
 tmp<-select(active,code)[,1]
 tmp2<-tasks[(tasks$task_code %in% tmp),]
-tmp2.1<-tmp2 %>% filter((target_drtn_hr_cnt-remain_drtn_hr_cnt)==0 ) %>% select(task_code, remain_drtn_hr_cnt, target_drtn_hr_cnt, task_name)
+tmp2.1<-tmp2 %>% filter((target_drtn_hr_cnt-remain_drtn_hr_cnt)==0 ) %>% select(task_code, remain_drtn_hr_cnt, target_drtn_hr_cnt, task_name, task_id)
+
+march1<-as.Date("2023-03-01")
+tmp2.2<-active%>%
+  filter(area>10|area==1)%>%
+  filter(rsrc_type!='-'& target_start<as.Date("2022-08-31"))%>%
+  select(code, name, dur, target_start, target_end, task_id)%>%
+  mutate(perc=as.numeric(march1-target_start)/as.numeric(target_end-target_start)) %>%
+  arrange(target_start)
+
+tmp2.3<-tmp2.2 %>% 
+  left_join(taskrsrc, multiple='all', by=join_by(task_id)) %>% 
+  left_join(rsrc, by=join_by(rsrc_id)) %>% 
+  select(code,name,dur,target_start,target_end, rsrc_id, target_qty, remain_qty, rsrc_name, perc)
+
+view(tmp2.3)
 
 ```
 
@@ -258,3 +277,9 @@ gp3<-ggplot(all.data%>%filter(type=='M'),
 print(gp3)
 ggsave(gp3, filename="milestones.pdf",units="in", height=10, width=24, device="pdf")
 ```
+
+
+```{r}
+tmp<- tasks%>% filter(as.Date(cstr_date)<as.Date('2023-04-03')&cstr_type=='CS_MSOA')%>%select(task_code, task_name, cstr_date, cstr_type)%>%arrange(cstr_date)
+```
+

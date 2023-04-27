@@ -64,20 +64,31 @@ all.charges <- all.charges %>% mutate(year=tmp$year-100+2000,month=tmp$mon)
 # add a fiscal year field
 all.charges$fiscal.year <- fiscal.year(all.charges)
 all.charges$fiscal.month <- fiscal.month(all.charges)
+people.by.year<-all.charges%>% filter(!str_detect(Full.Name,"Nah")) %>% group_by(Full.Name,year) %>% summarise(sum(Hours))
+
+all.charges$taskname <- replace(all.charges$Task.Name, all.charges$Task.Name=='MGS D/E Proto SWF', 'MGS D/E Proto SWF-Q')
+all.charges$taskname <- replace(all.charges$taskname, all.charges$taskname=='MAGIS-100 Proj Mgmt', 'MAGIS Proj Mgmt-QIS')
+all.charges$taskname <- replace(all.charges$taskname, all.charges$taskname=='MGS Civil M&S', 'MGS Civil M&S-Q')
 ```
 
 ```{r}
 plot.sum <- function(data, grp)
 {
-tmp<- select(data, d=Timecard.Start, Hours=Hours, g=grp)
-tmp<- group_by(tmp,g, d) %>% summarise(sum=sum(Hours),.groups='keep')
+tmp<- select(data, d=Timecard.Start, Hours=Hours, Full.Name=Full.Name, g=grp)
+tmp$Full.Name<-as.factor(tmp$Full.Name)
+tmp<- group_by(tmp,g,Full.Name, d) %>% summarise(sum=sum(Hours),.groups='keep')
 tot.hours<- arrange(tmp,g,d) %>% group_by(g) %>% mutate(csum=cumsum(sum))
 
-print(ggplot(tot.hours,aes(x=d, y=csum,colour=as.factor(g))) + geom_line())
-print(ggplot(tot.hours,aes(x=d, y=sum,colour=as.factor(g))) + geom_line())
+print(ggplot(tot.hours,aes(x=d, y=csum,colour=as.factor(g))) + geom_step() 
+      #+ facet_grid(vars(Full.Name), scales="free_y")
+       )
+print(ggplot(tot.hours,aes(x=d, y=sum,colour=as.factor(g))) + geom_step() 
+      #+ facet_grid(vars(Full.Name), scales="free_y")
+      )
 }
 
-plot.sum(all.charges, 'Task.Name')
+plot.sum(all.charges, 'taskname')
+#plot.sum(all.charges, 'Full.Name')
 ```
 
 
@@ -186,6 +197,7 @@ taskrsrc<-read.my.file(datepart, 'TASKRSRC')
 rsrc<-read.csv("../extracted/tab_RSRC_Dec2022FY24Scenario.csv")
 wbs<-read.csv("../extracted/tab_PROJWBS_Dec2022FY24Scenario.csv")
 tasks<-read.csv("../extracted/tab_TASK_Dec2022FY24Scenario.csv")
+roles<-read.csv("../extracted/tab_ROLE_Dec2022FY24Scenario.csv")
 all.data<-read.csv("../output/alltasks.csv")
 ```
 

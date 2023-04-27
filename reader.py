@@ -16,7 +16,7 @@ pd.set_option('display.width', None)
 
 # datepart = 'Dec2022FY24ScenarioUpdated'
 
-tabs = ['PROJWBS', 'RSRC', 'TASKPRED', 'TASKRSRC', 'TASK']
+tabs = ['PROJWBS', 'RSRC', 'TASKPRED', 'TASKRSRC', 'TASK', 'ROLE']
 
 def read_tab(table,mid):
     fname = f'extracted/tab_{table}_{mid}.csv'
@@ -101,7 +101,7 @@ def make_task_graph(tables, args):
         )
 
     for i,r in tables['TASKPRED'].iterrows():
-        g.add_edge(r['task_id'], r['pred_task_id'])
+        g.add_edge(r['task_id'], r['pred_task_id'], pred_type=r['pred_type'])
 
     return g
 
@@ -314,8 +314,8 @@ def render_all(g,args):
         #print(mylabel, col, node.shape, n[0])
         dot.node(str(n[0]),label=mylabel,color=col,shape=node.shape, fillcolor=node.areacol, fontcolor=node.fontcolor, style='filled',penwidth=str(pw))
 
-    for e in g.edges():
-        dot.edge(str(e[0]),str(e[1]), label=f'', color='black')
+    for e in g.edges(data=True):
+        dot.edge(str(e[0]),str(e[1]), label=f'{e[2]["pred_type"]}', color='black')
 
     reduced = "wr" if args.do_reduction else "wor"
     fname=f'output/nx_{args.wbs_item}_{reduced}'

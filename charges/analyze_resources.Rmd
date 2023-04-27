@@ -56,12 +56,14 @@ taskrsrc<-read.my.file(datepart, 'TASKRSRC')
 rsrc<-read.my.file(datepart, "RSRC")
 wbs<-read.my.file(datepart, "PROJWBS")
 tasks<-read.my.file(datepart,"TASK")
+roles<-read.my.file(datepart,"ROLE")
 udf.type<-read.my.file(datepart,"UDFTYPE")
 udf.value<-read.my.file(datepart,"UDFVALUE")
 
 tasks<-adjust.date(tasks,"target","_date")
 tasks<-adjust.date(tasks,"early","_date")
 tasks<-adjust.date(tasks,"late","_date")
+taskrsrc<-adjust.date(taskrsrc,"target","_date")
 
 # this is a summary of the above out of reader.py -P -d
 # it already has the wbs info merged with the tasks
@@ -70,6 +72,9 @@ all.paths<-read.csv(paste("../output/allareas_",datepart,".csv",sep=''))
 all.data<-adjust.date(all.data,"target","")
 all.data<-adjust.date(all.data,"early","")
 all.data<-adjust.date(all.data,"late","")
+
+all.data$cost <- as.numeric(all.data$cost)
+all.data$cost[is.na(all.data$cost)] <- 0
 
 ```
 
@@ -88,6 +93,10 @@ all.data <- left_join(all.data, ctc.recs, by=join_by(task_id))
 
 ```{r}
 
+all.data.labor<- filter(all.data,rsrc_type=='RT_Labor')
+tmp<- taskrsrc%>% left_join(rsrc, by=join_by(rsrc_id))
+tmp.2<- tmp %>% left_join(roles, by=join_by(role_id.x==role_id))
+tmp.3<- tmp.2 %>% left_join(ctc.recs,by=join_by(task_id))
 ```
 
 
@@ -98,16 +107,22 @@ should add a switch on reader to generate this alltasks file, and decorate with 
 
 
 ```{r}
-all.data.labor<- filter(all.data,rsrc_type=='RT_Labor')
-#dates.seq<- seq.Date(from = as.Date('2022-06-06'), to = max(all.data$target_end), by = 'weeks')
-#dates.seq<- seq.Date(from = min(all.data.labor$target_start), to = max(all.data.labor$target_end), by = 'weeks')
-#a.1 <- hist(tasks$target_start, "weeks", plot=FALSE)
 
 date.list <- function(a,b,c)
 {
-  tmp<-seq.Date(from=a, to=b, by='weeks')
-  data.frame(d=floor_date(tmp,"weeks",week_start=1),hours=c/(length(tmp)))
+  tmp<-seq.Date(from=a, to=b, by='week')
+  data.frame(d=floor_date(tmp,unit="week",week_start=7),hours=c/(length(tmp)))
 }
+
+date.list.days <- function(a,b,c)
+{
+  tmp<-seq.Date(from=a, to=b, by='day')
+  data.frame(d=floor_date(tmp,unit="day",week_start=7),hours=c/(length(tmp)))
+}
+
+```
+
+```{r}
 
 plot.sum <- function(data, grp)
 {
@@ -121,14 +136,92 @@ print(ggplot(tot.hours,aes(x=dl.d, y=sum,colour=as.factor(g))) + geom_line())
 tot.hours
 }
 
-tot.sum<-plot.sum(all.data.labor, 'area')
+plot.sum2 <- function(data, grp)
+{
+a.2<- filter(data,rsrc_type.x=='RT_Labor')%>%
+  select( s=target_start_date, e=target_end_date, d=target_qty, r=remain_qty, g=grp) %>%
+  filter(!is.na(g))%>% 
+  rowwise() %>% mutate(dl=list(date.list(s,e,d)))
+
+a.2<- unnest(a.2,cols=c(dl),names_sep='.') %>% arrange(g,s)
+tot.hours.tmp<- group_by(a.2,g,dl.d) %>% summarise(sum=sum(dl.hours),.groups='keep')
+tot.hours<- arrange(tot.hours.tmp,g,dl.d) %>% group_by(g) %>% mutate(csum=cumsum(sum))
+
+print(ggplot(tot.hours,aes(x=dl.d, y=csum,colour=as.factor(g))) + geom_line())
+print(ggplot(tot.hours,aes(x=dl.d, y=sum,colour=as.factor(g))) + geom_line())
+tot.hours
+}
+
+```
+
+```{r}
+
+plot.sum3 <- function(data, grp, name)
+{
+a.2<- filter(data,rsrc_type.x=='RT_Labor')%>%
+  select( task_id=task_id,s=target_start_date, e=target_end_date, d=target_qty, r=remain_qty, g=grp) %>%
+  filter(!is.na(g)&str_detect(g,name))%>% 
+  rowwise() %>% mutate(dl=list(date.list(s,e,d)))
+
+#view(filter(data,rsrc_type.x=='RT_Labor')%>%
+#  select( task_id=task_id,s=target_start_date, e=target_end_date, d=target_qty, r=remain_qty, g=grp) %>%
+#  filter(!is.na(g)&str_detect(g,name)))
+a.2<- unnest(a.2,cols=c(dl),names_sep='.') %>% arrange(g,s)
+# %>% distinct(g,dl.d,.keep_all=TRUE)
+#view(a.2)
+#noah<-a.2%>%filter(dl.d==as.Date("2023-06-19"))#%>%group_by(g)%>%summarise(summ=sum(dl.hours))
+#view(noah)
+#noah<-noah%>%left_join(select(tasks,task_id,task_code),by=join_by(task_id))
+#view(noah)
+
+tot.hours.tmp<- filter(a.2,s>as.Date('2022-12-01'))%>%group_by(g,dl.d) %>%
+  summarise(sum=sum(dl.hours),.groups='keep') 
+#view(tot.hours.tmp)
+
+tot.hours<- arrange(tot.hours.tmp,g,dl.d) %>% group_by(g) %>% 
+  mutate(csum=cumsum(sum))
+#view(tot.hours)
+
+t.1<-ggplot(tot.hours,aes(x=dl.d, y=csum,colour=as.factor(g))) +
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_step()
+t.2<-ggplot(tot.hours,aes(x=dl.d, y=sum,colour=as.factor(g))) +
+  scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_step() + facet_grid(vars(g), scales="free_y")
+print(t.1)
+print(t.2)
+ggsave(t.2, filename="hours.pdf",units="in", height=10, width=24, device="pdf")
+print(getwd())
+tot.hours
+}
+
+```
+
+```{r}
+#plot.sum2(tmp.2,'role_name')
+#plot.sum2(tmp.2,'rsrc_short_name')
+#total.hours <- plot.sum3(tmp.2, 'role_name', "Noah")
+#total.hours <- plot.sum3(tmp.2, 'role_name', "Chappa")
+#total.hours <- plot.sum3(tmp.2, 'role_name', "Funk|Noah|Chappa|Arv|Ron|Santu|Lucy")
+total.hours <- plot.sum3(tmp.2, 'role_name', ".*")
+#total.hours <- plot.sum3(tmp.2,'rsrc_name','Operations')
+#total.hours <- plot.sum3(tmp.2,'rsrc_name','Engineer|Operation|Design|Draft')
+#total.hours <- plot.sum3(tmp.2,'rsrc_name','.*')
+```
+
+
+```{r}
+#tot.sum<-plot.sum(all.data.labor, 'area')
  # + facet_grid(rows=vars(area))
+
 
 ```
 
 Don't run this one
 
-```{r}
+
 all.data.2021<-filter(all.data, year(target_start)>2021)
 all.data.2021$g=as.numeric(as.factor(all.data.2021$group))
 gp<-ggplot(all.data.2021, aes(xmin = as.Date(target_start), xmax = as.Date(target_end), 
@@ -139,10 +232,9 @@ gp<-ggplot(all.data.2021, aes(xmin = as.Date(target_start), xmax = as.Date(targe
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
   theme(axis.text.x = element_text(angle = 90)) + 
   geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3)
-```
 
 Original way ...
-```{r}
+
 dates.seq<- seq.Date(from = as.Date('2022-06-06'), to = max(tasks$target_end_date), by = 'weeks')
 a.1 <- hist(tasks$target_start_date, "weeks", plot=FALSE)
 
@@ -157,6 +249,176 @@ tot.hours<- group_by(a.2,dl.d) %>% summarise(sum=sum(dl.hours))
 tot.hours<- arrange(tot.hours, dl.d) %>% mutate(csum=cumsum(sum))
 
 # ggplot(tot.hours,aes(x=tot.hours$dl.d, y=tot.hours$csum)) + geom_line()
+
+
+
+```{r}
+by.day<- filter(tmp.2,rsrc_type.x=='RT_Labor') %>%
+  select( task_id=task_id,s=target_start_date, e=target_end_date, dt=target_qty, r=remain_qty, g=role_name) %>%
+  filter(!is.na(g)&str_detect(g,".*")) %>% 
+  rowwise() %>% mutate(dl=list(date.list.days(s,e,dt)))
+
+by.day2<- unnest(by.day,cols=c(dl),names_sep='.') %>% arrange(g,s) %>%
+  mutate(week=floor_date(dl.d,unit="week",week_start=1)) 
+```
+
+by.day3<- by.day2 %>% filter(s>as.Date('2022-12-01')) %>%
+  group_by(g,week) %>% summarise(sum=sum(dl.hours),.groups='keep')
+
+t.2<-ggplot(by.day3,aes(x=week, y=sum,colour=as.factor(g))) +
+  scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_step() + facet_grid(vars(g), scales="free_y")
+
+print(t.2)
+ggsave(t.2, filename="hours.pdf",units="in", height=10, width=24, device="pdf")
+
+
+
+# &target_end<as.Date("2023-03-01")
+
+tmp<- all.data%>%
+  filter((area>9 | area==1))%>%
+  arrange(ctc,target_end)%>%
+  group_by(ctc)%>%
+  summarise(tot=sum(cost))
+  #reframe(tot=cumsum(cost),e=target_end, s=target_start)
+
+
+```{r}
+by.day<- tmp.3 %>%
+  filter(rsrc_type.x=='RT_Labor') %>%
+  select( task_id=task_id,s=target_start_date, e=target_end_date, dt=target_qty, r=remain_qty, g=ctc) %>%
+  filter(!is.na(g)&str_detect(g,".*")) %>% 
+  rowwise() %>% mutate(dl=list(date.list.days(s,e,dt)))
+
+by.day2<- unnest(by.day,cols=c(dl),names_sep='.') %>% arrange(g,s) %>%
+  mutate(week=floor_date(dl.d,unit="week",week_start=1)) 
+
+by.day3<- by.day2 %>% 
+  arrange(g,week)%>%
+  group_by(g) %>% mutate(sum=cumsum(dl.hours),.groups='keep')
+
+t.2<-ggplot(by.day3,aes(x=week, y=sum,colour=as.factor(g))) +
+  scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_step() + facet_grid(vars(g), scales="free_y")
+
+print(t.2)
+ggsave(t.2, filename="hours2.pdf",units="in", height=10, width=24, device="pdf")
+
+```
+
+```{r}
+# temporary
+#first.week<-as.Date('2023-03-05')
+
+# magic dates - Kronos and scheduled hours almost match in this range.
+# Increasing first.week date by one day makes scheduled hours go higher than logged hours.
+# It gets much worse as first.week approaches last.week.
+first.week<-as.Date('2022-05-08')
+last.week<-as.Date('2023-03-08')
+
+#  There are no scheduled hours in this range of dates, but Kronos logged 6131 hours.
+#first.week<-as.Date('2019-01-01')
+#last.week<-as.Date('2022-05-09')
+
+# Later data
+#first.week<-as.Date('2022-12-20')
+#last.week<-as.Date('2023-03-08')
+
+
+#first.week<-as.Date('2019-01-01')
+#last.week<-as.Date('2022-10-06')
+
+first.week<-as.Date('2022-10-01')
+last.week<-as.Date('2024-09-30')
+
+by.day<- tmp.3 %>%
+  filter(rsrc_type.x=='RT_Labor') %>%
+  select( task_id=task_id,s=target_start_date, e=target_end_date, dt=target_qty, r=remain_qty, g=rsrc_short_name) %>%
+  filter(!is.na(g)&str_detect(g,".*")) %>% 
+  rowwise() %>% mutate(dl=list(date.list.days(s,e,dt)))
+
+by.day2<- unnest(by.day,cols=c(dl),names_sep='.') %>% arrange(g,s) %>%
+  mutate(week=floor_date(dl.d,unit="week",week_start=1)) 
+
+by.day3<- by.day2 %>% 
+  filter(week<last.week & week>first.week)%>%
+  group_by(g,week) %>% summarise(hsum=sum(dl.hours))
+print('-')
+
+by.week4<- by.day3 %>%
+  arrange(g,week)%>%
+  group_by(g) %>% mutate(csum=cumsum(hsum))
+
+tmp.ctc.hours<-by.day3%>%
+  filter(week<last.week & week>first.week)%>%
+  group_by(g) %>%summarise(tot=sum(hsum)) 
+print('-')
+
+by.kronos4<- all.charges%>%
+  filter(Timecard.Start<last.week & Timecard.Start>first.week)%>%
+  select(Last.Name, taskname, Timecard.Start, Hours)%>%
+  arrange(taskname, Timecard.Start)%>%
+  group_by(taskname) %>% mutate(ksum=cumsum(Hours))
+
+j.ctc<- bind_rows( distinct(by.kronos4,taskname), distinct(select(by.week4,taskname=g), taskname))
+j.ctc$taskname.code<- str_detect(j.ctc$taskname, "Proj") * 1 + 
+  str_detect(j.ctc$taskname, "Civil") * 2 +
+  str_detect(j.ctc$taskname, "Proto") * 3 +
+  str_detect(j.ctc$taskname, "Research") * 4 +
+  str_detect(j.ctc$taskname, "Network") * 5 +
+  str_detect(j.ctc$taskname, "Qual") * 6
+
+j.ctc$rsrc.code<- case_when(
+  str_detect(j.ctc$taskname,"COORD")~'TECH', 
+  str_detect(j.ctc$taskname,"APDEV")~'ENG', 
+  str_detect(j.ctc$taskname,"DRIVE")~'TECH', 
+  str_detect(j.ctc$taskname,"TECH")~'TECH', 
+  str_detect(j.ctc$taskname,"DESIGN")~'ENG', 
+  str_detect(j.ctc$taskname,"PHYST")~'SCI', 
+  str_detect(j.ctc$taskname,"MACHIN")~'TECH', 
+  str_detect(j.ctc$taskname,"DRAFT")~'TECH', 
+  str_detect(j.ctc$taskname,"METRO")~'TECH', 
+  str_detect(j.ctc$taskname,"SPCLST")~'TECH', 
+  str_detect(j.ctc$taskname,"PRJ")~'ADMIN', 
+  str_detect(j.ctc$taskname,"EXP_RA")~'RA', 
+  str_detect(j.ctc$taskname,"SAFE")~'TECH', 
+  TRUE~"NONE"
+  )
+
+by.kronos4<- left_join(by.kronos4, j.ctc, by=join_by(taskname))  
+by.week4<- left_join(by.week4, j.ctc, by=join_by(g==taskname))
+
+tmp.kronos.hours<-all.charges%>%
+  filter(Timecard.Start>first.week & Timecard.Start<last.week)%>%
+  group_by(taskname)%>%summarise(tot=sum(Hours))
+
+by.both4<- full_join(by.week4, by.kronos4, by=join_by(taskname.code, week==Timecard.Start))
+
+#view(tmp.ctc.hours)
+#view(tmp.kronos.hours)
+
+s.k<-sum(tmp.kronos.hours$tot)
+s.c<-sum(tmp.ctc.hours$tot)
+print(s.k)
+print(s.c)
+print(s.k-s.c)
+```
+```{r}
+t.2<-ggplot(by.week4,aes(x=week, y=csum,colour=as.factor(rsrc.code))) +
+  scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_step() + facet_grid(vars(rsrc.code), scales="free_y")
+
+#t.2<-ggplot(by.both4,aes(x=week, y=csum,colour=as.factor(g))) +
+#  scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
+#  theme(axis.text.x = element_text(angle = 90)) +
+#  geom_step() + facet_grid(vars(g), scales="free_y")
+
+print(t.2)
+ggsave(t.2, filename="hours3.pdf",units="in", height=10, width=24, device="pdf")
 
 ```
 
