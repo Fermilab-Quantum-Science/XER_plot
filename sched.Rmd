@@ -49,12 +49,13 @@ sec   min  hour  mday   mon  year  wday  yday isdst
   
 
 ```{r}
-datepart<-'Dec2022FY24Scenario'
-datepart<-'Dec2022FY24ScenarioUpdated' # with delayed M&S
-datepart<-'Dec2022FY23' # limited to 5.4M spending
+#datepart<-'Dec2022FY24Scenario'
+#datepart<-'Dec2022FY24ScenarioUpdated' # with delayed M&S
+#datepart<-'Dec2022FY23' # limited to 5.4M spending
 #datepart<-'Dec2022StatusInput'
 #datapart<-'Dec2022Current'
-datepart<-'Dec22WSCurrent'
+#datepart<-'Dec22WSCurrent'
+datepart<-'current'
 
 read.my.file <- function(datepart, tab)
 {
@@ -83,7 +84,7 @@ udf.type<-read.my.file(datepart,"UDFTYPE")
 udf.value<-read.my.file(datepart, "UDFVALUE")
 # this is a summary of the above out of reader.py -P -d
 all.data<-read.csv(paste("output/alltasks_",datepart,".csv",sep=''))
-all.paths<-read.csv(paste("output/allareas_",datepart,".csv",sep=''))
+#all.paths<-read.csv(paste("output/allareas_",datepart,".csv",sep=''))
 all.data<-adjust.date(all.data,"target","")
 all.data<-adjust.date(all.data,"early","")
 all.data<-adjust.date(all.data,"late","")
@@ -201,8 +202,27 @@ What has a gap between target end and late end of greater than X months?
 
 ```{r}
 now <- Sys.Date()
+
+tot.costs <-  taskrsrc %>% group_by(task_id) %>% summarise(total_cost=sum(target_cost),.groups='drop')
+all.data <- all.data %>% left_join(tot.costs, by=join_by(task_id))
+
+# target interval
 target <- interval(all.data$target_start, all.data$target_end)
+```
+
+```{r}
+# start date interval
+start.interval <- interval('2023-03-01', '2023-09-30')
+start.interval.Q4 <- interval('2023-09-01', '2023-12-30')
+# start date interval
+end.interval <- interval('2024-07-01', '2025-02-28')
+late.interval <- interval('2025-09-01', '2025-12-31')
+
 active <- all.data[now %within% target,] %>% arrange(desc(target_start))
+starting.Q3 <- all.data[all.data$target_start %within% start.interval,] %>% arrange(desc(target_start))
+starting.Q4 <- all.data[all.data$target_start %within% start.interval.Q4,] %>% arrange(desc(target_start))
+latest.Q4 <- all.data[all.data$target_start %within% late.interval,] %>% arrange(desc(target_start))
+ending.Q4 <- all.data[all.data$target_end %within% end.interval,] %>% arrange(desc(target_end))
 no.start <- all.data %>% filter(status=='TK_NotStart' & target_start<now)
 should.end <- all.data %>% filter(status=='TK_Active' & target_end<now)
 up.next <- all.data %>% filter(status=='TK_NotStart' & target_start %within% interval(now,now+months(1)))
@@ -212,13 +232,24 @@ end.gap <- all.data %>% filter((late_end-target_end)>months(9))
 
 
 ```{r}
-gp<-ggplot(active%>%filter(target_start<as.Date("2026-10-01")&target_start>as.Date("2022-07-01")&(area>10|area==1)), aes( 
-                   y=reorder(code,target_start))) +
+tmp<-starting.Q4%>% #ending.Q4%>%
+#tmp<-latest.Q4%>% #ending.Q4%>%
+  #filter(target_start<as.Date("2026-10-01")&target_start>as.Date("2022-07-01")&(area>10|area==1))
+  filter(target_start>as.Date('2023-05-01'))%>%
+  filter(total_cost>=0&(area>10|area==1)) %>% filter(rsrc_type=='RT_Labor'&total_float>=0)
+
+# size was 1.8 and 1.5 originally
+# size changed to 2.8 and 2.5
+
+gp<-ggplot(tmp, aes( 
+                   y=reorder(code,target_start)
+                   #y=reorder(code,total_cost)
+                   )) +
   geom_linerange(aes(xmin = early_start, xmax = early_end),colour='red',position=position_nudge(y=0.0)) +
   geom_linerange(aes(xmin = late_start, xmax = late_end), colour='green',position=position_nudge(y=0.0)) +
   geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=1.0) +
-  geom_text(aes(x = target_start, label = name), nudge_x=9.6, nudge_y=.4, size=1.8) +
-  geom_text(aes(x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1.5) +
+  geom_text(aes(hjust='left',x = target_start, label = paste(total_cost,name,sep=":")), nudge_x=9.6, nudge_y=.4, size=1.8) +
+  geom_text(aes(hjust='left',x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1.5) +
   #geom_point(aes(x=now)) +
   #scale_y_discrete("code") +
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +

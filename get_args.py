@@ -8,7 +8,8 @@ class Fake:
     later_code='A1503600'
     output_format='png'
     #date_part='Dec2022Current'
-    date_part='Dec22WSCurrent'
+    #date_part='Dec22WSCurrent'
+    date_part='current'
     wbs_filter=False
     wbs_item=None
     show_diffs=False

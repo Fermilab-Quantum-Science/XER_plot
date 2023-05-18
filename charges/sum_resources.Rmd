@@ -38,7 +38,7 @@ fiscal.from.date <- function(rec)
 ```
 
 ```{r}
-datepart<-'Dec22WSCurrent'
+datepart<-'current'
 
 read.my.file <- function(datepart, tab)
 {
@@ -73,7 +73,7 @@ taskrsrc<-adjust.date(taskrsrc,"target","_date")
 # this is a summary of the above out of reader.py -P -d
 # it already has the wbs info merged with the tasks
 all.data<-read.csv(paste("../output/alltasks_",datepart,".csv",sep=''))
-all.paths<-read.csv(paste("../output/allareas_",datepart,".csv",sep=''))
+#all.paths<-read.csv(paste("../output/allareas_",datepart,".csv",sep=''))
 all.data<-adjust.date(all.data,"target","")
 all.data<-adjust.date(all.data,"early","")
 all.data<-adjust.date(all.data,"late","")
@@ -100,7 +100,7 @@ all.data <- left_join(all.data, ctc.recs, by=join_by(task_id))
 ```{r}
 task.rsrc<- taskrsrc%>% left_join(rsrc, by=join_by(rsrc_id))
 task.rsrc.roles<- task.rsrc %>% left_join(roles, by=join_by(role_id.x==role_id))
-tasks.with.all <- task.rsrc.roles %>% left_join(ctc.recs,by=join_by(task_id))
+tasks.with.all.init <- task.rsrc.roles %>% left_join(ctc.recs,by=join_by(task_id))
 ```
 
 
@@ -111,15 +111,28 @@ chg.cols[1]='text'
 chg.cols[2]='text'
 chg.cols[18]='text'
 
-c3 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230305.xlsx', col_types=chg.cols)
-c2 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230219.xlsx', col_types=chg.cols)
-c1 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230205.xlsx', col_types=chg.cols)
-c0 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230130.xlsx', col_types=chg.cols)
-all.charges <- bind_rows(bind_rows(bind_rows(c0,c1),c2),c3)
+c4 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230423.xlsx', col_types=chg.cols)
+c3 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230305.xlsx', col_types=chg.cols)
+c2 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230219.xlsx', col_types=chg.cols)
+c1 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230205.xlsx', col_types=chg.cols)
+c0 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230130.xlsx', col_types=chg.cols)
+all.charges <- bind_rows(bind_rows(bind_rows(c0,c1),c2),c3,c4)
 names(all.charges) <- make.names(colnames(all.charges))
 
 tmp<-as.POSIXlt(all.charges$Timecard.Start)
 all.charges <- all.charges %>% mutate(year=tmp$year-100+2000,month=tmp$mon)
+
+adjust.date2 <- function(tab, col) 
+{ 
+  name.s <- paste(col,".Start",sep='')
+  name.e <- paste(col,".End",sep='')
+  tab[[name.s]] <- as.Date(tab[[name.s]]) 
+  tab[[name.e]] <- as.Date(tab[[name.e]]) 
+  tab
+}
+
+all.charges<-adjust.date2(all.charges,"Timecard")
+
 
 # add a fiscal year field
 all.charges$fiscal.year <- fiscal.year(all.charges)
@@ -153,7 +166,7 @@ Need name dataset with the following:
 Name, Functional.Role, Job.Functional.Role, Functional.Category, role_name, rsrc_name, rsrc_short_name
 
 ```{r}
-tmp.kronos.names <- all.charges %>% select(taskname, Function.Role, Job.Functional.Code, Function.Category, Last.Name, Full.Name)
+tmp.kronos.names <- all.charges %>% select(taskname, DSC, Department, Function.Role, Job.Functional.Code, Function.Category, Last.Name, Full.Name)
 tmp.rsrc.names <- rsrc %>% select(rsrc_id, role_id, rsrc_name, rsrc_short_name, rsrc_type)
 tmp.role.names <- roles %>% select(role_id, role_name)
 tmp.taskrsrc.names <- taskrsrc %>% select(rsrc_id, rsrc_type, role_id)
@@ -185,9 +198,19 @@ people.p6$rsrc.code[str_detect(people.p6$Last.Name, "KOWALKOW")]='ENG'
 people.p6$rsrc.code[str_detect(people.p6$Last.Name, "PLUNK")]='SCI'
 people.p6$rsrc.code[str_detect(people.p6$Last.Name, "VALERIO")]='ENG'
 people.p6$rsrc.code[str_detect(people.p6$Last.Name, "TEMPLES")]='RA'
+people.p6$rsrc.code[str_detect(people.p6$Last.Name, "HURD")]='TECH'
 
-tasks.with.all <- tasks.with.all %>%
-  left_join(select(people.p6, rsrc_id, role_id.x, rsrc.code), by=join_by(rsrc_id, role_id.x==role_id.x))
+people.p6 <- mutate(people.p6,DSC=replace_na(DSC,'TBD'))
+
+# from spreadsheet:  unassigned if role_name = NA. this means the DSC is a guess at this point.
+tmp<- read.csv("../../roles.csv")
+people.p6<- left_join(people.p6,tmp, by=join_by(rsrc_id, role_name, rsrc_name, rsrc_short_name, Department)) %>%
+  rename(DSC=DSC.y, rsrc_type=rsrc_type.x, role_id=role_id.x)
+
+
+tasks.with.all <- tasks.with.all.init %>%
+  left_join(select(people.p6, rsrc_id, role_id, rsrc.code, DSC), by=join_by(rsrc_id, role_id.x==role_id)) %>%
+  rename(role_id=role_id.x, rsrc_id=rsrc_id)
   
 
 
@@ -234,17 +257,31 @@ last.week<-as.Date('2023-03-08')
 #first.week<-as.Date('2023-10-01')
 #last.week<-as.Date('2024-09-30')
 
-# FY23-25
+# FY23-25-26
 first.week<-as.Date('2023-03-01')
-last.week<-as.Date('2025-09-30')
+last.week<-as.Date('2026-05-30')
+
+# special for kronos compare
+#first.week<-as.Date('2023-03-01')
+#last.week<-as.Date('2023-04-24')
+
+# Q2 FY23
+#first.week<-as.Date('2023-01-01')
+#last.week<-as.Date('2023-04-01')
+
+#  FY23
+#first.week<-as.Date('2023-03-01')
+#last.week<-as.Date('2023-10-01')
 
 
 # here I really want the tasks.with.all to have the new rsrc.code from people.p6 
+# code = DSC interesting
+# code = ctc interesting
 # removed ctc=ctc, from the selection list
 
 by.day<- tasks.with.all %>%
   filter(rsrc_type.x=='RT_Labor') %>%
-  select( task_id=task_id,s=target_start_date, e=target_end_date, dt=target_qty, r=remain_qty,  rsrc=rsrc_short_name, code=rsrc.code) %>%
+  select( task_id=task_id,s=target_start_date, e=target_end_date, dt=target_qty, r=remain_qty,  person=role_name, rsrc=rsrc.code, type=rsrc_name, code=DSC) %>%
   #filter(!is.na(ctc)&str_detect(ctc,".*")) %>% 
   rowwise() %>% mutate(dl=list(date.list.days(s,e,dt)))
 
@@ -254,27 +291,23 @@ by.day2<- unnest(by.day,cols=c(dl),names_sep='.') %>% arrange(s) %>%
 
 by.day3<- by.day2 %>% 
   filter(week<last.week & week>first.week)%>%
-  group_by(FY, code, week) %>% summarise(hsum=sum(dl.hours))
-print('-')
+  group_by(FY, rsrc, week) %>% summarise(hsum=sum(dl.hours),.groups='drop')
 
+# code or rsrc 
 by.week4<- by.day3 %>%
-  arrange(FY,code,week)%>%
-  group_by(FY,code) %>% mutate(csum=cumsum(hsum))
+  arrange(FY,rsrc,week)%>%
+  group_by(FY,rsrc) %>% mutate(csum=cumsum(hsum))
 
-print('-')
-
-by.kronos4<- all.charges%>%
-  filter(Timecard.Start<last.week & Timecard.Start>first.week)%>%
-  select(Last.Name, taskname, Timecard.Start, Hours)%>%
-  arrange(taskname, Timecard.Start)%>%
-  group_by(taskname) %>% mutate(ksum=cumsum(Hours))
 
 ```
 
-```{r}
 
-by.kronos4.j <- left_join(by.kronos4, j.ctc, by=join_by(taskname))  
-by.week4.j <- left_join(by.week4.j, j.ctc, by=join_by(ctc==taskname))
+This was a direct compare of hours from Kronos to schedule using taskname (budget code).
+It no longer works.
+# ```{r}
+
+#by.kronos4.j <- left_join(by.kronos4, j.ctc, by=join_by(taskname))  
+by.week4.j <- left_join(by.week4, people6, by=join_by(ctc==taskname))
 
 by.both4.j <- full_join(by.week4.j, by.kronos4.j, by=join_by(taskname.code, week==Timecard.Start))
 
@@ -294,14 +327,43 @@ s.c<-sum(tmp.ctc.hours$tot)
 print(s.k)
 print(s.c)
 print(s.k-s.c)
+# ```
+
+```{r}
+
+fermi.FTE <- 1805
+fy23.interval <- interval('2023-02-27', '2023-09-30')
+
+hours.in.intr <- function(intr)
+{
+  int_length(intr)/24/60/60/7*40*(fermi.FTE/2080)
+}
+fract.of.year <- function(intr)
+{
+  hours.in.intr(intr)/fermi.FTE
+}
+
+hours.to.FTE <- function(frac,h)
+{
+  h*frac/fermi.FTE
+}
+secs.to.FTE <- function(frac,s)
+{
+  hours.to.FTE(frac,s/60/60)
+}
+
+FY.table <- data.frame(FY=c(2023,2024,2025,2026), frac=c(fract.of.year(fy23.interval),1.0,1.0,1.0))
+
 ```
 
 
 ```{r}
-t.2<-ggplot(by.week4,aes(x=week, y=hsum,colour=as.factor(FY))) +
+t.2<-ggplot(filter(by.week4),aes(x=week, y=hsum,colour=as.factor(FY))) +
   scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
   theme(axis.text.x = element_text(angle = 90)) +
-  geom_step() + facet_grid(vars(code), scales="free_y")
+  geom_step() + 
+  facet_grid(rows=vars(rsrc), scales="free_y", drop=TRUE)
+  #facet_wrap(vars(code,rsrc),ncol=1, scales="free_y")
 
 #t.2<-ggplot(by.both4,aes(x=week, y=csum,colour=as.factor(g))) +
 #  scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
@@ -310,6 +372,135 @@ t.2<-ggplot(by.week4,aes(x=week, y=hsum,colour=as.factor(FY))) +
 
 print(t.2)
 ggsave(t.2, filename="hours3.pdf",units="in", height=10, width=24, device="pdf")
+```
 
+```{r}
+
+# important period
+f.week<-as.Date('2023-03-01')
+l.week<-as.Date('2023-04-24')
+
+# FY23 Q2
+f.week<-as.Date('2023-01-01')
+l.week<-as.Date('2023-04-01')
+
+by.kronos4.t <- left_join(all.charges, people.p6, by=join_by(Last.Name,taskname))
+
+# rsrc.code
+# Function.Role.x
+# Last.Name
+tmp<-by.kronos4.t%>%
+  filter(Timecard.Start<l.week & Timecard.Start>f.week)%>%
+  group_by(Last.Name)%>%summarise(FTE2080=sum(Hours)/(2080/4),FTE1704=sum(Hours)/(1704/4),tot=sum(Hours))
+
+by.kronos4<- by.kronos4.t%>%
+  filter(Timecard.Start<l.week & Timecard.Start>f.week)%>%
+  select(Last.Name, taskname, code=Function.Role.x, week=Timecard.Start, Hours)%>%
+  group_by(code, Last.Name, week) %>% summarise(Total.Hours=sum(Hours),.groups='drop')
+
+by.kronos4<- by.kronos4 %>%
+  group_by(code, week) %>% summarise(hsum=sum(Total.Hours),.groups='drop')%>% 
+  arrange(code,week)%>%
+  group_by(code) %>% mutate(csum=cumsum(hsum))
+
+#tmp.tots<- by.kronos4 %>% 
+#  group_by(code) %>% summarise(tots=sum(hsum))
+
+by.both <- full_join(by.kronos4, by.week4, by=join_by(code, week), suffix=c(".kronos",".sched"))
+by.both <- by.both %>%
+  mutate(h.ratio=hsum.kronos/hsum.sched, c.ratio=csum.kronos/csum.sched)
+
+fract.k.s <- by.both %>%
+  group_by(code) %>% summarise(perc=sum(hsum.kronos, na.rm=TRUE)/sum(hsum.sched, na.rm=TRUE),.groups='drop')
+
+```
+
+
+```{r}
+t.3<-ggplot(by.kronos4,aes(x=week, y=hsum))+ # ,colour=as.factor(Last.Name))) +
+  scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_step() + facet_grid(vars(code), scales="free_y")
+
+print(t.3)
+ggsave(t.3, filename="hours4.pdf",units="in", height=10, width=24, device="pdf")
+
+```
+
+
+```{r}
+tmp.costs.a<- tasks%>%select(task_code, task_id, task_name, target_start_date, target_end_date)
+tmp.costs.b<- taskrsrc%>%select(task_id,target_cost, target_qty, remain_qty)
+
+tmp.costs<- tmp.costs.a %>%
+  full_join(tmp.costs.b,join_by(task_id),multiple='all')%>%
+  group_by(task_code)%>%
+  summarise(cost=sum(target_cost),quantity=sum(target_qty), remain=sum(remain_qty),.groups='drop_last')
+
+tmp.costs<- tmp.costs %>% left_join(tmp.costs.a, join_by(task_code)) %>% filter(!is.na(quantity))
+
+```
+
+```{r}
+print(getwd())
+tmp<- read.csv("../../roles.csv")
+pp6<- left_join(people.p6,tmp, by=join_by(rsrc_id, role_name, rsrc_name, rsrc_short_name, Department))
+```
+
+
+Start from by.day2, and generate summaries by: 
+  FY by rsrc, FY by code, FY by type, FY by code by type, FY by code by rsrc
+  
+
+
+```{r}
+  tmp <- by.day2 %>% 
+    filter(week<last.week & week>first.week)
+  tmp <- left_join(tmp, FY.table, by=join_by(FY))
+
+  FY.code <- tmp %>%
+    group_by(FY, code) %>% 
+    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+  FY.rsrc <- tmp %>%
+    group_by(FY, rsrc) %>% 
+    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+  FY.type <- tmp %>%
+    group_by(FY, type) %>% 
+    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+  FY.code.type <- tmp %>%
+    group_by(FY, code, type) %>% 
+    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+  FY.code.rsrc <- tmp %>%
+    group_by(FY, code, rsrc) %>% 
+    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+  
+  gtmp <- ggplot(tmp, aes(weight=hours.to.FTE(frac,dl.hours), x=FY))
+  
+  print(gtmp + geom_bar(aes(fill = rsrc)))
+  print(gtmp + geom_bar(aes(fill = code)))
+  print(gtmp + geom_bar(aes(fill = type)))
+  print(gtmp + geom_bar(aes(fill = rsrc)) + facet_wrap(vars(code), scales="free_y"))
+  
+  # what we need for the remainer of the year from the schedule
+  # filter(tmp, FY==2023& !is.na(person))%>% group_by(person, type) %>% summarise(tot=sum(dl.hours))
+  
+  # need what is in the budget sheet
+
+```
+```{r}
+
+fy23.filt <- by.day2[by.day2$week %within% fy23.interval,] %>% arrange(week)
+fte.remaining <- int_length(fy23.interval)/24/60/60/7*40*(1805/2080)
+
+tmp.recs<- fy23.filt %>%
+  filter(!is.na(person)) %>%
+  select(person, week, dl.hours, type)
+tmp.mm<- tmp.recs %>% group_by(person,week) %>% summarise(min.week=min(week),max.week=max(week),.groups="drop")
+tmp<- tmp.recs %>%
+  group_by(person,type) %>% summarise(FTE=sum(dl.hours)/fte.remaining,.groups="drop")
+
+min(tmp.recs$week)
+max(tmp.recs$week)
+view(tmp)
 ```
 

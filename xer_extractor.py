@@ -7,7 +7,7 @@ import get_args as getargs
 # Extractor
 
 datepart = 'Dec2022FY24ScenarioUpdated'
-datepart = 'Dec2022Current'
+datepart = 'current'
 
 def write_tab(tab,mid):
     name = tab[0][1]
