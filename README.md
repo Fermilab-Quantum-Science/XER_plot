@@ -1,3 +1,18 @@
+
+The standard things to do here are:
+
+1. go to the <toplevel>/input directory and rename schedule_current.xer as schedule_\<descripition\>.xer, where description is typically something like May23Baseline.
+2. copy your exported XER file into name schedule_current.xer
+3. run "python xer_extractor.py" from the top git directory (mine is called read_stuff)
+4. extracted tables will appear as CSV files in <toplevel>/tab_<table_name>_current.csv, where table_name is PROJWBS, ROLE, RSRC, TASK, TASKRSRC, TASKPRED, UDFTYPE, UDFVALUE.
+5. run "python ./reader.py -d -S" from the top git directory.
+6. a CSV file called all <toplevel>/output/alltasks_current.csv will appear
+7. the R processing scripts use the alltasks_X.csv file and the tab_Y_X.csv files
+
+Note that all of these tools (xer_extractor, reader) take -x date_part as an option.   Date_part is "current" in the above case and this is the default if no -x option is given.   In other words, you can run these tools with any XER file given this option and it will be carried through to the output filename (as X in step/note 7 above).
+
+# notes
+
 There are two method in there: one using networkx to trace all paths, and one using graphviz directly.
 
 Let me know if you want to do a zoom call about installation and running.
