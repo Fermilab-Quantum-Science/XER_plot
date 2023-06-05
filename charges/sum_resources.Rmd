@@ -258,7 +258,7 @@ last.week<-as.Date('2023-03-08')
 #last.week<-as.Date('2024-09-30')
 
 # FY23-25-26
-first.week<-as.Date('2023-03-01')
+first.week<-as.Date('2024-01-01')
 last.week<-as.Date('2026-05-30')
 
 # special for kronos compare
@@ -374,7 +374,7 @@ print(t.2)
 ggsave(t.2, filename="hours3.pdf",units="in", height=10, width=24, device="pdf")
 ```
 
-```{r}
+#```{r}
 
 # important period
 f.week<-as.Date('2023-03-01')
@@ -413,10 +413,10 @@ by.both <- by.both %>%
 fract.k.s <- by.both %>%
   group_by(code) %>% summarise(perc=sum(hsum.kronos, na.rm=TRUE)/sum(hsum.sched, na.rm=TRUE),.groups='drop')
 
-```
+#```
 
 
-```{r}
+# ```{r}
 t.3<-ggplot(by.kronos4,aes(x=week, y=hsum))+ # ,colour=as.factor(Last.Name))) +
   scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
   theme(axis.text.x = element_text(angle = 90)) +
@@ -428,7 +428,7 @@ ggsave(t.3, filename="hours4.pdf",units="in", height=10, width=24, device="pdf")
 ```
 
 
-```{r}
+# ```{r}
 tmp.costs.a<- tasks%>%select(task_code, task_id, task_name, target_start_date, target_end_date)
 tmp.costs.b<- taskrsrc%>%select(task_id,target_cost, target_qty, remain_qty)
 
@@ -460,24 +460,24 @@ Start from by.day2, and generate summaries by:
 
   FY.code <- tmp %>%
     group_by(FY, code) %>% 
-    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+    summarise(FTE=hours.to.FTE(min(frac),sum(dl.hours)),.groups='drop')
   FY.rsrc <- tmp %>%
     group_by(FY, rsrc) %>% 
-    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+    summarise(FTE=hours.to.FTE(min(frac),sum(dl.hours)),.groups='drop')
   FY.type <- tmp %>%
     group_by(FY, type) %>% 
-    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+    summarise(FTE=hours.to.FTE(min(frac),sum(dl.hours)),.groups='drop')
   FY.code.type <- tmp %>%
     group_by(FY, code, type) %>% 
-    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+    summarise(FTE=hours.to.FTE(min(frac),sum(dl.hours)),.groups='drop')
   FY.code.rsrc <- tmp %>%
     group_by(FY, code, rsrc) %>% 
-    summarise(hours=hours.to.FTE(frac,sum(dl.hours)),.groups='drop')
+    summarise(FTE=hours.to.FTE(min(frac),sum(dl.hours)),.groups='drop')
   
   gtmp <- ggplot(tmp, aes(weight=hours.to.FTE(frac,dl.hours), x=FY))
   
-  print(gtmp + geom_bar(aes(fill = rsrc)))
-  print(gtmp + geom_bar(aes(fill = code)))
+  print(gtmp + geom_bar(aes(fill = rsrc)) + labs(x="fiscal year", y="FTE", fill="role"))
+  print(gtmp + geom_bar(aes(fill = code))  + labs(x="fiscal year", y="FTE", fill="division"))
   print(gtmp + geom_bar(aes(fill = type)))
   print(gtmp + geom_bar(aes(fill = rsrc)) + facet_wrap(vars(code), scales="free_y"))
   

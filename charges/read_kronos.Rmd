@@ -10,6 +10,9 @@ library(readxl)
 library(stringr)
 library(lubridate)
 
+print(getwd())
+
+
 
 FY <- function(year)
 {

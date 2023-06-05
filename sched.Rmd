@@ -101,7 +101,7 @@ Find line in TASKRSRC, first two columns are IDs: taskrsrc_id, task_id
 Find task_id in TASK: there is a task ID and task name here, and task_id,proj_id,wbs_id.
 Find wbs_id in PROJWBS: the name of this area is found here
 
-```{r}
+#```{r}
 #view(all.data%>%select(name, wbs, category, group, wbs_high, wbs_low))
 
 tmp<-filter(path.data, year(target_start)>2021 & type!='Q' & wbs!='01.01')
@@ -124,7 +124,7 @@ gp<-ggplot(tmp, aes(xmin = as.Date(target_start), xmax = as.Date(target_end),
 
 ggsave(gp, filename="vs.pdf",units="in", height=10, width=24, device="pdf")
 print(gp)
-```
+#```
 
 ```{r}
 sched <- tasks %>% left_join(wbs, by=join_by(wbs_id)) %>% select( task_id, target_start_date, target_end_date, task_code, task_name, wbs_id, wbs_name, wbs_short_name) %>% arrange(target_start_date)
@@ -137,14 +137,14 @@ costs <- filter(taskrsrc,target_cost>0) %>% left_join(tasks,by=join_by(task_id))
 ```
 
 
-```{r}
+#```{r}
 group.cat <- ggplot(all.data,aes(x=group, y=category)) + theme(axis.text.x = element_text(angle = 90)) + geom_count()
 group.area <- ggplot(all.data,aes(x=group, y=wbs_high)) + theme(axis.text.x = element_text(angle = 90)) + geom_count()
 cat.area <- ggplot(all.data,aes(x=category, y=wbs_high)) + theme(axis.text.x = element_text(angle = 90)) + geom_count()
 print(group.cat)
 print(group.area)
 print(cat.area)
-```
+#```
 
 ```{r}
 stop.code.list <- read.csv("input/code_list.csv",header=TRUE)
@@ -201,6 +201,7 @@ What has a gap between target end and late end of greater than X months?
 
 
 ```{r}
+
 now <- Sys.Date()
 
 tot.costs <-  taskrsrc %>% group_by(task_id) %>% summarise(total_cost=sum(target_cost),.groups='drop')
@@ -212,13 +213,15 @@ target <- interval(all.data$target_start, all.data$target_end)
 
 ```{r}
 # start date interval
-start.interval <- interval('2023-03-01', '2023-09-30')
+start.interval <- interval('2023-03-01', '2023-07-30')
 start.interval.Q4 <- interval('2023-09-01', '2023-12-30')
 # start date interval
-end.interval <- interval('2024-07-01', '2025-02-28')
+end.interval <- interval('2023-11-01', '2024-10-01')
 late.interval <- interval('2025-09-01', '2025-12-31')
+full.interval <- interval('2023-03-01', '2026-04-30')
 
 active <- all.data[now %within% target,] %>% arrange(desc(target_start))
+full.one <- all.data[all.data$target_start %within% full.interval,] %>% arrange(desc(target_start))
 starting.Q3 <- all.data[all.data$target_start %within% start.interval,] %>% arrange(desc(target_start))
 starting.Q4 <- all.data[all.data$target_start %within% start.interval.Q4,] %>% arrange(desc(target_start))
 latest.Q4 <- all.data[all.data$target_start %within% late.interval,] %>% arrange(desc(target_start))
@@ -232,14 +235,17 @@ end.gap <- all.data %>% filter((late_end-target_end)>months(9))
 
 
 ```{r}
-tmp<-starting.Q4%>% #ending.Q4%>%
+#tmp<-active%>% #ending.Q4%>%
+tmp<-starting.Q3%>% #ending.Q4%>%
 #tmp<-latest.Q4%>% #ending.Q4%>%
   #filter(target_start<as.Date("2026-10-01")&target_start>as.Date("2022-07-01")&(area>10|area==1))
   filter(target_start>as.Date('2023-05-01'))%>%
-  filter(total_cost>=0&(area>10|area==1)) %>% filter(rsrc_type=='RT_Labor'&total_float>=0)
+  filter(total_cost>=0&(area>10|area==1)) # %>% filter(rsrc_type=='RT_Labor') #&total_float>=0)
 
 # size was 1.8 and 1.5 originally
 # size changed to 2.8 and 2.5
+# text element_text size=8 originally
+# blue linewidth 1.0 originally
 
 gp<-ggplot(tmp, aes( 
                    y=reorder(code,target_start)
@@ -247,18 +253,20 @@ gp<-ggplot(tmp, aes(
                    )) +
   geom_linerange(aes(xmin = early_start, xmax = early_end),colour='red',position=position_nudge(y=0.0)) +
   geom_linerange(aes(xmin = late_start, xmax = late_end), colour='green',position=position_nudge(y=0.0)) +
-  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=1.0) +
+  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=.70) +
   geom_text(aes(hjust='left',x = target_start, label = paste(total_cost,name,sep=":")), nudge_x=9.6, nudge_y=.4, size=1.8) +
   geom_text(aes(hjust='left',x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1.5) +
   #geom_point(aes(x=now)) +
   #scale_y_discrete("code") +
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
-  theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=8)) #+ 
+  theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=6)) +
+  labs(x="Target Start Date", y="Activity", fill="role")
 print(gp)
 
-ggsave(gp, filename="active.pdf",units="in", height=10, width=24, device="pdf")
+ggsave(gp, filename="activeX.pdf",units="in", height=10, width=24, device="pdf")
 
 ```
+
 ```{r}
 tmp<-select(active,code)[,1]
 tmp2<-tasks[(tasks$task_code %in% tmp),]
@@ -277,12 +285,14 @@ tmp2.3<-tmp2.2 %>%
   left_join(rsrc, by=join_by(rsrc_id)) %>% 
   select(code,name,dur,target_start,target_end, rsrc_id, target_qty, remain_qty, rsrc_name, perc)
 
-view(tmp2.3)
+#view(tmp2.3)
 
 ```
 
 
+
 ```{r}
+
 gp2<-ggplot(active%>%filter(area>10|area==1), 
             aes( colour=as.factor(area), y=reorder(code,target_start))
             ) +
@@ -291,22 +301,26 @@ gp2<-ggplot(active%>%filter(area>10|area==1),
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
   theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=8)) #+ 
 print(gp2)
-ggsave(gp2, filename="active2.pdf",units="in", height=10, width=24, device="pdf")
+ggsave(gp2, filename="active2X.pdf",units="in", height=10, width=24, device="pdf")
 ```
 
 ```{r}
-gp3<-ggplot(all.data%>%filter(type=='M'), 
-            aes( colour=as.factor(area), y=reorder(code,target_start))
+gp3<-ggplot(all.data%>%filter(type=='M' & target_end>as.Date('2023-10-01')& area<10 & area>1), 
+            aes( colour=as.factor(wbs_high), y=reorder(code,target_start))
             ) +
   geom_linerange(aes(xmin = target_end, xmax = late_end), linewidth=.10)+ #, colour='blue') +
   #geom_point(aes(x=late_end)) +
   geom_point(aes(x=target_end)) +
+  geom_text(aes(hjust='left',x = target_end, label = name), nudge_x=9.6, nudge_y=.4, size=1.8) +
+  #geom_text(aes(hjust='left',x = target_end, label = paste(total_cost,name,sep=":")), nudge_x=9.6, nudge_y=.4, size=1.8) +
+  geom_text(aes(hjust='left',x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1.5, check_overlap = TRUE) +
 
   #scale_y_discrete("code") +
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
-  theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=8)) #+ 
+  theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=6)) +
+  labs(x="Target End Date", y="Milestone", colour="WBS area")
 print(gp3)
-ggsave(gp3, filename="milestones.pdf",units="in", height=10, width=24, device="pdf")
+ggsave(gp3, filename="milestonesX.pdf",units="in", height=10, width=24, device="pdf")
 ```
 
 
@@ -314,3 +328,48 @@ ggsave(gp3, filename="milestones.pdf",units="in", height=10, width=24, device="p
 tmp<- tasks%>% filter(as.Date(cstr_date)<as.Date('2023-04-03')&cstr_type=='CS_MSOA')%>%select(task_code, task_name, cstr_date, cstr_type)%>%arrange(cstr_date)
 ```
 
+```{r}
+#write.csv(
+#  tasks %>% filter(target_start_date>as.Date('2023-03-01')&target_end_date<as.Date('2023-10-01)'))%>%select(task_name, task_code, target_start_date, target_end_date),
+#  "fy23_tasks.csv")
+
+getwd()
+write.csv(
+  all.data%>%filter(target_start>as.Date('2024-09-30')&target_end<as.Date('2025-10-01)'))%>%select(wbs, area,name, code, target_start, target_end, category, group),
+  "../docs_pm/all_tasksX.csv")
+
+# view(all.data %>% mutate(thing=target_end-target_start)%>% select(code, area, name, thing))
+
+# look at this one.   Ariel is in the mix. 
+view(filter(all.data,area<11)%>%left_join(filter(udf.value,udf_type_id==3886), join_by(task_id==fk_id))%>%select(code, target_start, target_end, udf_text, area, wbs)%>%group_by(wbs,udf_text)%>%summarise(mi=min(target_start),ma=max(target_end))%>% arrange(wbs,ma))
+
+write.csv(filter(all.data,area<11)%>%left_join(filter(udf.value,udf_type_id==3886), join_by(task_id==fk_id))%>%select(code, target_start, target_end, udf_text, area, wbs)%>%group_by(area,udf_text)%>%summarise(mi=min(target_start),ma=max(target_end))%>% arrange(ma),"in_kind_max_date.csv")
+
+
+```
+
+
+```{r}
+tmp<-full.one%>% 
+  #filter(area%in%c(2,4,5,6,7,9,10)) # Jason
+  filter(area%in%c(8)) # Ian
+  #filter(area%in%c(3)) # Tim
+
+gp<-ggplot(tmp, aes( 
+                   y=reorder(code,target_start)
+                   )) +
+  geom_linerange(aes(xmin = early_start, xmax = early_end),colour='red',position=position_nudge(y=0.0)) +
+  geom_linerange(aes(xmin = late_start, xmax = late_end), colour='green',position=position_nudge(y=0.0)) +
+  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=.70) +
+  geom_text(aes(hjust='left',x = target_start, label = paste(total_cost,name,sep=":")), nudge_x=9.6, nudge_y=.4, size=1.8) +
+  geom_text(aes(hjust='left',x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1.5) +
+  #geom_point(aes(x=now)) +
+  #scale_y_discrete("code") +
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=6)) +
+  labs(x="Target Start Date", y="Activity", fill="role")
+print(gp)
+
+ggsave(gp, filename="active_Ian.pdf",units="in", height=10, width=24, device="pdf")
+
+```

@@ -205,9 +205,9 @@ tot.hours
 #total.hours <- plot.sum3(tmp.2, 'role_name', "Noah")
 #total.hours <- plot.sum3(tmp.2, 'role_name', "Chappa")
 #total.hours <- plot.sum3(tmp.2, 'role_name', "Funk|Noah|Chappa|Arv|Ron|Santu|Lucy")
-total.hours <- plot.sum3(tmp.2, 'role_name', ".*")
+#total.hours <- plot.sum3(tmp.2, 'role_name', ".*")
 #total.hours <- plot.sum3(tmp.2,'rsrc_name','Operations')
-#total.hours <- plot.sum3(tmp.2,'rsrc_name','Engineer|Operation|Design|Draft')
+total.hours <- plot.sum3(tmp.2,'rsrc_name','Engineer|Operation|Design|Draft')
 #total.hours <- plot.sum3(tmp.2,'rsrc_name','.*')
 ```
 
@@ -407,10 +407,10 @@ print(s.c)
 print(s.k-s.c)
 ```
 ```{r}
-t.2<-ggplot(by.week4,aes(x=week, y=csum,colour=as.factor(rsrc.code))) +
+t.2<-ggplot(by.week4,aes(x=week, y=hsum,colour=as.factor(g))) +
   scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
   theme(axis.text.x = element_text(angle = 90)) +
-  geom_step() + facet_grid(vars(rsrc.code), scales="free_y")
+  geom_step() + facet_grid(vars(g), scales="free_y")
 
 #t.2<-ggplot(by.both4,aes(x=week, y=csum,colour=as.factor(g))) +
 #  scale_x_date(date_breaks='1 weeks', date_labels = "%d %b %y") +
