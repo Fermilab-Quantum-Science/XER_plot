@@ -1,0 +1,35 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(stringr)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+```{r}
+all <- get.all.schedule("current")
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+```
+
+```{r}
+labor <- bin.labor(tasks.people)
+```
+
+
+```{r}
+fte<- FTE.plots(labor$by.day.all)
+activities<- activities.plot(all$all.data, interval(as.Date('2023-03-01'),as.Date('2028-10-01')))
+milestones<- milestones.plot(all$all.data)
+resources<- resources.plot(labor$by.week)
+```
+
