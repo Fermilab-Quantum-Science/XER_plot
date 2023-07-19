@@ -13,29 +13,8 @@ library(readxl)
 library(stringr)
 library(lubridate)
 
+library(MAGIS100PM)
 
-print(getwd())
-
-FY <- function(year)
-{
-  function(rec)
-  {
-    (rec$year==(year-1) & rec$month>=9)|(rec$year==year & rec$month<9)
-  }
-}
-
-fiscal.yr<-function(year, month)
-{
-  year <- year + ifelse(month>=9,1,0)
-}
-fiscal.year<-function(recs)
-{
-  fiscal.yr(recs$year, recs$month)
-}
-fiscal.month<-function(recs)
-{
-  recs$month + ifelse(recs$month>=9, -9, +3)
-}
 ```
 
 EXAMPLES of how to adjust date columns:
@@ -56,6 +35,7 @@ sec   min  hour  mday   mon  year  wday  yday isdst
 #datapart<-'Dec2022Current'
 #datepart<-'Dec22WSCurrent'
 datepart<-'current'
+#datepart<-'previous'
 
 read.my.file <- function(datepart, tab)
 {
@@ -92,7 +72,7 @@ all.data<-adjust.date(all.data,"late","")
 ```
 
 ```{r}
-path.data <- left_join(all.paths, all.data, by=join_by(code))
+#path.data <- left_join(all.paths, all.data, by=join_by(code))
 ```
 
 
@@ -213,12 +193,12 @@ target <- interval(all.data$target_start, all.data$target_end)
 
 ```{r}
 # start date interval
-start.interval <- interval('2023-03-01', '2023-07-30')
+start.interval <- interval('2023-09-01', '2023-08-30')
 start.interval.Q4 <- interval('2023-09-01', '2023-12-30')
 # start date interval
-end.interval <- interval('2023-11-01', '2024-10-01')
+end.interval <- interval('2023-11-01', '2024-11-01')
 late.interval <- interval('2025-09-01', '2025-12-31')
-full.interval <- interval('2023-03-01', '2026-04-30')
+full.interval <- interval('2023-10-01', '2028-12-30')
 
 active <- all.data[now %within% target,] %>% arrange(desc(target_start))
 full.one <- all.data[all.data$target_start %within% full.interval,] %>% arrange(desc(target_start))
@@ -236,11 +216,12 @@ end.gap <- all.data %>% filter((late_end-target_end)>months(9))
 
 ```{r}
 #tmp<-active%>% #ending.Q4%>%
-tmp<-starting.Q3%>% #ending.Q4%>%
+tmp<-full.one%>% #ending.Q4%>%
 #tmp<-latest.Q4%>% #ending.Q4%>%
   #filter(target_start<as.Date("2026-10-01")&target_start>as.Date("2022-07-01")&(area>10|area==1))
   filter(target_start>as.Date('2023-05-01'))%>%
-  filter(total_cost>=0&(area>10|area==1)) # %>% filter(rsrc_type=='RT_Labor') #&total_float>=0)
+  filter(str_detect(name,"eview"))
+  #filter(total_cost>=0&(area>10|area==1)) # %>% filter(rsrc_type=='RT_Labor') #&total_float>=0)
 
 # size was 1.8 and 1.5 originally
 # size changed to 2.8 and 2.5
@@ -291,7 +272,7 @@ tmp2.3<-tmp2.2 %>%
 
 
 
-```{r}
+#```{r}
 
 gp2<-ggplot(active%>%filter(area>10|area==1), 
             aes( colour=as.factor(area), y=reorder(code,target_start))
@@ -302,30 +283,65 @@ gp2<-ggplot(active%>%filter(area>10|area==1),
   theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=8)) #+ 
 print(gp2)
 ggsave(gp2, filename="active2X.pdf",units="in", height=10, width=24, device="pdf")
-```
+#```
 
 ```{r}
-gp3<-ggplot(all.data%>%filter(type=='M' & target_end>as.Date('2023-10-01')& area<10 & area>1), 
-            aes( colour=as.factor(wbs_high), y=reorder(code,target_start))
-            ) +
-  geom_linerange(aes(xmin = target_end, xmax = late_end), linewidth=.10)+ #, colour='blue') +
-  #geom_point(aes(x=late_end)) +
-  geom_point(aes(x=target_end)) +
-  geom_text(aes(hjust='left',x = target_end, label = name), nudge_x=9.6, nudge_y=.4, size=1.8) +
-  #geom_text(aes(hjust='left',x = target_end, label = paste(total_cost,name,sep=":")), nudge_x=9.6, nudge_y=.4, size=1.8) +
-  geom_text(aes(hjust='left',x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1.5, check_overlap = TRUE) +
 
-  #scale_y_discrete("code") +
+tmp<- all.data%>% 
+  mutate(doe_scope=ifelse(area>10|area<2,"DOE-scope","in-kind"), short_name=str_sub(str_replace(str_remove(name,"Milestone"),"Procurement","Proc"),end=40)) %>%
+  filter(type=='M' & target_end>as.Date('2023-10-01')) #& area<10 & area>1), 
+  #filter(target_end>as.Date('2023-10-01')) #& str_detect(name,"instal")) #& area<10 & area>1), 
+
+  #geom_point(aes(x=late_end)) +
+  #geom_text(aes(hjust='left',x = target_end, label = paste(total_cost,name,sep=":")), nudge_x=9.6, nudge_y=.4, size=1.8) +
+  #geom_text(aes(hjust='left',x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1.5, check_overlap = TRUE) +
+  #scale_y_discrete(sec.axis=dup_axis(~total_float))+
+
+
+gp3<-ggplot(
+  tmp,
+  aes( colour=as.factor(wbs_high), y=reorder(code,target_start))
+  ) +
+  geom_linerange(aes(xmin = target_end, xmax = late_end), linewidth=.10)+ #, colour='blue') +
+  geom_linerange(aes(xmin = early_start, xmax = target_end), linewidth=.10)+ #, colour='blue') +
+  geom_point(aes(x=target_end),size=5) +
+  geom_text(aes(hjust='left',x = target_end, label = short_name), 
+            nudge_x=9.6, nudge_y=.4, size=1.8) +
+  geom_text(aes(hjust='right',x=as.Date(max(target_end))+months(3), label = paste(free_float, total_float, sep='/')), 
+            nudge_y=.4, size=1.8, check_overlap = TRUE) +
+  #facet_grid(rows=vars(doe_scope), scales = "free_y")+
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
-  theme(axis.text.x = element_text(angle = 90),axis.text=element_text(size=6)) +
+  theme(axis.text.x = element_text(angle = 90, size=24),
+        axis.text=element_text(size=13),
+        axis.title=element_text(size=30), 
+        legend.title=element_text(size=30), 
+        legend.text=element_text(size=16),
+        strip.text.y=element_text(size=22)) +
   labs(x="Target End Date", y="Milestone", colour="WBS area")
 print(gp3)
-ggsave(gp3, filename="milestonesX.pdf",units="in", height=10, width=24, device="pdf")
+ggsave(gp3, filename="milestonesX.pdf",units="in", height=30, width=24, device="pdf")
+ggsave(gp3, filename="milestonesX.png",units="in", height=26, width=24, device="png")
 ```
 
-
+This is temporary code:
 ```{r}
-tmp<- tasks%>% filter(as.Date(cstr_date)<as.Date('2023-04-03')&cstr_type=='CS_MSOA')%>%select(task_code, task_name, cstr_date, cstr_type)%>%arrange(cstr_date)
+#tmp.current <- all.data
+#tmp.previous <- all.data
+
+FY26.interval <- interval('2025-10-01', '2026-09-30')
+FY2425.interval <- interval('2023-10-01', '2025-09-30')
+FY24.interval <- interval('2023-10-01', '2024-09-30')
+FY25.interval <- interval('2024-10-01', '2025-09-30')
+
+tmp.both<- left_join(tmp.current, tmp.previous, by=join_by(code),suffix=c(".cur",".prv"))
+tmp.diff<- tmp.both %>% select(code, name.cur, dur.cur, dur.prv, target_start.cur, target_start.prv, target_end.cur, target_end.prv, total_float.cur, total_float.prv, total_cost.cur, cost.cur, wbs.cur, group.cur,category.cur) %>% mutate(dur.diff=dur.cur-dur.prv, float.diff=total_float.cur-total_float.prv, dd.task=dur.cur==dur.prv*2)
+tmp.filtered<- tmp.diff %>% filter((target_start.cur %within% FY2425.interval | target_end.cur %within% FY2425.interval))%>% mutate(end.diff=target_end.cur - target_end.prv,start.diff=target_start.cur - target_start.prv) #%>% filter(dur.x!=0)
+
+write.csv(tmp.filtered, "differences.csv")
+
+tmp.filtered %>% filter((target_start.cur %within% FY24.interval | target_end.cur %within% FY24.interval)) %>% summarise(tcost=sum(total_cost.cur))
+
+#tmp<- tasks%>% filter(as.Date(cstr_date)<as.Date('2023-04-03')&cstr_type=='CS_MSOA')%>%select(task_code, task_name, cstr_date, cstr_type)%>%arrange(cstr_date)
 ```
 
 ```{r}
@@ -335,16 +351,47 @@ tmp<- tasks%>% filter(as.Date(cstr_date)<as.Date('2023-04-03')&cstr_type=='CS_MS
 
 getwd()
 write.csv(
-  all.data%>%filter(target_start>as.Date('2024-09-30')&target_end<as.Date('2025-10-01)'))%>%select(wbs, area,name, code, target_start, target_end, category, group),
+  all.data%>%filter(target_start>as.Date('2024-09-30')&target_end<as.Date('2027-12-01)'))%>%select(wbs, area,name, code, target_start, target_end, category, group),
   "../docs_pm/all_tasksX.csv")
 
 # view(all.data %>% mutate(thing=target_end-target_start)%>% select(code, area, name, thing))
 
 # look at this one.   Ariel is in the mix. 
-view(filter(all.data,area<11)%>%left_join(filter(udf.value,udf_type_id==3886), join_by(task_id==fk_id))%>%select(code, target_start, target_end, udf_text, area, wbs)%>%group_by(wbs,udf_text)%>%summarise(mi=min(target_start),ma=max(target_end))%>% arrange(wbs,ma))
+# view(filter(all.data,area<11)%>%left_join(filter(udf.value,udf_type_id==3886), join_by(task_id==fk_id))%>%select(code, target_start, target_end, udf_text, area, wbs)%>%group_by(wbs,udf_text)%>%summarise(mi=min(target_start),ma=max(target_end))%>% arrange(wbs,ma))
 
-write.csv(filter(all.data,area<11)%>%left_join(filter(udf.value,udf_type_id==3886), join_by(task_id==fk_id))%>%select(code, target_start, target_end, udf_text, area, wbs)%>%group_by(area,udf_text)%>%summarise(mi=min(target_start),ma=max(target_end))%>% arrange(ma),"in_kind_max_date.csv")
+in.kind.person<- filter(all.data,area>1)%>%
+  mutate(doe_scope=ifelse(area>10|area<2,"DOE-scope","in-kind"))%>%
+  left_join(filter(udf.value,udf_type_id==3886), join_by(task_id==fk_id))%>%
+  select(doe_scope, code, target_start, target_end, late_start, late_end, person=udf_text, area, wbs_high, wbs)#%>%
 
+tmp.w <- in.kind.person %>% distinct(area,wbs_high)
+
+in.kind.max<- in.kind.person %>% 
+  group_by(doe_scope,area,wbs,person)%>%
+  summarise(min_start_date=min(target_start),max_end_date=max(target_end),min_late_start=min(late_start),max_late_end=max(late_end))%>% 
+  left_join(tmp.w,by=join_by(area))%>%
+  arrange(area,max_end_date)
+  #arrange(max_end_date)
+
+write.csv(in.kind.max,"in_kind_max_date.csv")
+
+gp4<-ggplot(
+  in.kind.max,
+  aes( colour=as.factor(person), 
+       #y=as.factor(area) 
+       y=reorder(paste(area,"/",wbs_high), max_end_date)
+  )
+  ) +
+  geom_linerange(aes(xmin = max_end_date, xmax = max_late_end), linewidth=.10, position=position_dodge2(width=.8))+ #, colour='blue') +
+  geom_point(aes(x=max_end_date),position=position_dodge2(width=.8)) +
+  #geom_text(aes(hjust='left',x = max_end_date, label = person)) +
+  facet_grid(rows=vars(doe_scope), scales = "free_y")+
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90))+ #,axis.text=element_text(size=6)) +
+  labs(x="Target end date (dot) and late end date (line)", y="High-level WBS name", colour="Person responible")
+print(gp4)
+ggsave(gp4, filename="in_kind_dates.pdf",units="in", height=10, width=24, device="pdf")
+ggsave(gp4, filename="in_kind_dates.png",units="in", height=10, width=24, device="png")
 
 ```
 

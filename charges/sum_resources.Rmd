@@ -10,31 +10,7 @@ library(readxl)
 library(stringr)
 library(lubridate)
 
-FY <- function(year)
-{
-  function(rec)
-  {
-    (rec$year==(year-1) & rec$month>=9)|(rec$year==year & rec$month<9)
-  }
-}
-
-fiscal.yr<-function(year, month)
-{
-  year <- year + ifelse(month>=10,1,0)
-}
-fiscal.year<-function(recs)
-{
-  fiscal.yr(recs$year, recs$month)
-}
-fiscal.month<-function(recs)
-{
-  recs$month + ifelse(recs$month>=9, -9, +3)
-}
-
-fiscal.from.date <- function(rec) 
-{ 
-  fiscal.yr( year(rec), month(rec) ) 
-}
+library(MAGIS100PM)
 ```
 
 ```{r}
@@ -111,12 +87,13 @@ chg.cols[1]='text'
 chg.cols[2]='text'
 chg.cols[18]='text'
 
+c5 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230514.xlsx', col_types=chg.cols)
 c4 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230423.xlsx', col_types=chg.cols)
 c3 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230305.xlsx', col_types=chg.cols)
 c2 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230219.xlsx', col_types=chg.cols)
 c1 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230205.xlsx', col_types=chg.cols)
 c0 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230130.xlsx', col_types=chg.cols)
-all.charges <- bind_rows(bind_rows(bind_rows(c0,c1),c2),c3,c4)
+all.charges <- bind_rows(bind_rows(bind_rows(c0,c1),c2),c3,c4,c5)
 names(all.charges) <- make.names(colnames(all.charges))
 
 tmp<-as.POSIXlt(all.charges$Timecard.Start)
@@ -258,8 +235,8 @@ last.week<-as.Date('2023-03-08')
 #last.week<-as.Date('2024-09-30')
 
 # FY23-25-26
-first.week<-as.Date('2024-01-01')
-last.week<-as.Date('2026-05-30')
+first.week<-as.Date('2022-10-01')
+last.week<-as.Date('2027-10-01')
 
 # special for kronos compare
 #first.week<-as.Date('2023-03-01')
@@ -352,7 +329,7 @@ secs.to.FTE <- function(frac,s)
   hours.to.FTE(frac,s/60/60)
 }
 
-FY.table <- data.frame(FY=c(2023,2024,2025,2026), frac=c(fract.of.year(fy23.interval),1.0,1.0,1.0))
+FY.table <- data.frame(FY=c(2023,2024,2025,2026,2027), frac=c(fract.of.year(fy23.interval),1.0,1.0,1.0,1.0))
 
 ```
 
@@ -381,8 +358,8 @@ f.week<-as.Date('2023-03-01')
 l.week<-as.Date('2023-04-24')
 
 # FY23 Q2
-f.week<-as.Date('2023-01-01')
-l.week<-as.Date('2023-04-01')
+f.week<-as.Date('2022-10-01')
+l.week<-as.Date('2027-10-01')
 
 by.kronos4.t <- left_join(all.charges, people.p6, by=join_by(Last.Name,taskname))
 

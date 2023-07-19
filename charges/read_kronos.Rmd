@@ -10,30 +10,9 @@ library(readxl)
 library(stringr)
 library(lubridate)
 
-print(getwd())
+library(MAGIS100PM)
 
 
-
-FY <- function(year)
-{
-  function(rec)
-  {
-    (rec$year==(year-1) & rec$month>=9)|(rec$year==year & rec$month<9)
-  }
-}
-
-fiscal.yr<-function(year, month)
-{
-  year <- year + ifelse(month>=9,1,0)
-}
-fiscal.year<-function(recs)
-{
-  fiscal.yr(recs$year, recs$month)
-}
-fiscal.month<-function(recs)
-{
-  recs$month + ifelse(recs$month>=9, -9, +3)
-}
 ```
 
 'Kronos Summary Report (By Task)_Q1903_20230205.xlsx'
@@ -54,11 +33,13 @@ chg.cols[1]='text'
 chg.cols[2]='text'
 chg.cols[18]='text'
 
-c3 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230305.xlsx', col_types=chg.cols)
-c2 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230219.xlsx', col_types=chg.cols)
-c1 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230205.xlsx', col_types=chg.cols)
-c0 <- read_excel('../../Kronos Summary Report (By Task)_Q1903_20230130.xlsx', col_types=chg.cols)
-all.charges <- bind_rows(bind_rows(bind_rows(c0,c1),c2),c3)
+c5 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230514.xlsx', col_types=chg.cols)
+c4 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230423.xlsx', col_types=chg.cols)
+c3 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230305.xlsx', col_types=chg.cols)
+c2 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230219.xlsx', col_types=chg.cols)
+c1 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230205.xlsx', col_types=chg.cols)
+c0 <- read_excel('../../kronos/Kronos Summary Report (By Task)_Q1903_20230130.xlsx', col_types=chg.cols)
+all.charges <- bind_rows(bind_rows(bind_rows(c0,c1),c2),c3,c4,c5)
 names(all.charges) <- make.names(colnames(all.charges))
 
 tmp<-as.POSIXlt(all.charges$Timecard.Start)
@@ -106,7 +87,7 @@ Hours are in FY.1.Hours
 Eventually want to use Task...Name
 
 ```{r}
-all.budget <- read_excel('../../MAGIS FY23 Budget for cuts v8.xlsx', sheet='Data Entry', skip=1)
+all.budget <- read_excel('../../finance/MAGIS FY23 Budget for cuts v8.xlsx', sheet='Data Entry', skip=1)
 names(all.budget) <- make.names(colnames(all.budget))
 all.budget <- filter(all.budget, Employee.Name!='Na')
 all.budget$new.code<-str_extract(all.budget$Notes,'^Q\\w+\\.\\w+')
@@ -171,17 +152,17 @@ hours.cat.plot <- hours.cat.plot  + facet_grid(vars(Function.Category),vars(year
 ```
 
 
-```{r}
+#```{r}
 print(hours.task.plot)
 print(hours.cat.plot)
 ggsave(hours.task.plot, filename="hoursbyyearbytask.pdf",units="in", height=10, device="pdf")
 ggsave(hours.cat.plot, filename="hoursbyyearbyfunction.pdf",units="in", height=10, device="pdf")
-```
+#```
 
-```{r}
+#```{r}
 view(hours.task.total)
 #print(hours.cat.total)
-```
+#```
 
 ```{r}
 datepart<-'Dec2022FY24Scenario'
@@ -273,9 +254,11 @@ hours.plot <- ggplot(tmp%>%filter(Last.Name=='KELLETT'), aes(fiscal.month)) + ge
 hours.plot <- hours.plot  + facet_grid(vars(Last.Name))
 print(hours.plot)
 
+#jkFermi2023
+
 ```
 
 ```{r}
-
+view( all.charges%>%group_by(Full.Name, fiscal.year)%>% summarise(tot=sum(Hours))%>%left_join(all.charges, join_by(Full.Name,fiscal.year),multiple="first")%>%select(Full.Name, Description, Function.Role, Function.Category, fiscal.year, Department)%>% arrange(fiscal.year, Full.Name))
 ```
 
