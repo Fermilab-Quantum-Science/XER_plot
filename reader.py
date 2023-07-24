@@ -269,7 +269,7 @@ class GNode:
             rc = rc + f'\nES={self.e_start} / EE={self.e_end}' 
         if self.t_start!=self.l_start or self.t_end!=self.l_end:
             rc = rc + f'\nLS={self.l_start} / LE={self.l_end}'
-        rc = rc + f"\nwbs={self.wbs} / drv={self.drv} / dur={self.dur} / status={self.status}"
+        rc = rc + f"\nwbs={self.wbs} / drv={self.drv} / dur={self.dur} / stat={self.status} / float={self.total_float_hr}"
         if self.cost != '-' or self.rsrc != '-':
             rc = rc + f"\ncost={self.cost}/rsrc={self.rsrc}"
         return rc

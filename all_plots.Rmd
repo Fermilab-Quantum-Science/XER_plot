@@ -28,8 +28,29 @@ labor <- bin.labor(tasks.people)
 
 ```{r}
 fte<- FTE.plots(labor$by.day.all)
-activities<- activities.plot(all$all.data, interval(as.Date('2023-03-01'),as.Date('2028-10-01')))
+activities<- activities.plot(all$all.data, interval(as.Date('2024-09-01'),as.Date('2025-11-01')),tcost=1)
 milestones<- milestones.plot(all$all.data)
-resources<- resources.plot(labor$by.week)
+resources<- resources.plot(labor$by.week, device="png")
+```
+
+```{r}
+ggsave(resources, filename=paste(base.path,"/hours.png",sep=''), width=24, units='in', device='png')
+ggsave(milestones, filename=paste(base.path,'/milestones.png',sep=''), width=12, units='in', device="png")
+ggsave(activities, filename=paste(base.path,"/active.pdf",sep=''),units="in", height=12, width=24, device="pdf")
+
+```
+
+
+```{r}
+print(milestones)
+print(fte[[1]])
+print(fte[[2]])
+print(fte[[3]])
+print(fte[[4]])
+print(resources)
+```
+
+```{r}
+activities<- activities.plot(all$all.data, interval(as.Date('2024-09-01'),as.Date('2025-11-01')),tcost=1)
 ```
 
