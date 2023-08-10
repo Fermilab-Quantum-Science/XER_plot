@@ -1,0 +1,111 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(stringr)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+
+This is a comparison between two schedules
+
+all <- get.all.schedule("current")
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+
+
+```{r}
+current <- get.all.schedule("current")
+first <- get.all.schedule("currjbk1")
+other<- get.all.schedule("currjbk2")
+
+charges <- get.all.kronos()
+
+all.current<- current$all.data
+all.other<- other$all.data
+
+exp.curr <- bin.expenses(all.current)
+exp.other <- bin.expenses(all.other)
+exp.first <- bin.expenses(first$all.data)
+
+sum.curr<- exp.curr$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
+sum.other<- exp.other$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
+
+sum.both<- left_join(sum.curr, sum.other, by=join_by(FY)) %>% mutate(diff=tot_tc.y-tot_tc.x)
+view(sum.both)
+
+```
+
+```{r}
+#sub.all.other <- all.other%>%select(code, name, total_cost, total_float, target_start, target_end)
+#sub.all.first <- first$all.data%>%select(code, name, total_cost, total_float, target_start, target_end)
+#view(sub.all.first)
+#view(sub.all.other)
+
+FY26.interval <- interval('2025-10-01', '2026-09-30')
+FY2425.interval <- interval('2023-10-01', '2025-09-30')
+FY24.interval <- interval('2023-10-01', '2024-09-30')
+FY25.interval <- interval('2024-10-01', '2025-09-30')
+fuller.interval <- interval('2023-10-01', '2026-09-30')
+
+tmp.both<- left_join(all.current, all.other, by=join_by(code),suffix=c(".cur",".prv"))
+
+tmp.diff<- tmp.both %>% 
+  select(code, name.cur, dur.cur, dur.prv, 
+         target_start.cur, target_start.prv, target_end.cur, target_end.prv, 
+         late_start.cur, late_start.prv, late_end.cur, late_end.prv, 
+         total_float.cur, total_float.prv, 
+         total_cost.cur, total_cost.prv, cost.prv, cost.cur,  
+         wbs.cur, group.cur,category.cur) %>% 
+  mutate(dur.diff=dur.cur-dur.prv,
+         float.diff=total_float.cur-total_float.prv,
+         tot.cost.diff=total_cost.cur-total_cost.prv, 
+         dd.task=dur.cur==dur.prv*2,
+         FY.cur=fiscal.from.date(target_start.cur),
+         FY.prv=fiscal.from.date(target_start.prv)
+         )
+sum.by.fy<- left_join(
+  tmp.diff%>% group_by(FY.cur)%>%summarise(tot=sum(total_cost.cur,na.rm=TRUE)),
+  tmp.diff%>% group_by(FY.prv)%>%summarise(tot=sum(total_cost.prv,na.rm=TRUE)),
+  by=join_by(FY.cur==FY.prv)) %>%
+    mutate(dif=tot.y-tot.x)
+
+tmp.filtered<- tmp.diff %>% 
+  filter((target_start.cur %within% fuller.interval | target_end.cur %within% fuller.interval)) %>%
+  mutate(end.diff=target_end.cur - target_end.prv,
+         start.diff=target_start.cur - target_start.prv) 
+
+#%>% filter(dur.x!=0)
+
+write.csv(tmp.filtered, "differences.csv")
+
+tmp.filtered %>% filter((target_start.cur %within% FY24.interval | target_end.cur %within% FY24.interval)) %>% summarise(tcost=sum(total_cost.cur))
+```
+
+#```{r}
+user_field_10040.id <- (filter(other$udf.type, udf_type_name=='user_field_10040') %>% select(udf_type_id))[[1]]
+uncertainty.recs <- filter(other$udf.value, udf_type_id==user_field_10040.id) %>% select(task_id=fk_id, uncertainty=udf_text)
+# this needs to be paired up with taskrsrc for matching IDs
+tmptmp<- left_join(other$taskrsrc, uncertainty.recs, by=join_by(taskrsrc_id==task_id))
+ 
+#```
+
+
+
+view I'm using to analyze this
+```{r}
+# all.other.save <- all.other
+# sum.both.save <- sum.both
+#view(all.other %>% mutate(yr=fiscal.from.date(target_start)) %>% select(code, name, target_start, target_end, total_float, total_cost,yr)%>%arrange(yr,total_float))
+
+view(all.other %>% mutate(yr=fiscal.from.date(target_start), days_float=total_float/8) %>% select(code, name, target_start, target_end, total_float, total_cost,yr, days_float)%>%arrange(target_start))
+```
+

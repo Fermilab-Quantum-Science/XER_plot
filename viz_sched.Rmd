@@ -1,0 +1,43 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(stringr)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+
+```{r}
+alldata<- all$all.data %>% filter(dur>0) %>%
+  filter(target_start>as.Date('2022-10-01')) %>%
+  mutate(g=as.numeric(as.factor(group)),
+                                  a=as.numeric(as.factor(label)),
+                                  c=as.numeric(as.factor(category))
+                                  )
+```
+
+This is the prototype visual schedule.   
+
+```{r}
+gp<-ggplot(alldata, aes(xmin=target_start, xmax=target_end, 
+                   y=label,# ymin = g, ymax = g+.8, 
+                   fill = category)) +
+  geom_rect(aes(ymin = a-.4, ymax = a+.4)) +
+  scale_y_discrete("label") +
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  #geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3
+  geom_text(aes(x = target_start, label = code), size=.9, position=position_dodge2(width=.8)) +
+  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=.1, position=position_dodge2(width=.8))
+  
+print(gp)
+ggsave(gp, filename=paste(base.path,'/vs.png',sep=''), width=12, height=12, units='in', device="png")
+
+```

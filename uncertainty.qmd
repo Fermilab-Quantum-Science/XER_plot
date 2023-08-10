@@ -1,0 +1,82 @@
+---
+title: "MAGIS-100 Confidence Level"
+format: 
+  pdf:
+    df-print: kable
+editor: visual
+---
+
+## 
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+library(mc2d)
+library(tidyverse)
+```
+
+# Introduction
+
+P6 provides us with a total uncertainty that is a combination of all estimate uncertainties entered into the BOEs. From this number the system calculates a contingency value for the time period of interest (summarized yearly) at a 90% confidence level. 
+$$P(X \le contingency) = confidence.level$$ where $x$ has a distribution calculated using all the BOE uncertainties.
+
+Our goal here is to calculate a confidence level given what we know from P6 assuming that there is a difference amount of contingency given to the project.
+
+Project Management resources show that many times three point estimates are used for entering estimate uncertainties. The PERT distribution\footnote{https://en.wikipedia.org/wiki/PERT\_distribution} appears to be a common distribution to use as a model for these three-point estimates in place of the a triangular distribution. The PERT distribution requires a minimum (most optimistic cost), a mode (expected cost), and a maximum (the most pessimistic cost).
+
+![PERT distribution compared with triangular \footnote{https://project-management.info/wp-content/uploads/2020/01/PERT-Triangular-Probability-Density-Curve-1024x540.jpg}](C:/Users/jimk/OneDrive%20-%20Fermi%20National%20Accelerator%20Laboratory/Documents/MAGIS-100/read_stuff/pert-dist-crop.pdf){width="70%"}
+
+If we assume very minimal information about the distribution that drives the calculation of the total uncertainty, we can make a crude estimate of confidence level for any given contingency number using the PERT distribution. Assuming $X \sim PERT(min, mode, max)$ with $min=-max$ and $mode=0$, for each fiscal year $f$, find $max_f$ such that $P_{max_f}(X_{f} \le x_{f}) = CL$ for $CL=.90$ and $x_f$ the contingencies from the P6 generated budget table. Use these $max_f$ values to calculate $CL_f$ for differences of yearly planned work and funding guidance values as contingency $x_f$ (or as we have been calling it, reserve)\footnote{This notation is sloppy}.    
+
+# Estimating the confidence level given some contingency value
+
+Find the contingency value given the PERT maximum bound and desired confidence level $P(X \le value; bound)=CL$. The bounds are assumed symmetrical here.
+
+```{r}
+quantile.func <- qpert
+calc.q <- function(bound, prob) { quantile.func(c(prob),-bound, 0, bound) }
+```
+
+Find the confidence level $P(X \le contin; bound) = CL$, given a contingency value and PERT maximum bound.
+
+```{r}
+distr.func <- ppert
+calc.p <- function(contin, bound) { distr.func(c(contin),-bound, 0, bound) }
+```
+
+We want to find the PERT maximum bound that yields a confidence level $cl$ and contingency of $contin$. This function is a simple squared error calculation can be used as input to an optimizer.
+
+```{r}
+optfunc<- function(cl, contin) { function (maxbound) {(calc.q(maxbound,cl)-contin)^2} }
+```
+
+From our budget table, we calculated the numbers that Doug and Athans wanted: the simple ratio of $diff = guidance-planned; ratio.contingency = diff / planned$
+
+We now find the maximum bound (maxbound) using the optimizer for each of the project years FY24-FY26 using the contingency values from the budget table. Use these values with calc.p to:
+
+-   show that we get .90 for each of the original contingency values (CL.full),
+-   calculate a CL for the $diff$ values.
+
+```{r}
+intr<- c(0.0, 4.0)
+contingencies<- data.frame(
+  year=c('FY24','FY25','FY26','FY27'), 
+  full.contingency=c(.325,.958,1.07,.576),
+  diff.contingency=c(.288484, .855699, .837637, 1.633)
+)
+voptimize<- Vectorize(function(x) { optimize(x, intr)$minimum } )
+voptfunc<-  Vectorize(function(x) { optfunc(.9,x) } )
+vcalc.p<- Vectorize(calc.p)
+
+out<- contingencies %>%
+  mutate(maxbound=voptimize(voptfunc(full.contingency))) %>%
+  mutate(CL.full=vcalc.p(full.contingency,maxbound)) %>%
+  mutate(CL.diff=vcalc.p(diff.contingency,maxbound))
+
+out
+```
+
+The last column, CL.diff, is the estimated confidence level given all these assumptions.  Remember that CL calculations have upper limit of 1.0.
+
+```{r}
+
+```

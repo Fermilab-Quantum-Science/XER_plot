@@ -15,7 +15,7 @@ library(MAGIS100PM)
 ```
 
 ```{r}
-all <- get.all.schedule("current")
+all <- get.all.schedule("currjbk2")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
@@ -27,7 +27,7 @@ labor <- bin.labor(tasks.people)
 
 
 ```{r}
-fte<- FTE.plots(labor$by.day.all)
+fte<- FTE.plots(labor$by.day.all%>%filter(code!='other'))
 activities<- activities.plot(all$all.data, interval(as.Date('2024-09-01'),as.Date('2025-11-01')),tcost=1)
 milestones<- milestones.plot(all$all.data)
 resources<- resources.plot(labor$by.week, device="png")
@@ -37,6 +37,8 @@ resources<- resources.plot(labor$by.week, device="png")
 ggsave(resources, filename=paste(base.path,"/hours.png",sep=''), width=24, units='in', device='png')
 ggsave(milestones, filename=paste(base.path,'/milestones.png',sep=''), width=12, units='in', device="png")
 ggsave(activities, filename=paste(base.path,"/active.pdf",sep=''),units="in", height=12, width=24, device="pdf")
+ggsave(fte[[1]], filename=paste(base.path,"/fte_role.pdf",sep=''),units="in", device="pdf")
+ggsave(fte[[2]], filename=paste(base.path,"/fte_div.pdf",sep=''),units="in", device="pdf")
 
 ```
 
@@ -52,5 +54,65 @@ print(resources)
 
 ```{r}
 activities<- activities.plot(all$all.data, interval(as.Date('2024-09-01'),as.Date('2025-11-01')),tcost=1)
+```
+
+```{r}
+#labor <- bin.labor(tasks.people)
+
+persons.FY23Q34<- labor$by.week.person %>%
+  filter(FY==2023)%>%
+  filter(week %within% interval('2023-07-01','2023-10-01')) %>%
+  group_by(person,FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805/4)) %>%
+  filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, div=DSC),join_by(person) )
+
+persons.FY23<- labor$by.week.person %>%
+  filter(FY==2023) %>%
+  group_by(person,FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805*FY.table['frac'][1,])) %>%
+  filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name),join_by(person) )
+
+tmp.persons<- labor$by.week.person %>%
+  filter(FY==2023)
+
+persons.FY24<- labor$by.week.person %>%
+  filter(FY==2024) %>%
+  group_by(person,FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name),join_by(person) )
+
+types.FY24<- labor$by.week.type %>%
+  filter(FY==2024) %>%
+  group_by(type,person, FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) )
+
+tpt.FY<- labor$by.week.person.task %>%
+  filter(FY>2022) %>%
+  group_by(type,person,task_id, FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person)) %>%
+  left_join(all$tasks%>%select(task_id, task_name, task_code, target_start_date, target_end_date), by=join_by(task_id))
+
+
+
+```
+```{r}
+all$all.data %>% 
+  mutate(yr=fiscal.from.date(target_start), days_float=total_float/8) %>%
+  filter(yr>2023) %>%
+  select(code, name, target_start, target_end, total_float, total_cost,yr, days_float) %>%
+  arrange(target_start) %>%
+  view()
 ```
 
