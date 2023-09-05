@@ -1,0 +1,62 @@
+---
+title: "TestExample"
+format: 
+  pptx:
+    df-print: kable
+    tbl-colwidths: auto
+    reference-doc: MAGIS100.potx
+editor: visual
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+```{r}
+all <- get.all.schedule("currjbk3")
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+```
+
+```{r}
+labor <- bin.labor(tasks.people)
+```
+
+```{r}
+tmp.ims<-all$all.data%>%filter(str_detect(name,"^T0|^T1|^T2"))%>%select(code, name, target_end)
+tmp.ims.templ<-read_excel("../MOA_PMP/IntermediateMilestonesTemplate.xlsx")
+tmp.both<- tmp.ims.templ %>% left_join(tmp.ims, join_by(Activity==code))
+
+```
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished presentation. To learn more about Quarto presentations see <https://quarto.org/docs/presentations/>.
+
+## S-1 Milestones
+```{r}
+tmp.both%>%filter(Tier=="T2" & Section=="S-1")%>%select(Activity, Name=name, Date=target_end)
+```
+
+## S-2 Milestones
+```{r}
+tmp.both%>%filter(Tier=="T2" & Section=="S-2")%>%select(Activity, Name=name, Date=target_end)
+```
+
+## S-3 Milestones
+```{r}
+tmp.both%>%filter(Tier=="T2" & Section=="S-3")%>%select(Activity, Name=name, Date=target_end)
+```
+
+## S-4 Milestones
+```{r}
+tmp.both%>%filter(Tier=="T2" & Section=="S-4")%>%select(Activity, Name=name, Date=target_end)
+```

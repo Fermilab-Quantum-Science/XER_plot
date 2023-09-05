@@ -18,44 +18,43 @@ options(digits = 2)
 
 # Introduction
 
-P6 provides us with a total uncertainty that is a combination of all estimate uncertainties entered into the BOEs. From this number the system calculates a contingency value for the time period of interest (summarized yearly) at a 90% confidence level. $$P(X \le contingency) = confidence.level$$ where $x$ has a distribution calculated using all the BOE uncertainties.
-
-Our goal here is to calculate a confidence level given what we know from P6 assuming that there is a difference amount of contingency given to the project.
+P6 provides us with a total uncertainty that is a combination of all estimate uncertainties entered into the BOEs. From this number the system calculates a contingency value for the time period of interest (summarized yearly) at a 90% confidence level, or $$P(X \le contingency) = F_X(contingency) = confidence.level$$ with $x$ has a distribution calculated using all the BOE uncertainties. Our goal here is to calculate a confidence level given what we know from P6 assuming that there is a difference amount of contingency given to the project.
 
 Project Management resources show that many times three point estimates are used for entering estimate uncertainties. The PERT distribution\footnote{https://en.wikipedia.org/wiki/PERT\_distribution} appears to be a common distribution to use as a model for these three-point estimates in place of the a triangular distribution. The PERT distribution requires a minimum (most optimistic cost), a mode (expected cost), and a maximum (the most pessimistic cost).
 
 ![PERT distribution compared with triangular \footnote{https://project-management.info/wp-content/uploads/2020/01/PERT-Triangular-Probability-Density-Curve-1024x540.jpg}](C:/Users/jimk/OneDrive%20-%20Fermi%20National%20Accelerator%20Laboratory/Documents/MAGIS-100/read_stuff/pert-dist-crop.pdf){width="70%"}
 
-If we assume very minimal information about the distribution that drives the calculation of the total uncertainty, we can make a crude estimate of confidence level for any given contingency number using the PERT distribution. Assuming $X \sim PERT(min, mode, max)$ with $min=-max$ and $mode=0$, for each fiscal year $f$, find $max_f$ such that $P_{max_f}(X_{f} \le x_{f}) = CL$ for $CL=.90$ and $x_f$ the contingencies from the P6 generated budget table. Use these $max_f$ values to calculate $CL_f$ for differences of yearly planned work and funding guidance values as contingency $x_f$ (or as we have been calling it, reserve)\footnote{This notation is sloppy}.
+If we assume very minimal information about the distribution that drives the calculation of the total uncertainty, we can make a crude estimate of confidence level for any given contingency number using the PERT distribution. Assuming $X \sim PERT(min, mode, max)$ with $min=0$ and $mode=0$, for each fiscal year $f$, find $max_f$ such that $P_{max_f}(X_{f} \le x_{f}) = CL$ for $CL=.90$ and $x_f$ the contingencies from the P6 generated budget table. Use these $max_f$ values to calculate $CL_f$ for differences of yearly planned work and funding guidance values as contingency $x_f$ (or as we have been calling it, reserve)
+
+For the purpose of this note, the PERT (and also the Triangular) parameters should be interpreted as follows. Zero is used as the expected value for $mode$ which means that we expect the planned work to require no contingency. This is chosen strictly to aid in the display of the contingency dollar amounts. The $min$ parameter is also assumed to be zero, meaning that we do not expect to pay less than the amount of work planned\footnote{Note that this is not the original assumption, which sets min=-max}. The $max$ parameter is the one we are calculating based on the data from P6.
 
 # Estimating the confidence level given some contingency value
 
-Find the contingency value given the PERT maximum bound and desired confidence level $P(X \le value; bound)=CL$. The bounds are assumed symmetrical here. We will also test with the triangular distribution.
+Define a quantile function to find a contingency value given the PERT upper bound and desired confidence level $P(X \le value; bound)=CL$. Also define a probability function to find the confidence level $P(X \le contin; bound) = CL$ given a contingency value and PERT upper bound. The bounds are assumed not symmetrical here since $min$ is set to zero. We will also test with the triangular distribution.
 
 ```{r}
-func.q <- function(quant) { function(bound, prob) { quant(c(prob),-bound, 0, bound) } }
+func.q <- function(quant) 
+  { function(bound, prob) { quant(c(prob),0, 0, bound) } }
+#  { function(bound, prob) { quant(c(prob),-bound, 0, bound) } }
+func.p <- function(distr) 
+  { function(contin, bound) { distr(c(contin),0 , 0, bound) } }
+#  { function(contin, bound) { distr(c(contin),-bound, 0, bound) } }
+
 calc.qpert <- func.q(qpert)
-calc.qtriang <- func.q(qtriang)
-
-```
-
-Find the confidence level $P(X \le contin; bound) = CL$, given a contingency value and PERT maximum bound.
-
-```{r}
-func.p <- function(distr) { function(contin, bound) { distr(c(contin),-bound, 0, bound) } }
 calc.ppert <- func.p(ppert)
+calc.qtriang <- func.q(qtriang)
 calc.ptriang <- func.p(ptriang)
+
 ```
 
-We want to find the PERT maximum bound that yields a confidence level $cl$ and contingency of $contin$. This function calculates a simple distance from a desired contingency $contin$ and $cl$ given a high bound of the quantile function $calc$. This returned function can be used as function for the optimizer to minimize.
+We want to find the PERT upper bound that yields a confidence level $cl$ and contingency of $contin$. This function calculates a simple distance from a desired contingency $contin$ and $cl$ given a high bound of the quantile function $calc$. This returned function can be used as an objective function for the optimizer to minimize.
 
 ```{r}
-optfunc<- function(cl, contin,calc) { function (maxbound) {(calc(maxbound,cl)-contin)^2} }
+optfunc<- function(cl, contin,calc) 
+  { function (maxbound) {(calc(maxbound,cl)-contin)^2} }
 ```
 
-From our budget table, we calculated the numbers that Doug and Athans wanted: the simple ratio of $diff = guidance-planned; ratio.contingency = diff / planned$
-
-We now find the maximum bound (maxbound) using the optimizer for each of the project years FY24-FY26 using the contingency values from the budget table. Use these values with calc.p to:
+From the MAGIS-100 budget table, we calculated the numbers that Doug and Athans wanted: the simple ratio of $$diff = guidance-planned; \\ratio.contingency = diff / planned$$ We now find the upper bound $m$ using the optimizer for each of the project years FY24-FY26 with the contingency values from the budget table. Use these values with calc.p to:
 
 -   show that we get .90 for each of the original contingency values (CL.full),
 -   calculate a CL for the $diff$ values.
@@ -73,35 +72,148 @@ voptfunc.triang<-  Vectorize(function(x) { optfunc(.9,x,calc.qtriang) } )
 vcalc.p.pert<- Vectorize(calc.ppert)
 vcalc.p.triang<- Vectorize(calc.ptriang)
 
-out.pert<- contingencies %>%
-  mutate(maxbound=voptimize(voptfunc.pert(full.contingency))) %>%
-  mutate(CL.full=vcalc.p.pert(full.contingency,maxbound)) %>%
-  mutate(CL.diff=vcalc.p.pert(diff.contingency,maxbound))
-
-out.tri<- contingencies %>%
-  mutate(maxbound=voptimize(voptfunc.triang(full.contingency))) %>%
-  mutate(CL.full=vcalc.p.triang(full.contingency,maxbound)) %>%
-  mutate(CL.diff=vcalc.p.triang(diff.contingency,maxbound))
-
+out<- contingencies %>%
+  mutate(max.PERT=voptimize(voptfunc.pert(full.contingency))) %>%
+  mutate(CL.PERT.P6=vcalc.p.pert(full.contingency,max.PERT)) %>%
+  mutate(CL.PERT.diff=vcalc.p.pert(diff.contingency,max.PERT)) %>%
+  mutate(max.Tri=voptimize(voptfunc.triang(full.contingency))) %>%
+  mutate(CL.Tri.P6=vcalc.p.triang(full.contingency,max.Tri)) %>%
+  mutate(CL.Tri.diff=vcalc.p.triang(diff.contingency,max.Tri))
 ```
 
-Contingency and maxbound values are in millions of dollars.
-The last column, CL.diff, is the estimated confidence level given all these assumptions. Remember that CL calculations have upper limit of 1.0.
+Contingency and max values are in millions of dollars. The columns CL.PERT.diff and CL.Tri.diff are the estimated confidence level given all these assumptions. Remember that CL calculations have upper limit of 1.0.
 
-## PERT
+## using the PERT distribution
 
-The estimates of the confidence levels using the PERT distribution for the differences per year is in column CL.diff. 
-```{r}
-#| echo: false
-out.pert
-```
-
-
-## Triangular
-
-The estimates of the confidence levels using the triangular distribution for the differences per year is in column CL.diff. 
+The estimates of the confidence levels using the PERT distribution for the difference of planned and guidance per year are in column CL. Contingency values from P6 are in column P6, contingency as differences are shown in the diff column. Bound is the distribution parameter maximum.
 
 ```{r}
 #| echo: false
-out.tri
+out %>% select(year, P6=full.contingency, diff=diff.contingency, bound=max.PERT, CL.PERT=CL.PERT.diff)
+
+#tmp.cdf<-data.frame(y=seq(0,1,length=101)) %>% mutate(x=qpert(y,-1000*out$max.PERT[[1]],0,1000*out$max.PERT[[1]]))
+#tmp.cdf.plot<-ggplot(tmp.cdf,aes(x,y))+geom_line() + 
+#  geom_hline(aes(yintercept=out$CL.PERT.P6[[1]]),colour='red')+
+#  geom_vline(aes(xintercept=out$full.contingency[[1]]*1000), colour='red')+
+#  geom_hline(aes(yintercept=out$CL.PERT.diff[[1]]),colour='blue')+
+#  geom_vline(aes(xintercept=out$diff.contingency[[1]]*1000),colour='blue')
+#print(tmp.cdf.plot)
+#tmp.cdf<-out %>% group_by(year) %>% nest() 
+# mutate(p=seq(0,1,length=101)))
+# tmp.cdf %>% mutate(q=list(qpert(p,-1*max.PERT,0,max.PERT)))
+tmp.cdf.pert <- out %>% group_by(year) %>% nest() %>%
+  mutate(pq=map(data,
+               function(x) { 
+                 p=seq(0,1,length=101)
+                 q=qpert(p,0,0,x$max.PERT)
+                 #q=qpert(p,-x$max.PERT,0,x$max.PERT)
+                 tibble(p=p,q=q)
+                 }
+               ))
+```
+
+```{r}
+#| echo: false
+#| label: fig-charts-pert
+#| fig-cap: "CDF plots for each fiscal year"
+#| fig-subcap: 
+#|  - "CDF-1"
+#|  - "CDF-2"
+#|  - "CDF-3"
+#|  - "CDF-4"
+#| layout-ncol: 2
+
+pq.plot<- function(data,pq,year)
+{
+  tt<-ggplot(pq,aes(q,p))+geom_line() + 
+    geom_hline(aes(yintercept=data$CL.PERT.P6),colour='red')+
+    geom_vline(aes(xintercept=data$full.contingency), colour='red')+
+    geom_hline(aes(yintercept=data$CL.PERT.diff),colour='blue')+
+    geom_vline(aes(xintercept=data$diff.contingency),colour='blue')+
+    geom_text(aes(hjust='right',y = data$CL.PERT.P6, x=.0, label = paste(data$CL.PERT.P6*100,"%",sep="")),nudge_y=.015,nudge_x=.15) +
+    geom_text(aes(hjust='right',y = data$CL.PERT.diff, x=.0, label= paste(round(data$CL.PERT.diff*100,digits=1),"%",sep="")),nudge_y=-.015,nudge_x=.15) +
+    geom_text(aes(vjust='bottom',x = data$full.contingency, y=.0, label=paste("$",data$full.contingency,"M",sep="")),nudge_x=.01) +
+    geom_text(aes(vjust='bottom',x = data$diff.contingency, y=.1, label= paste("$",round(data$diff.contingency,digits=3),"M",sep="")),nudge_x=-.01) +
+    labs(title=year, x="Contingency($M)", y="Probability")
+  print(tt)
+  tt
+}
+
+tmp.cdf.pert2 <- tmp.cdf.pert %>% mutate(plot=map2(data,pq,pq.plot,year,.progress=FALSE))
+# what is really needed is to calculate p and q as one nested tibble,
+# and then map (data,plotdata) to the ggplot plotting function
+
+```
+
+CDF plot for each of the years for the PERT distribution are shown in @fig-charts-pert.
+
+## using a Triangular distribution
+
+The estimates of the confidence levels using the triangular distribution for the difference of planned and guidance per year are in column CL. Contingency values from P6 are in column P6, contingency as differences are shown in the diff column. Bound is the distribution parameter maximum.
+
+```{r}
+#| echo: false
+out %>% select(year, P6=full.contingency, diff=diff.contingency, bound=max.Tri, CL.Tri=CL.Tri.diff)
+
+tmp.cdf.tri <- out %>% group_by(year) %>% nest() %>%
+  mutate(pq=map(data,
+               function(x) { 
+                 p=seq(0,1,length=101)
+                 q=qtriang(p,0,0,x$max.Tri)
+                 tibble(p=p,q=q)
+                 }
+               ))
+```
+
+```{r}
+#| echo: false
+#| label: fig-charts-tri
+#| fig-cap: "CDF plots for each fiscal year"
+#| fig-subcap: 
+#|  - "CDF-1"
+#|  - "CDF-2"
+#|  - "CDF-3"
+#|  - "CDF-4"
+#| layout-ncol: 2
+
+pq.plot2<- function(data,pq,year)
+{
+  tt<-ggplot(pq,aes(q,p))+geom_line() + 
+    geom_hline(aes(yintercept=data$CL.Tri.P6),colour='red')+
+    geom_vline(aes(xintercept=data$full.contingency), colour='red')+
+    geom_hline(aes(yintercept=data$CL.Tri.diff),colour='blue')+
+    geom_vline(aes(xintercept=data$diff.contingency),colour='blue')+
+    geom_text(aes(hjust='right',y = data$CL.Tri.P6, x=.0, label = paste(data$CL.Tri.P6*100,"%",sep="")),nudge_y=.015,nudge_x=.15) +
+    geom_text(aes(hjust='right',y = data$CL.Tri.diff, x=.0, label= paste(round(data$CL.Tri.diff*100,digits=1),"%",sep="")),nudge_y=-.015,nudge_x=.15) +
+    geom_text(aes(vjust='bottom',x = data$full.contingency, y=.0, label=paste("$",data$full.contingency,"M",sep="")),nudge_x=.01) +
+    geom_text(aes(vjust='bottom',x = data$diff.contingency, y=.1, label= paste("$",round(data$diff.contingency,digits=3),"M",sep="")),nudge_x=-.01) +
+    labs(title=year, x="Contingency($M)", y="Probability")
+  print(tt)
+  tt
+}
+
+tmp.cdf.tri2 <- tmp.cdf.tri %>% mutate(plot=map2(data,pq,pq.plot2,year,.progress=FALSE))
+# what is really needed is to calculate p and q as one nested tibble,
+# and then map (data,plotdata) to the ggplot plotting function
+
+```
+
+CDF plot for each of the years for the PERT distribution are shown in @fig-charts-tri.
+
+
+\newpage
+
+# Summary - estimating confidence levels
+
+MAGIS-100 uses Primavera P6 to manage the project schedule. P6 calculates estimate uncertainty and contingency at a 90% condifence level based on scheduled work and data entered in BOEs. Here we are asked to estimate what the confidence level would be if a difference contingency value was given:\
+$$contingency = funding.guidance - planned.work$$
+
+We estimate the different confidence level using the following assumptions with -m representing the lower end of how far off we might be on the cost estimates, and m as the upper end. $$P(X \le P6.contingency) = .90;\\X \sim PERT(-m,0,m)$$ A consistency check is also made assuming the estimate uncertainties follow the Triangular distribution $X \sim Triang(-m,0,m)$.
+
+The estimates of the confidence levels using the PERT and triangular distributions for the difference of planned and guidance per year are in columns CL.PERT and CL.Tri. Contingency values from P6 are in column P6, contingency as differences of planned and guidance are shown in the diff column. Bound is the fitted distribution parameter maximum (m). Columns P6, diff, and bound are all in millions of dollars.
+
+```{r}
+#| echo: false
+out %>% select(year, P6=full.contingency, diff=diff.contingency, 
+               bound=max.Tri, CL.PERT=CL.PERT.diff, CL.Tri=CL.Tri.diff)
 ```

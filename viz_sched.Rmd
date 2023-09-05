@@ -15,29 +15,135 @@ library(MAGIS100PM)
 
 
 ```{r}
-alldata<- all$all.data %>% filter(dur>0) %>%
-  filter(target_start>as.Date('2022-10-01')) %>%
-  mutate(g=as.numeric(as.factor(group)),
-                                  a=as.numeric(as.factor(label)),
-                                  c=as.numeric(as.factor(category))
-                                  )
-```
 
-This is the prototype visual schedule.   
+all <- get.all.schedule("currjbk3")
+
+alldata<- all$all.data %>% filter(dur>0) %>%
+  filter(target_start>as.Date('2022-10-01')) 
+```
+ISSUE: the g, a, and c are causing problem.   Fix them before continuing.
 
 ```{r}
-gp<-ggplot(alldata, aes(xmin=target_start, xmax=target_end, 
+label.cat <- c(
+  "Assembly of modular sections",
+  "Final shaft work",
+  "Modular section and connection node installation",
+"Atom sources",
+"Atom source connection node",
+"Atom source cameras",
+"Assembly space/fixtures",
+"Vacuum chamber",
+"Vacuum system",
+"Magnetic field systems",
+"Strongback frame",
+"Modular section cameras",
+"Lower optics system",
+"Transportation fixtures",
+"Secondary crane",
+"Installation planning",
+"Installation fixtures",
+"Connections to wall of shaft",
+"Adjustable supports",
+"Personnel access system",
+"Shaft utilities",
+"Electrical power",
+"Electrical cables",
+"DAQ computing and front end",
+"Slow controls",
+"Networking and storage",
+"Interferometry laser system",
+"Laser lab",
+"Frequency comb",
+"LTS supports",
+"Interlocks",
+"Machine protection system",
+"Alignment", 
+"Commissioning")
+
+labels.ord <- data.frame(label=label.cat, ord=1:length(label.cat))
+alldata.tmp <- alldata %>% left_join(labels.ord, by=join_by(label))
+alldata.tmp$label <- reorder(alldata.tmp$label, alldata.tmp$ord)
+
+alldata.tmp <- alldata.tmp %>%
+  mutate(
+    a=as.numeric(as.factor(label))
+  )
+
+
+#alldata$label<-as.factor(alldata$label)
+#label.cat2<- factor(label.cat,levels=label.cat)
+#alldata$label<-factor(alldata$label,levels=label.cat)
+
+```
+
+This is the prototype visual schedule. 
+
+Here are the name mappings:
+
+* user_text5 = label.shape
+* user_text4 = category
+* user_text6 = label
+* user_text1 = ctc
+
+```{r}
+tmp<-alldata.tmp
+tmp$label.shape<-replace(tmp$label.shape,is.na(tmp$label.shape),"NA")
+
+gp<-ggplot(tmp%>%filter(label.shape!="skip"), aes(xmin=target_start, xmax=target_end, 
                    y=label,# ymin = g, ymax = g+.8, 
                    fill = category)) +
+  geom_vline(aes(xintercept=as.Date("2023-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2024-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2025-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2026-10-01")))+
+  #geom_rect(data=~filter(.x,label.shape=='Box'), aes(ymin=0,ymax=max(a),xmin=target_start, xmax=target_end), colour="lightyellow",fill=NA) + 
   geom_rect(aes(ymin = a-.4, ymax = a+.4)) +
   scale_y_discrete("label") +
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
   theme(axis.text.x = element_text(angle = 90)) + 
   #geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3
-  geom_text(aes(x = target_start, label = code), size=.9, position=position_dodge2(width=.8)) +
-  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=.1, position=position_dodge2(width=.8))
+  geom_text(aes(x = target_start, label = code, hjust="left",vjust="bottom"), size=.5, position=position_dodge2(width=.8)) +
+  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=.05, position=position_dodge2(width=.8))
   
 print(gp)
 ggsave(gp, filename=paste(base.path,'/vs.png',sep=''), width=12, height=12, units='in', device="png")
+ggsave(gp, filename=paste(base.path,'/vs.pdf',sep=''), width=12, height=12, units='in', device="pdf")
 
 ```
+
+
+```{r}
+library(timevis)
+tl<-read_excel("timeline.xlsx")
+groups = data.frame(id = 1:3, content = c("Boundaries", "Early Measurement", "Key Activities"))
+timevis(tl, groups=groups)
+```
+
+
+tl <- data.frame(
+  start=c("2023-10-01", "2023-11-01", "2024-01-01",
+          "2024-10-01", "2025-01-01", "2025-07-01", 
+          "2025-10-01", "2026-01-01", "2026-05-01", "2026-05-12", "2026-09-15",
+          "2026-10-01", "2026-10-08", "2026-12-02", "2027-01-01"),
+  end=c(NA, "2025-06-06", NA,
+        NA, NA, "2026-08-01",
+        NA, NA, "2026-06-01", "2026-08-01", NA,
+        NA, "2026-12-01", "2027-04-02", NA ),
+  content=c("FY24", "Prototype@Stanford", "Cy24",
+            "FY25", "CY25", "FNAL Test stand", 
+            "FY26", "CY26", "Shaft crane/electric", "Shaft wall brackets", "Modular section assembly complete",
+            "FY27", "install Modular Sections", "Testing", "CY27"),
+  id=c(1:15)
+  )
+
+  timevis(tl)
+#```
+
+```{r}
+print(getwd())
+tmp.ims<-all$all.data%>%filter(str_detect(name,"^T0|^T1|^T2"))%>%select(code, name, target_end)
+tmp.ims.templ<-read_excel("../MOA_PMP/IntermediateMilestonesTemplate.xlsx")
+tmp.both<- tmp.ims.templ %>% left_join(tmp.ims, join_by(Activity==code))
+write_xlsx(tmp.both%>%select(Activity, Name=name, Date=target_end, Tier, Section, Group),"tmp-milestones.xlsx")
+```
+

@@ -8,6 +8,7 @@ output: html_notebook
 library(tidyverse)
 library(ggplot2)
 library(readxl)
+library(writexl)
 library(stringr)
 library(lubridate)
 
@@ -49,14 +50,14 @@ proc<- procurements.plot(all)
 ggsave(resources, filename=paste(base.path,"/hours.png",sep=''), width=24, units='in', device='png')
 ggsave(milestones, filename=paste(base.path,'/milestones.png',sep=''), width=12, units='in', device="png")
 ggsave(activities, filename=paste(base.path,"/active.pdf",sep=''),units="in", height=12, width=24, device="pdf")
-ggsave(fte[[1]], filename=paste(base.path,"/fte_role.pdf",sep=''),units="in", device="pdf")
-ggsave(fte[[2]], filename=paste(base.path,"/fte_div.pdf",sep=''),units="in", device="pdf")
+ggsave(fte[[1]], filename=paste(base.path,"/fte_role.png",sep=''),units="in", device="png")
+ggsave(fte[[2]], filename=paste(base.path,"/fte_div.png",sep=''),units="in", device="png")
 
 ```
 
 
 ```{r}
-print(proc)
+print(proc$plot)
 print(milestones)
 print(fte[[1]])
 print(fte[[2]])
