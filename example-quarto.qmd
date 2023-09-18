@@ -3,7 +3,7 @@ title: "TestExample"
 format: 
   pptx:
     df-print: kable
-    tbl-colwidths: auto
+    tbl-colwidths: [25,50,25]
     reference-doc: MAGIS100.potx
 editor: visual
 ---
@@ -37,26 +37,60 @@ tmp.both<- tmp.ims.templ %>% left_join(tmp.ims, join_by(Activity==code))
 
 ```
 
-## Quarto
+## Milestone tracking
 
-Quarto enables you to weave together content and executable code into a finished presentation. To learn more about Quarto presentations see <https://quarto.org/docs/presentations/>.
+MAGIS-100 has defined three tiers of high-level project key performance milestones to accommodate approximately 50% schedule contingency.
 
-## S-1 Milestones
+- T2: Milestones held by the MAGIS-100 project.  These key performance milestones are the best estimate provided through our Resource Loaded Schedule.  The project team goal is to hit these milestones.
+- T1: Milestones held by the Project Office.  The distance between these key performance milestones and T2 milestones is six months.
+- T0: Milestones held by DOE.  The distance between these key performance milestones and T1 is twelve months.   
+
+T0 high-level project Key Performance Milestones are repeated for each of the tiers. The T1 milestone set has additional Key Performance Milestones that mark the end of each T2 milestone group.
+
+## S-1: Site ready to accept experiment
+
+The S-1 Key Performance Milestone   is met when the MINOS site is ready to accept installation of the scientific apparatus and all Intermediate Milestones have been met. 
+
 ```{r}
 tmp.both%>%filter(Tier=="T2" & Section=="S-1")%>%select(Activity, Name=name, Date=target_end)
 ```
 
-## S-2 Milestones
+## S-2: Experiment apparatus components installed
+
+The S-2 Key Performance Milestone is met when all essential scientific equipment is assembled, certified, unit tested, and installed.
+
 ```{r}
 tmp.both%>%filter(Tier=="T2" & Section=="S-2")%>%select(Activity, Name=name, Date=target_end)
 ```
 
-## S-3 Milestones
+## S-3: Experiment support systems operational
+
+The S-3 Key Performance Milestone is met when these systems are installed. The experimental support systems operational group of milestones includes all the components that support the operations of the experiment. These systems are related to either safety or readouts and are not covered in the site or experiment apparatus sections. 
+
 ```{r}
 tmp.both%>%filter(Tier=="T2" & Section=="S-3")%>%select(Activity, Name=name, Date=target_end)
 ```
 
-## S-4 Milestones
+## S-4: Atom-laser interactions observed
+
+The S-4 Key Performance Milestone is met when each of the main systems is tested and ready for experiment commissioning. These milestones indicate that site preparation, apparatus installation, and support system installation are complete. 
+
 ```{r}
 tmp.both%>%filter(Tier=="T2" & Section=="S-4")%>%select(Activity, Name=name, Date=target_end)
+```
+
+## T0 High-level Key Performance Milestones
+
+T0 Milestones are held by DOE.  The distance between these key performance milestones and T1 is twelve months.
+
+```{r}
+tmp.both%>%filter(Tier=="T0")%>%select(Activity, Name=name, Date=target_end)
+```
+
+## T1 High-level Key Performance Milestones
+
+T1 Milestones are held by the Project Office.  The distance between these key performance milestones and T2 milestones is six months.
+
+```{r}
+tmp.both%>%filter(Tier=="T1")%>%select(Activity, Name=name, Date=target_end)
 ```

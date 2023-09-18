@@ -130,3 +130,35 @@ all$all.data %>%
   view()
 ```
 
+```{r}
+tmp<- charges%>% filter(Timecard.Start>as.Date("2023-03-01")) %>%
+  select(d=Timecard.Start, Hours=Hours, Full.Name=Full.Name, taskname,DSC)
+
+tmp.1<- tmp%>% group_by(Full.Name, d) %>% summarise(sum=sum(Hours),.groups='keep')
+tmp.2<- tmp%>% arrange(Full.Name, d) %>% group_by(Full.Name) %>% mutate(csum=cumsum(Hours),.groups='keep')
+
+tmp.g1<- ggplot(tmp.1,aes(x=d, y=sum)) + geom_step() + facet_wrap(vars(Full.Name),scales="free_y")
+tmp.g2<- ggplot(tmp.2,aes(x=d, y=csum)) + geom_step() + facet_wrap(vars(Full.Name),scales="free_y")
+print(tmp.g1)
+print(tmp.g2)
+
+ggsave(tmp.g1, filename=paste(base.path,"/HoursByName.pdf",sep=''),units="in", height=12, width=24, device="pdf")
+ggsave(tmp.g2, filename=paste(base.path,"/CumuHoursByName.pdf",sep=''),units="in", height=12, width=24, device="pdf")
+```
+```{r}
+btmp<- labor$by.week.person %>% filter(week>=as.Date("2023-03-01")&week<=as.Date("2023-08-17")) %>%
+  select(d=week, Hours=dl.hours, Full.Name=person)
+
+btmp.1<- btmp %>% group_by(Full.Name, d) %>% summarise(sum=sum(Hours),.groups='keep')
+btmp.2<- btmp%>% arrange(Full.Name, d) %>% group_by(Full.Name) %>% mutate(csum=cumsum(Hours),.groups='keep')
+
+btmp.g1<- ggplot(btmp.1,aes(x=d, y=sum)) + geom_step() + facet_wrap(vars(Full.Name),scales="free_y")
+btmp.g2<- ggplot(btmp.2,aes(x=d, y=csum)) + geom_step() + facet_wrap(vars(Full.Name),scales="free_y")
+print(btmp.g1)
+print(btmp.g2)
+
+ggsave(btmp.g1, filename=paste(base.path,"/P6HoursByName.pdf",sep=''),units="in", height=12, width=24, device="pdf")
+ggsave(btmp.g2, filename=paste(base.path,"/P6CumuHoursByName.pdf",sep=''),units="in", height=12, width=24, device="pdf")
+
+```
+

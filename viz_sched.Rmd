@@ -60,15 +60,19 @@ label.cat <- c(
 "Alignment", 
 "Commissioning")
 
-labels.ord <- data.frame(label=label.cat, ord=1:length(label.cat))
+labels.ord <- data.frame(label=label.cat, ord=length(label.cat):1)
 alldata.tmp <- alldata %>% left_join(labels.ord, by=join_by(label))
 alldata.tmp$label <- reorder(alldata.tmp$label, alldata.tmp$ord)
 
 alldata.tmp <- alldata.tmp %>%
   mutate(
-    a=as.numeric(as.factor(label))
+    a=as.numeric(label)
   )
 
+box.ys <- data.frame(category=c("Assembly","Shaft installation", "Shaft installation"), label=c("Assembly of modular sections", "Final shaft work", "Modular section and connection node installation"), ord=c(34,33,32), low=c(24,12,1), high=c(28,30,31))
+                     # low=c(7,5,4), high=c(11,23,34))
+box.xs <- alldata.tmp%>%filter(label.shape=="Box") %>% select(name, label, target_start, target_end,ord) %>% group_by(ord) %>% summarise(mi=min(target_start), mx=max(target_end))
+box.spans <- left_join(box.ys, box.xs, by=join_by(ord)) %>% mutate(mid.x=mi+(mx-mi)/2, mid.y=low+(high-low)/2)
 
 #alldata$label<-as.factor(alldata$label)
 #label.cat2<- factor(label.cat,levels=label.cat)
@@ -92,11 +96,15 @@ tmp$label.shape<-replace(tmp$label.shape,is.na(tmp$label.shape),"NA")
 gp<-ggplot(tmp%>%filter(label.shape!="skip"), aes(xmin=target_start, xmax=target_end, 
                    y=label,# ymin = g, ymax = g+.8, 
                    fill = category)) +
+
+  geom_rect(data=box.spans, aes(ymin=low,ymax=high,xmin=mi, xmax=mx), inherit.aes=FALSE,  fill=c("pink","limegreen","orange"), alpha=.4) +
+  # colour=c("lightyellow","green","blue"),
+  geom_text(data=box.spans, aes(x=mid.x,y=mid.y, label=label, angle=90),inherit.aes=FALSE, size=2) +
+  
   geom_vline(aes(xintercept=as.Date("2023-10-01")))+
   geom_vline(aes(xintercept=as.Date("2024-10-01")))+
   geom_vline(aes(xintercept=as.Date("2025-10-01")))+
   geom_vline(aes(xintercept=as.Date("2026-10-01")))+
-  #geom_rect(data=~filter(.x,label.shape=='Box'), aes(ymin=0,ymax=max(a),xmin=target_start, xmax=target_end), colour="lightyellow",fill=NA) + 
   geom_rect(aes(ymin = a-.4, ymax = a+.4)) +
   scale_y_discrete("label") +
   scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
@@ -146,4 +154,18 @@ tmp.ims.templ<-read_excel("../MOA_PMP/IntermediateMilestonesTemplate.xlsx")
 tmp.both<- tmp.ims.templ %>% left_join(tmp.ims, join_by(Activity==code))
 write_xlsx(tmp.both%>%select(Activity, Name=name, Date=target_end, Tier, Section, Group),"tmp-milestones.xlsx")
 ```
+
+look at all WBS 14
+
+```{r}
+library(writexl)
+tmp.descope<- all$all.data%>%select(code, name, target_start, target_end, cost, wbs, category, area)%>%
+  filter(target_start>=as.Date("2026-07-01"))%>% 
+  arrange(desc(target_start))%>% 
+  mutate(csum=cumsum(cost))
+
+write_xlsx(tmp.descope, "tmp-wbs14.xlsx")
+view(tmp.descope)
+```
+
 
