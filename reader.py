@@ -84,6 +84,7 @@ def make_task_graph(tables, args):
             , target_start=r['target_start_date'], target_end=r['target_end_date']
             , early_start=r['early_start_date'], early_end=r['early_end_date']
             , late_start=r['late_start_date'], late_end=r['late_end_date']
+            , actual_start=r['act_start_date'], actual_end=r['act_end_date']
             , driving_flag=r['driving_path_flag'] 
             , status=r['status_code']
             , task_type=r['task_type']
@@ -217,13 +218,13 @@ def filter_by_paths(g, ps, later_id, earlier_id):
 class GNode:
     header = ['code', 'name', 'wbs', 'area', 'status', 'drv_flag','task_type', 'type', 'rsrc_type', 'cost','dur', 
               'category', 'group', 'wbs_high', 'wbs_low', 'task_id', 'total_float', 'free_float',
-              'target_start', 'target_end', 'early_start','early_end','late_start','late_end']
+              'target_start', 'target_end', 'early_start','early_end','late_start','late_end','actual_start','actual_end']
 
     def record(self):
         return [self.n, self.name, self.wbs, self.area, self.status, self.drv, self.task_type, self.typ, 
                 self.rsrc, self.cost, self.dur, self.category, self.group, self.wbs_high, self.wbs_low, self.task_id,
                 self.total_float_hr, self.free_float_hr,
-                self.t_start, self.t_end, self.e_start, self.e_end, self.l_start, self.l_end]
+                self.t_start, self.t_end, self.e_start, self.e_end, self.l_start, self.l_end,self.a_start, self.a_end]
 
     def __init__(self,g,n):
         #print(f'building GNode for {n}')
@@ -236,6 +237,8 @@ class GNode:
         self.t_start=g.nodes[n]['target_start']
         self.e_start=g.nodes[n]['early_start']
         self.l_start=g.nodes[n]['late_start']
+        self.a_start=g.nodes[n]['actual_start']
+        self.a_end=g.nodes[n]['actual_end']
         self.name=g.nodes[n]['name']
         self.dur=g.nodes[n]['target_dur_hr']
         self.total_float_hr=g.nodes[n]['total_float_hr']

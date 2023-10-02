@@ -24,24 +24,49 @@ tasks.people <- combine.tasks.people(people, all)
 
 ```{r}
 current <- get.all.schedule("current")
-first <- get.all.schedule("currjbk1")
-other<- get.all.schedule("currjbk2")
+working <- get.all.schedule("working") # first
+bcrs<- get.all.schedule("CurrentBCRs") # other
 
 charges <- get.all.kronos()
 
 all.current<- current$all.data
-all.other<- other$all.data
+all.working<- working$all.data
+all.bcrs<- bcrs$all.data
 
 exp.curr <- bin.expenses(all.current)
-exp.other <- bin.expenses(all.other)
-exp.first <- bin.expenses(first$all.data)
+exp.work <- bin.expenses(all.working)
+exp.bcrs <- bin.expenses(all.bcrs)
 
 sum.curr<- exp.curr$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
-sum.other<- exp.other$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
+sum.work<- exp.work$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
+sum.bcrs<- exp.bcrs$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
 
-sum.both<- left_join(sum.curr, sum.other, by=join_by(FY)) %>% mutate(diff=tot_tc.y-tot_tc.x)
+sum.both<- left_join(sum.curr, sum.bcrs, by=join_by(FY),suffix=c(".curr",".BCRs")) %>% mutate(diff=tot_tc.BCRs-tot_tc.curr)
 view(sum.both)
 
+sum.both %>% summarise(x=sum(tot_tc.curr),y=sum(tot_tc.BCRs))
+```
+
+```{r}
+reduce.cols <- function(x) {
+  x %>% select(code, name, actual_start, actual_end, target_start, target_end, total_cost, total_float, dur)
+}
+
+bcrs.curr <- left_join(reduce.cols(all.current), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
+bcrs.work <- left_join(reduce.cols(all.working), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
+
+bcrs.curr <- bcrs.curr%>% mutate(cost.diff=total_cost.BCR-total_cost.cur, 
+                                 float.diff=total_float.BCR-total_float.cur,
+                                 actual.diff=target_start.BCR-actual_start.cur,
+                                 target.diff=target_start.BCR-target_start.cur
+                                 )%>% filter(cost.diff!=0 | target.diff!=days(0))
+bcrs.work <- bcrs.work%>% mutate(cost.diff=total_cost.BCR-total_cost.cur, 
+                                 float.diff=total_float.BCR-total_float.cur,
+                                 actual.diff=target_start.BCR-actual_start.cur,
+                                 target.diff=target_start.BCR-target_start.cur
+                                 ) %>% filter(cost.diff!=0 | target.diff!=days(0))
+view(bcrs.curr)
+view(bcrs.work)
 ```
 
 ```{r}

@@ -1,10 +1,9 @@
 ---
-title: "TestExample"
+title: "example-quarto3"
 format: 
-  pptx:
+  html:
     df-print: kable
-    tbl-colwidths: [25,50,25]
-    reference-doc: MAGIS100.potx
+    tbl-colwidths: [12,50,26,12]
 editor: visual
 ---
 
@@ -100,3 +99,4 @@ T1 Milestones are held by the Project Office.  The distance between these key pe
 ```{r}
 tmp.both%>%filter(Tier=="T1")%>%select(Activity, Name=name, Date=target_end, Status=status)
 ```
+
