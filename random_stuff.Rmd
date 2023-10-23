@@ -7,6 +7,7 @@ output: html_notebook
 library(tidyverse)
 library(ggplot2)
 library(readxl)
+library(writexl)
 library(stringr)
 library(lubridate)
 
@@ -24,8 +25,8 @@ tasks.people <- combine.tasks.people(people, all)
 
 ```{r}
 current <- get.all.schedule("current")
-working <- get.all.schedule("working") # first
-bcrs<- get.all.schedule("CurrentBCRs") # other
+working <- get.all.schedule("WS2309") # first
+bcrs<- get.all.schedule("BLBCR") # other
 
 charges <- get.all.kronos()
 
@@ -41,7 +42,7 @@ sum.curr<- exp.curr$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum
 sum.work<- exp.work$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
 sum.bcrs<- exp.bcrs$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
 
-sum.both<- left_join(sum.curr, sum.bcrs, by=join_by(FY),suffix=c(".curr",".BCRs")) %>% mutate(diff=tot_tc.BCRs-tot_tc.curr)
+sum.both<- full_join(sum.work, sum.bcrs, by=join_by(FY),suffix=c(".curr",".BCRs")) %>% mutate(diff=tot_tc.BCRs-tot_tc.curr)
 view(sum.both)
 
 sum.both %>% summarise(x=sum(tot_tc.curr),y=sum(tot_tc.BCRs))
@@ -52,34 +53,28 @@ reduce.cols <- function(x) {
   x %>% select(code, name, actual_start, actual_end, target_start, target_end, total_cost, total_float, dur)
 }
 
-bcrs.curr <- left_join(reduce.cols(all.current), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
-bcrs.work <- left_join(reduce.cols(all.working), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
+bcrs.curr <- full_join(reduce.cols(all.current), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
+bcrs.work <- full_join(reduce.cols(all.working), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
 
 bcrs.curr <- bcrs.curr%>% mutate(cost.diff=total_cost.BCR-total_cost.cur, 
                                  float.diff=total_float.BCR-total_float.cur,
                                  actual.diff=target_start.BCR-actual_start.cur,
                                  target.diff=target_start.BCR-target_start.cur
-                                 )%>% filter(cost.diff!=0 | target.diff!=days(0))
+                                 ) #%>% filter(cost.diff!=0 | target.diff!=days(0))
 bcrs.work <- bcrs.work%>% mutate(cost.diff=total_cost.BCR-total_cost.cur, 
                                  float.diff=total_float.BCR-total_float.cur,
                                  actual.diff=target_start.BCR-actual_start.cur,
                                  target.diff=target_start.BCR-target_start.cur
-                                 ) %>% filter(cost.diff!=0 | target.diff!=days(0))
-view(bcrs.curr)
+                                 ) #%>% filter(cost.diff!=0 | target.diff!=days(0))
+
+write_xlsx(bcrs.work, "WS_BCR.xlsx")
+write_xlsx(bcrs.curr, "BL_BCR.xlsx")
+
+#view(bcrs.curr)
 view(bcrs.work)
 ```
 
 ```{r}
-#sub.all.other <- all.other%>%select(code, name, total_cost, total_float, target_start, target_end)
-#sub.all.first <- first$all.data%>%select(code, name, total_cost, total_float, target_start, target_end)
-#view(sub.all.first)
-#view(sub.all.other)
-
-FY26.interval <- interval('2025-10-01', '2026-09-30')
-FY2425.interval <- interval('2023-10-01', '2025-09-30')
-FY24.interval <- interval('2023-10-01', '2024-09-30')
-FY25.interval <- interval('2024-10-01', '2025-09-30')
-fuller.interval <- interval('2023-10-01', '2026-09-30')
 
 tmp.both<- left_join(all.current, all.other, by=join_by(code),suffix=c(".cur",".prv"))
 

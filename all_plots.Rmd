@@ -28,7 +28,8 @@ use_python("/Users/jimk/AppData/Local/Microsoft/WindowsApps/PythonSoftwareFounda
 
 
 ```{r}
-all <- get.all.schedule("working")
+#all <- get.all.schedule("BLBCR")
+all <- get.all.schedule("WS2309")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
@@ -36,21 +37,26 @@ tasks.people <- combine.tasks.people(people, all)
 
 ```{r}
 labor <- bin.labor(tasks.people)
+costs <- bin.expenses(all$all.data)
+costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
 ```
 
 
 ```{r}
 fte<- FTE.plots(labor$by.day.all%>%filter(code!='other'))
-activities<- activities.plot(all$all.data, interval(as.Date('2023-09-01'),as.Date('2023-12-01')),tcost=1)
+activities<- activities.plot(all$all.data, start.date=as.Date('2023-08-01'),end.date=as.Date('2023-12-01'))
 milestones<- milestones.plot(all$all.data)
 resources<- resources.plot(labor$by.week, device="png")
-proc<- procurements.plot(all)
+proc<- procurements.plot(all, en=Sys.Date()+months(8))
+reviews<- reviews.plot(all$all.data)
 ```
 
 ```{r}
 ggsave(resources, filename=paste(base.path,"/hours.png",sep=''), width=24, units='in', device='png')
-ggsave(milestones, filename=paste(base.path,'/milestones.png',sep=''), width=12, units='in', device="png")
-ggsave(activities, filename=paste(base.path,"/active.pdf",sep=''),units="in", height=12, width=24, device="pdf")
+ggsave(milestones, filename=paste(base.path,'/milestones.png',sep=''), width=11, units='in', device="png")
+ggsave(activities, filename=paste(base.path,"/active.pdf",sep=''),width=11, units="in", device="pdf")
+ggsave(reviews, filename=paste(base.path,"/reviews.pdf",sep=''),units="in", width=11, device="pdf")
+ggsave(proc$plot, filename=paste(base.path,"/procurements.pdf",sep=''),units="in", width=16, device="pdf")
 ggsave(fte[[1]], filename=paste(base.path,"/fte_role.png",sep=''),units="in", device="png")
 ggsave(fte[[2]], filename=paste(base.path,"/fte_div.png",sep=''),units="in", device="png")
 
@@ -60,11 +66,13 @@ ggsave(fte[[2]], filename=paste(base.path,"/fte_div.png",sep=''),units="in", dev
 ```{r}
 print(proc$plot)
 print(milestones)
-print(fte[[1]])
-print(fte[[2]])
-print(fte[[3]])
-print(fte[[4]])
+#print(fte[[1]])
+#print(fte[[2]])
+#print(fte[[3]])
+#print(fte[[4]])
 print(resources)
+print(activities)
+print(reviews)
 ```
 
 ```{r}
@@ -181,7 +189,7 @@ p6.proc <- function(grouping.name, labor.by.week)
 {
   grouping.sym = rlang::sym(grouping.name)
   
-  p6.tmp<- labor.by.week %>% filter(week>=as.Date("2023-03-01")&week<=as.Date("2023-09-30")) %>%
+  p6.tmp<- labor.by.week %>% filter(week>=as.Date("2023-03-01")&week<=as.Date("2024-03-30")) %>%
     select(FY=FY, d=week, Hours=dl.hours, Full.Name=person, department=code, ctc=ctc, role=Role) %>%
     mutate(LOE=ctc=='Q1903.01')%>%
     mutate(role.new=if_else(LOE=='TRUE'&role!="RA", "LOE", role))
@@ -210,26 +218,26 @@ labor$by.week.role
 
 #kr.data <- kr.proc("role.new", charges%>%filter(taskname=="Q1903.10"))
 kr.data <- kr.proc("role.new", charges)
-p6.data <- p6.proc("role.new", labor$by.week.role)
+p6.data <- p6.proc("role.new", labor$by.week.ctc) # role
 ```
 
 
-```{r}
+#```{r}
 print(kr.data$kr.g1)
 print(kr.data$kr.g2)
 
 ggsave(kr.data$kr.g1, filename=paste(base.path,"/HoursByName.pdf",sep=''),units="in", height=12, width=24, device="pdf")
 ggsave(kr.data$kr.g2, filename=paste(base.path,"/CumuHoursByName.pdf",sep=''),units="in", height=12, width=24, device="pdf")
-```
+# ```
 
-```{r}
+#```{r}
 print(p6.data$p6.g1)
 print(p6.data$p6.g2)
 
 ggsave(p6.data$p6.g1, filename=paste(base.path,"/P6HoursByName.pdf",sep=''),units="in", height=12, width=24, device="pdf")
 ggsave(p6.data$p6.g2, filename=paste(base.path,"/P6CumuHoursByName.pdf",sep=''),units="in", height=12, width=24, device="pdf")
 
-```
+#```
 
 ```{r}
 #person.diff <- setdiff(unique(charges$Full.Name), unique(labor$by.week.person$person))
@@ -251,25 +259,20 @@ person.g4<- ggplot(tmp,aes(x=d, colour=from)) +
 #  geom_step(aes(y=csum)) +
 #  facet_wrap(vars(from),scales="free_y")
 print(person.g4)
-
 ```
+
 ```{r}
-activities<- activities.plot(all$all.data, interval(as.Date('2023-03-01'),as.Date('2023-12-31')),tcost=1)
-test.gp<-ggplot(
-  activities$data%>%filter(state!="Future"),
-    aes( colour=as.factor(state), y=reorder(code,target_start))
-  ) +
-    geom_linerange(aes(xmin = early_start, xmax = early_end),colour='red',position=position_nudge(y=0.0)) +
-    geom_linerange(aes(xmin = late_start, xmax = late_end), colour='green',position=position_nudge(y=0.0)) +
-    geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=.50) +
-    geom_text(aes(hjust='left',x = target_start, label = paste(total_cost,name,sep=":")), nudge_x=9.6, nudge_y=.4, size=2.0) +
-    geom_text(aes(hjust='left',x = late_end, label = paste(free_float, total_float, sep='/')), nudge_x=9.6, nudge_y=.4, size=1.8) +
-    scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
-    theme(axis.text.x = element_text(angle = 90),axis.text=element_text()) +
-    labs(x="Target Start Date", y="Activity", fill="role")
+# costs.week%>%filter(FY==2024 & csum>1000000)%>% slice(1)
+costs.g5<- ggplot(costs.week%>% filter(FY==2024),
+                  aes(x=week)) + 
+  geom_step(aes(y=csum))+
+  #geom_vline(aes(xintercept=costs.week%>%filter(FY==2024&csum>1300000)%>%slice(1)%>%pull(week)))+
+  #geom_hline(aes(yintercept=costs.week%>%filter(FY==2024&csum>1300000)%>%slice(1)%>%pull(csum)))+
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90),axis.text=element_text()) +
+  labs(x="Week", y="dollars")
 
-  ggsave(test.gp, filename="activities.pdf",units="in", height=10, width=24, device="pdf")
+print(costs.g5)
 
-  print(test.gp)
 ```
 

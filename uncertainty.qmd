@@ -200,7 +200,6 @@ tmp.cdf.tri2 <- tmp.cdf.tri %>% mutate(plot=map2(data,pq,pq.plot2,year,.progress
 
 CDF plot for each of the years for the PERT distribution are shown in @fig-charts-tri.
 
-
 \newpage
 
 # Summary - estimating confidence levels
