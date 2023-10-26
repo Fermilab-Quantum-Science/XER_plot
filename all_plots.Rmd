@@ -75,9 +75,9 @@ print(activities)
 print(reviews)
 ```
 
-```{r}
-activities<- activities.plot(all$all.data, interval(as.Date('2024-09-01'),as.Date('2025-11-01')),tcost=1)
-```
+#```{r}
+#activities<- activities.plot(all$all.data, interval(as.Date('2024-09-01'),as.Date('2025-11-01')),tcost=1)
+#```
 
 ```{r}
 #labor <- bin.labor(tasks.people)
@@ -260,6 +260,27 @@ person.g4<- ggplot(tmp,aes(x=d, colour=from)) +
 #  facet_wrap(vars(from),scales="free_y")
 print(person.g4)
 ```
+```{r}
+ctc.comp <- rbind(mutate(p6.data$p6,from="P6"),mutate(kr.data$kr,from="KR"))
+
+tmp<- ctc.comp %>% ungroup() %>% select(from, FY, ctc, d, Hours) %>% group_by(FY,from,ctc,d)%>% summarise(sum=sum(Hours)) %>% arrange(FY, from, ctc, d) %>% group_by(FY, from, ctc) %>% mutate(csum=cumsum(sum))
+
+ctc.g5<- ggplot(tmp,aes(x=d, colour=from)) + 
+  geom_step(aes(y=csum)) +
+#  geom_step(aes(y=csum)) +
+  facet_wrap(vars(FY,ctc),scales="free_y")
+print(ctc.g5)
+
+tmp2<- ctc.comp %>% ungroup() %>% select(from, FY, name=role.new, d, Hours) %>% group_by(FY,from,name,d)%>% summarise(sum=sum(Hours)) %>% arrange(FY, from, name, d) %>% group_by(FY, from, name) %>% mutate(csum=cumsum(sum))
+
+person.g6<- ggplot(tmp2,aes(x=d, colour=from)) + 
+  geom_step(aes(y=csum)) +
+#  geom_step(aes(y=csum)) +
+  facet_wrap(vars(FY,name),scales="free_y")
+print(person.g6)
+
+
+```
 
 ```{r}
 # costs.week%>%filter(FY==2024 & csum>1000000)%>% slice(1)
@@ -274,5 +295,10 @@ costs.g5<- ggplot(costs.week%>% filter(FY==2024),
 
 print(costs.g5)
 
+```
+
+```{r}
+k<- kr.proc("Full.Name", charges)
+ggplot(k$kr2, aes(x=d, colour=ctc)) + geom_step(aes(y=csum)) + facet_wrap(vars(grouping), scales="free_y")
 ```
 

@@ -1,0 +1,270 @@
+---
+title: "example-quarto2.qmd"
+format: 
+  pdf:
+    df-print: kable
+    tbl-colwidths: [12,50,14,14,10]
+    fig-pos: 'ht'
+editor: visual
+---
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(lubridate)
+library(kableExtra)
+
+library(MAGIS100PM)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+all <- get.all.schedule("WS2309")
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+
+run.kable <- function(d)
+{
+  kable(d, booktabs=TRUE) %>%
+    kable_styling(latex_options = "hold_position", font_size=10) %>%
+  column_spec(2, width="3in") %>%
+  row_spec(which(d$State=="Complete"), background="lime", bold=TRUE) %>%
+  row_spec(which(d$State=="Late"), background="yellow", bold=TRUE) %>%
+  row_spec(which(d$State=="Long"), background="orange", bold=TRUE) %>%
+  row_spec(which(d$State=="Active"), background="green", bold=TRUE)
+}
+
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+labor <- bin.labor(tasks.people)
+```
+
+# Milestone tracking
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+tmp.m<- milestones.filter(all$all.data, exclude.future = FALSE)
+tmp.ims<-tmp.m%>%filter(str_detect(name,"^T0|^T1|^T2"))%>%
+  select(code, name, target_end, actual_end, status, state, total_cost, task_id)
+tmp.ims<- tmp.ims%>%left_join(all$tasks,by=join_by(task_id))
+tmp.ims.templ<-read_excel("../MOA_PMP/IntermediateMilestonesTemplate.xlsx")
+tmp.both<- tmp.ims.templ %>% left_join(tmp.ims, join_by(Activity==code))
+
+write_xlsx(tmp.ims%>%
+             select(code, name, target_end, act_end_date, state, total_float=total_float_hr_cnt)%>% arrange(target_end),
+           "milestones_summary.xlsx")
+
+```
+
+MAGIS-100 has defined three tiers of high-level project key performance milestones to accommodate approximately 50% schedule contingency.
+
+-   T2: Milestones held by the MAGIS-100 project. These key performance milestones are the best estimate provided through our Resource Loaded Schedule. The project team goal is to hit these milestones.
+-   T1: Milestones held by the Project Office. The distance between these key performance milestones and T2 milestones is six months.
+-   T0: Milestones held by DOE. The distance between these key performance milestones and T1 is twelve months.
+
+T0 high-level project Key Performance Milestones are repeated for each of the tiers. The T1 milestone set has additional Key Performance Milestones that mark the end of each T2 milestone group.
+
+\newpage
+
+## S-1: Site ready to accept experiment
+
+The S-1 Key Performance Milestone is met when the MINOS site is ready to accept installation of the scientific apparatus and all Intermediate Milestones have been met.
+
+```{r}
+#| echo: false
+#| label: tbl-tb2
+#| tbl-cap: "S-1 Milestones"
+#| tbl-colwidths: [12,50,14,14,10]
+
+tb2 <- tmp.both%>%filter(Tier=="T2" & Section=="S-1")%>%
+  select(Activity, Name=name, Date=target_end, Ended=act_end_date, State=state)%>%
+  arrange(Date)
+
+run.kable(tb2)
+
+
+```
+
+\newpage
+
+## S-2: Experiment apparatus components installed
+
+The S-2 Key Performance Milestone is met when all essential scientific equipment is assembled, certified, unit tested, and installed.
+
+```{r}
+#| echo: false
+#| label: tbl-tb3
+#| tbl-cap: "S-2 Milestones"
+#| tbl-colwidths: [12,50,14,14,10]
+
+run.kable(tmp.both%>%filter(Tier=="T2" & Section=="S-2")%>%
+  select(Activity, Name=name, Date=target_end, Ended=act_end_date, State=state)%>%
+  arrange(Date))
+```
+
+\newpage
+
+## S-3: Experiment support systems operational
+
+The S-3 Key Performance Milestone is met when these systems are installed. The experimental support systems operational group of milestones includes all the components that support the operations of the experiment. These systems are related to either safety or readouts and are not covered in the site or experiment apparatus sections.
+
+```{r}
+#| echo: false
+#| label: tbl-tb4
+#| tbl-cap: "S-3 Milestones"
+#| tbl-colwidths: [12,50,14,14,10]
+
+
+
+run.kable(tmp.both%>%filter(Tier=="T2" & Section=="S-3")%>%
+  select(Activity, Name=name, Date=target_end, Ended=act_end_date, State=state)%>%
+  arrange(Date))
+```
+
+\newpage
+
+## S-4: Atom-laser interactions observed
+
+The S-4 Key Performance Milestone is met when each of the main systems is tested and ready for experiment commissioning. These milestones indicate that site preparation, apparatus installation, and support system installation are complete.
+
+```{r}
+#| echo: false
+#| label: tbl-tb5
+#| tbl-cap: "S-4 Milestones"
+#| tbl-colwidths: [12,50,14,14,10]
+
+run.kable(tmp.both%>%filter(Tier=="T2" & Section=="S-4")%>%
+  select(Activity, Name=name, Date=target_end, Ended=act_end_date, State=state)%>%
+  arrange(Date))
+```
+
+\newpage
+
+## T0 High-level Key Performance Milestones
+
+T0 Milestones are held by DOE. The distance between these key performance milestones and T1 is twelve months.
+
+```{r}
+#| echo: false
+#| label: tbl-tb6
+#| tbl-cap: "T0 Milestones"
+#| tbl-colwidths: [12,50,14,14,10]
+
+run.kable(tmp.both%>%filter(Tier=="T0")%>%
+  select(Activity, Name=name, Date=target_end, Ended=act_end_date, State=state) %>%
+  arrange(Date))
+```
+
+## T1 High-level Key Performance Milestones
+
+T1 Milestones are held by the Project Office. The distance between these key performance milestones and T2 milestones is six months.
+
+```{r}
+#| echo: false
+#| label: tbl-tb7
+#| tbl-cap: "T1 Milestones"
+#| tbl-colwidths: [12,50,14,14,10]
+
+run.kable(tmp.both%>%filter(Tier=="T1")%>%
+  select(Activity, Name=name, Date=target_end, Ended=act_end_date,State=state)%>%
+  arrange(Date))
+```
+
+\newpage
+
+# Reviews
+
+There are the review.
+
+```{r}
+#| echo: false
+#| label: tbl-tb8
+#| tbl-cap: "Reviews"
+#| tbl-colwidths: [12,50,14,14,10]
+
+reviews<- reviews.filter(all$all.data)
+
+run.kable(reviews%>%
+  select(Activity=code, Name=name, Date=target_start, Ended=actual_end,State=state)%>%
+  arrange(Date))
+
+```
+
+\newpage
+
+# All Milestones
+
+```{r}
+#| echo: false
+#| label: tbl-all-m
+#| tbl-cap: "All Milestones"
+#| tbl-colwidths: [12,50,14,14,10]
+
+ms<- milestones.filter(all$all.data)
+
+run.kable(ms%>%
+  select(Activity=code, Name=name, Date=target_start, Ended=actual_end,State=state)%>%
+  arrange(Date))
+
+```
+
+\newpage
+
+# Procurements
+
+```{r}
+#| echo: false
+#| label: tbl-procurements
+#| tbl-cap: "Procurements"
+#| tbl-colwidths: [12,50,14,14,10]
+
+proc<- procurements.filter(all, en=Sys.Date()+months(4))
+
+run.kable(proc$data%>%
+  select(Activity=task_code, Name=task_name, Date=target_start_date, Cost=total_cost,State=state)%>%
+  arrange(Date))
+
+```
+
+\newpage
+
+# Current Activities
+
+```{r}
+#| echo: false
+#| label: tbl-acts
+#| tbl-cap: "Current activities (quarter before)"
+#| tbl-colwidths: [12,50,14,14,10]
+
+now <- Sys.Date()
+st <- quarter(now, fiscal_start=10, type="date_first") - months(3)
+en <- now + months(3)
+acts.before<- activities.filter(all$all.data, start.date=st, end.date=now)
+acts.after<- activities.filter(all$all.data, start.date=now, end.date=en)
+
+run.kable(acts.before%>%
+  select(Activity=code, Name=name, Date=target_start, Ended=actual_end,State=state)%>%
+  arrange(Date))
+
+
+```
+
+```{r}
+#| echo: false
+#| label: tbl-acts2
+#| tbl-cap: "Current activities (three months after)"
+#| tbl-colwidths: [12,50,14,14,10]
+
+run.kable(acts.after%>%
+  select(Activity=code, Name=name, Date=target_start, Ended=actual_end,State=state)%>%
+  arrange(Date))
+
+
+```
