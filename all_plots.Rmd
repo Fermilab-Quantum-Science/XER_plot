@@ -10,8 +10,8 @@ library(ggplot2)
 library(readxl)
 library(writexl)
 library(stringr)
-library(lubridate)
 library(rlang)
+library(lubridate)
 
 library(MAGIS100PM)
 ```
@@ -47,7 +47,7 @@ fte<- FTE.plots(labor$by.day.all%>%filter(code!='other'))
 activities<- activities.plot(all$all.data, start.date=as.Date('2023-08-01'),end.date=as.Date('2023-12-01'))
 milestones<- milestones.plot(all$all.data)
 resources<- resources.plot(labor$by.week, device="png")
-proc<- procurements.plot(all, en=Sys.Date()+months(8))
+proc<- procurements.plot(all, en=Sys.Date()+weeks(8*4))
 reviews<- reviews.plot(all$all.data)
 ```
 
@@ -91,32 +91,23 @@ persons.FY23Q34<- labor$by.week.person %>%
   filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name, div=DSC),join_by(person) )
 
-persons.FY23<- labor$by.week.person %>%
-  filter(FY==2023) %>%
-  group_by(person,FY)%>%
-  summarise(hrs=sum(dl.hours)) %>% 
-  mutate(ftes=hrs/(1805*FY.table['frac'][1,])) %>%
-  filter(!is.na(person)) %>%
-  left_join(people%>%select(person=role_name, type=rsrc_name),join_by(person) )
-
-tmp.persons<- labor$by.week.person %>%
-  filter(FY==2023)
-
-persons.FY24<- labor$by.week.person %>%
-  filter(FY==2024) %>%
+persons.FY2324<- labor$by.week.person %>%
+  filter(FY %in% c(2023,2024)) %>%
   group_by(person,FY)%>%
   summarise(hrs=sum(dl.hours)) %>% 
   mutate(ftes=hrs/(1805)) %>%
   filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name),join_by(person) )
+write_xlsx(persons.FY2324, "persons_FY2324.xlsx")
 
-types.FY24<- labor$by.week.all %>%
-  filter(FY==2024) %>%
+types.FY2324<- labor$by.week.all %>%
+  filter(FY %in% c(2023,2024)) %>%
   group_by(type,person, FY)%>%
   summarise(hrs=sum(dl.hours)) %>% 
   mutate(ftes=hrs/(1805)) %>%
   #filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) )
+write_xlsx(types.FY2324, "types_FY2324.xlsx")
 
 tpt.FY<- labor$by.week.person.task %>%
   filter(FY>2022) %>%
@@ -126,7 +117,7 @@ tpt.FY<- labor$by.week.person.task %>%
   #filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person)) %>%
   left_join(all$tasks%>%select(task_id, task_name, task_code, target_start_date, target_end_date), by=join_by(task_id))
-
+write_xlsx(tpt.FY%>% filter(FY %in% c(2023,2024)), "TPT_FY23_24.xlsx")
 
 
 ```
@@ -165,7 +156,7 @@ Full.Name = Role
 
 ```{r}
 
-kr.proc <- function(grouping.name, charges)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     kr.proc <- function(grouping.name, charges)
 {
   grouping.sym = rlang::sym(grouping.name)
 
@@ -189,7 +180,7 @@ p6.proc <- function(grouping.name, labor.by.week)
 {
   grouping.sym = rlang::sym(grouping.name)
   
-  p6.tmp<- labor.by.week %>% filter(week>=as.Date("2023-03-01")&week<=as.Date("2024-03-30")) %>%
+  p6.tmp<- labor.by.week %>% filter(week>=as.Date("2023-03-01")&week<=as.Date("2024-01-01")) %>%
     select(FY=FY, d=week, Hours=dl.hours, Full.Name=person, department=code, ctc=ctc, role=Role) %>%
     mutate(LOE=ctc=='Q1903.01')%>%
     mutate(role.new=if_else(LOE=='TRUE'&role!="RA", "LOE", role))
@@ -300,5 +291,21 @@ print(costs.g5)
 ```{r}
 k<- kr.proc("Full.Name", charges)
 ggplot(k$kr2, aes(x=d, colour=ctc)) + geom_step(aes(y=csum)) + facet_wrap(vars(grouping), scales="free_y")
+```
+
+```{r}
+fquarter<- function(x) { quarter(x, fiscal_start=10, type="date_first") }
+lquarter<- function(x) { quarter(x, fiscal_start=10, type="date_last") }
+quarter(Sys.Date()+months(1), fiscal_start = 10, type="year.quarter")
+quarter("2023-07-07", fiscal_start = 10, type="date_first")
+tmp.df<- fquarter(Sys.Date())
+tmp.dl<- lquarter(Sys.Date())
+print(tmp.df)
+print(tmp.dl)
+
+fquarter(tmp.df-months(1))
+fquarter(tmp.dl+months(1))
+
+floor_date(as.Date("2023-11-04"), unit="month")-months(1)
 ```
 

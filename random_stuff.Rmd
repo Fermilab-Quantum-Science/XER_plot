@@ -76,38 +76,38 @@ view(bcrs.work)
 
 ```{r}
 
-tmp.both<- left_join(all.current, all.other, by=join_by(code),suffix=c(".cur",".prv"))
+tmp.both<- left_join(all.current, all.working, by=join_by(code),suffix=c(".BL2307",".WS2309"))
 
 tmp.diff<- tmp.both %>% 
-  select(code, name.cur, dur.cur, dur.prv, 
-         target_start.cur, target_start.prv, target_end.cur, target_end.prv, 
-         late_start.cur, late_start.prv, late_end.cur, late_end.prv, 
-         total_float.cur, total_float.prv, 
-         total_cost.cur, total_cost.prv, cost.prv, cost.cur,  
-         wbs.cur, group.cur,category.cur) %>% 
-  mutate(dur.diff=dur.cur-dur.prv,
-         float.diff=total_float.cur-total_float.prv,
-         tot.cost.diff=total_cost.cur-total_cost.prv, 
-         dd.task=dur.cur==dur.prv*2,
-         FY.cur=fiscal.from.date(target_start.cur),
-         FY.prv=fiscal.from.date(target_start.prv)
+  select(code, name.BL2307, dur.BL2307, dur.WS2309, 
+         target_start.BL2307, target_start.WS2309, target_end.BL2307, target_end.WS2309, 
+         late_start.BL2307, late_start.WS2309, late_end.BL2307, late_end.WS2309, 
+         total_float.BL2307, total_float.WS2309, 
+         total_cost.BL2307, total_cost.WS2309, cost.WS2309, cost.BL2307,  
+         wbs.BL2307, group.BL2307,category.BL2307) %>% 
+  mutate(dur.diff=dur.BL2307-dur.WS2309,
+         float.diff=total_float.BL2307-total_float.WS2309,
+         tot.cost.diff=total_cost.BL2307-total_cost.WS2309, 
+         dd.task=dur.BL2307==dur.WS2309*2,
+         FY.BL2307=fiscal.from.date(target_start.BL2307),
+         FY.WS2309=fiscal.from.date(target_start.WS2309)
          )
 sum.by.fy<- left_join(
-  tmp.diff%>% group_by(FY.cur)%>%summarise(tot=sum(total_cost.cur,na.rm=TRUE)),
-  tmp.diff%>% group_by(FY.prv)%>%summarise(tot=sum(total_cost.prv,na.rm=TRUE)),
-  by=join_by(FY.cur==FY.prv)) %>%
+  tmp.diff%>% group_by(FY.BL2307)%>%summarise(tot=sum(total_cost.BL2307,na.rm=TRUE)),
+  tmp.diff%>% group_by(FY.WS2309)%>%summarise(tot=sum(total_cost.WS2309,na.rm=TRUE)),
+  by=join_by(FY.BL2307==FY.WS2309)) %>%
     mutate(dif=tot.y-tot.x)
 
 tmp.filtered<- tmp.diff %>% 
-  filter((target_start.cur %within% fuller.interval | target_end.cur %within% fuller.interval)) %>%
-  mutate(end.diff=target_end.cur - target_end.prv,
-         start.diff=target_start.cur - target_start.prv) 
+#  filter((target_start.BL2307 %within% fuller.interval | target_end.BL2307 %within% fuller.interval)) %>%
+  mutate(end.diff=target_end.BL2307 - target_end.WS2309,
+         start.diff=target_start.BL2307 - target_start.WS2309) 
 
 #%>% filter(dur.x!=0)
 
-write.csv(tmp.filtered, "differences.csv")
+write_xlsx(tmp.filtered, "differences.xlsx")
 
-tmp.filtered %>% filter((target_start.cur %within% FY24.interval | target_end.cur %within% FY24.interval)) %>% summarise(tcost=sum(total_cost.cur))
+#tmp.filtered %>% filter((target_start.cur %within% FY24.interval | target_end.cur %within% FY24.interval)) %>% summarise(tcost=sum(total_cost.cur))
 ```
 
 #```{r}
@@ -127,5 +127,15 @@ view I'm using to analyze this
 #view(all.other %>% mutate(yr=fiscal.from.date(target_start)) %>% select(code, name, target_start, target_end, total_float, total_cost,yr)%>%arrange(yr,total_float))
 
 view(all.other %>% mutate(yr=fiscal.from.date(target_start), days_float=total_float/8) %>% select(code, name, target_start, target_end, total_float, total_cost,yr, days_float)%>%arrange(target_start))
+```
+
+```{r}
+#hrs.prj<- read_xlsx("../finance/ETD Project Labor Report 2023-12-SEP 2023.10.04.xlsx", sheet="Sheet1")
+#hrs.prj<-hrs.prj%>%pivot_longer(2:15)%>%filter(!is.na(value) & !name=="...15")
+hrs.prj<- read_xlsx("../finance/ETD Project Labor Report 2023-12-SEP 2023.10.04.xlsx", sheet="Project Hours", skip=5)
+hrs.bud<- read_xlsx("../finance/ETD Project Labor Report 2023-12-SEP 2023.10.04.xlsx", sheet="Budget vs Actual Hours", skip=4)
+names(hrs.bud) <- c("name","budget.hours","actual.hours", "blob", "variance", "EOC")
+hrs.ctc <- hrs.bud %>%filter(str_detect(name, "Q1903"))
+#hrs.bud<-hrs.bud%>%pivot_longer(2:15)%>%filter(!is.na(value) & !name=="...15")
 ```
 

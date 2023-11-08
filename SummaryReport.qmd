@@ -1,5 +1,5 @@
 ---
-title: "example-quarto2.qmd"
+title: "Current Status Report for MAGIS-100"
 format: 
   pdf:
     df-print: kable
@@ -36,7 +36,7 @@ run.kable <- function(d)
   row_spec(which(d$State=="Complete"), background="lime", bold=TRUE) %>%
   row_spec(which(d$State=="Late"), background="yellow", bold=TRUE) %>%
   row_spec(which(d$State=="Long"), background="orange", bold=TRUE) %>%
-  row_spec(which(d$State=="Active"), background="green", bold=TRUE)
+  row_spec(which(d$State=="Active"), background="green", bold=TRUE) 
 }
 
 ```
@@ -236,6 +236,8 @@ run.kable(proc$data%>%
 \newpage
 
 # Current Activities
+
+Current activities here
 
 ```{r}
 #| echo: false
