@@ -155,8 +155,7 @@ Full.Name = Full.Name
 Full.Name = Role
 
 ```{r}
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     kr.proc <- function(grouping.name, charges)
+kr.proc <- function(grouping.name, charges)
 {
   grouping.sym = rlang::sym(grouping.name)
 
@@ -290,7 +289,9 @@ print(costs.g5)
 
 ```{r}
 k<- kr.proc("Full.Name", charges)
-ggplot(k$kr2, aes(x=d, colour=ctc)) + geom_step(aes(y=csum)) + facet_wrap(vars(grouping), scales="free_y")
+tmpp<- ggplot(k$kr2, aes(x=d, colour=ctc)) + geom_step(aes(y=csum)) + facet_wrap(vars(grouping), scales="free_y", ncol=4)
+ggsave("./kr2_cyc.pdf", tmpp)
+print(tmpp)
 ```
 
 ```{r}
@@ -309,3 +310,46 @@ fquarter(tmp.dl+months(1))
 floor_date(as.Date("2023-11-04"), unit="month")-months(1)
 ```
 
+```{r}
+
+costs.by.month <- costs$target.by.day %>%
+  mutate(month=floor_date(week,unit="month",week_start=1)) %>%
+    group_by(FY, month) %>% summarise(msum=sum(hsum,na.rm=TRUE),.groups='drop')
+
+t.by.day<- unnest(costs$target.day.grouped,cols=c(dl),names_sep='.') %>% arrange(s) %>%
+    mutate(week=floor_date(dl.d,unit="week",week_start=1)) %>%
+    mutate(FY.orig=fiscal.from.date(week), FY=fiscal.date.adjust(week,FY.orig)) %>%
+    group_by(FY, ctc, week) %>% summarise(hsum=sum(dl.hours,na.rm=TRUE),.groups='drop') %>%
+    mutate(month=floor_date(week,unit="month",week_start=1)) %>%
+    group_by(FY, ctc, month) %>% summarise(msum=sum(hsum,na.rm=TRUE),.groups='drop')
+t.by.month <- t.by.day %>% 
+  arrange(FY, ctc, month) %>% group_by(FY, ctc) %>% mutate(cumu=cumsum(msum))
+
+ggplot(t.by.month%>%filter(FY==2023), aes(x=month, y=cumu,colour=ctc))+
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+        geom_point() + geom_step()
+```
+
+This is the actuals spreadsheet that ETD sends out each month with updated values for the year.
+I had to edit the spreadsheet to add a column name for taskcode.
+```{r}
+tmp<- read_xlsx("../finance/SV_Q1903_2024-01 OCT_Costs by Month_20231106.xlsx", n_max=7, col_names=FALSE)
+tmp.2<- read_xlsx("../finance/SV_Q1903_2024-01 OCT_Costs by Month_20231106.xlsx", skip=7, col_names=FALSE)
+names(tmp.2)<- paste(slice(tmp,7),slice(tmp,1),sep='.')
+tmp<- tmp.2 %>% pivot_longer(-NA.Task.code)
+tmp.3<- str_split(tmp$name, "\\.",simplify=TRUE)
+tmp$month<- tmp.3[,1]
+tmp$fyear<- as.numeric(str_sub(tmp.3[,2],start=3))+2000
+tmp$date<- rollforward(my(paste(tmp$month,tmp$fyear,sep='.')))
+tmp$date<- if_else(month(tmp$date)>=10,tmp$date-years(1),tmp$date)
+tmp$taskcode.orig<- as.data.frame(str_split(tmp$NA.Task.code, "[\\._]",simplify=TRUE, n=4))%>% select(V2,V3) %>% mutate(taskcode=paste(V2,V3,sep='.'))%>%pull(3)
+tmp<- tmp%>% left_join(MAGIS100PM::taskcodemap, by=join_by(taskcode.orig))
+tmp.4<- tmp%>%filter(!is.na(taskcode)&date<as.Date('2023-10-01'))%>%arrange(taskcode,date) %>% group_by(taskcode,date) %>% summarise(total=sum(value)) %>% mutate(cumu=cumsum(total))
+
+print(ggplot(tmp.4, aes(x=date, y=total, colour=taskcode))+
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+        geom_point() + geom_line())
+print(ggplot(tmp.4, aes(x=date, y=cumu, colour=taskcode))+
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+        geom_point() + geom_step())
+```
