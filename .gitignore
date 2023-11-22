@@ -1,3 +1,8 @@
+saved_output
+saved_xlsx
+__pycache__
+myTimeLine_files
+images
 output/*.pdf
 output/*.png
 output/*.dot
@@ -19,3 +24,4 @@ charges/*.pdf
 charges/*.html
 *.html
 charges/*.Rhistory
+.Rproj.user
