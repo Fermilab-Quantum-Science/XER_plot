@@ -19,7 +19,7 @@ pd.set_option('display.width', None)
 tabs = ['PROJWBS', 'RSRC', 'TASKPRED', 'TASKRSRC', 'TASK', 'ROLE']
 
 def read_tab(table,mid):
-    fname = f'extracted/tab_{table}_{mid}.csv'
+    fname = f'../extracted/tab_{table}_{mid}.csv'
 
     cols=["start", "end", "duration", "target_start", "target_end", 
     "early_start", "early_end", "late_start", "late_end"]
@@ -307,7 +307,7 @@ class GNode:
 
 
 def write_all(g,args):
-    fname=f'output/alltasks_{args.date_part}.csv'
+    fname=f'../output/alltasks_{args.date_part}.csv'
     f = open(fname,'w',newline='', encoding='utf-8')
     w = csv.writer(f)
     w.writerow(GNode.header)
@@ -321,7 +321,7 @@ def write_all(g,args):
 
 def write_areas(g_init,areas,args):
     print(f'writing all areas')
-    fname=f'output/allareas_{args.date_part}.csv'
+    fname=f'../output/allareas_{args.date_part}.csv'
     f = open(fname,'w',newline='', encoding='utf-8')
     w = csv.writer(f)
     w.writerow(["code", "path"])
@@ -346,7 +346,7 @@ def render_all(g,args):
         dot.edge(str(e[0]),str(e[1]), label=f'{e[2]["pred_type"]}', color='black')
 
     reduced = "wr" if args.do_reduction else "wor"
-    fname=f'output/nx_{args.wbs_item}_{reduced}'
+    fname=f'../output/nx_{args.wbs_item}_{reduced}'
     #dot.render(fname+'.dot', view=False).replace('\\', '/')
     dot.render(fname, view=args.render).replace('\\', '/')
 

@@ -12,7 +12,7 @@ datepart = 'current'
 def write_tab(tab,mid):
     name = tab[0][1]
     head = tab[1]
-    fname = f'extracted/tab_{name}_{mid}.csv'
+    fname = f'../extracted/tab_{name}_{mid}.csv'
 
     f = open(fname,'w',newline='', encoding='utf-8')
     w = csv.writer(f)
@@ -25,7 +25,7 @@ def write_tab(tab,mid):
 if __name__ == "__main__":
 
     args = getargs.get_args()
-    fname=f"input/schedule_{args.date_part}.xer"
+    fname=f"../input/schedule_{args.date_part}.xer"
     fout_prefix=os.path.splitext(fname)[0]
     middle = fout_prefix.split('_')[1]
     xer = Reader(fname)

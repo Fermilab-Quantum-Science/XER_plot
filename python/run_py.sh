@@ -47,6 +47,6 @@ then
     cp $XER_HOME/$XER_NAME.xer $SCHED_HOME/schedule_$SCHED_NAME.xer
 fi
 
-$PY xer_extractor.py -x $SCHED_NAME
-$PY reader.py -d -x $SCHED_NAME -S
+$PY python/xer_extractor.py -x $SCHED_NAME
+$PY python/reader.py -d -x $SCHED_NAME -S
 

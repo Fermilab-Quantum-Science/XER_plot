@@ -165,7 +165,7 @@ read.repair<- function(x)
   #a$tag<-
   a
 }
-flist <- dir(paste(base.path,'../CPRs',sep=''), full.names = FALSE, pattern='xlsx$')
+flist <- dir(paste(base.path,'../../CPRs',sep=''), full.names = FALSE, pattern='xlsx$')
 
 #all.tmp <- bind_rows(lapply(flist,read.repair)) #function(x) {read_xlsx(x)}))
 print(flist)

@@ -54,7 +54,7 @@ tmp.m<- milestones.filter(all$all.data, exclude.future = FALSE)
 tmp.ims<-tmp.m%>%filter(str_detect(name,"^T0|^T1|^T2"))%>%
   select(code, name, target_end, actual_end, status, state, total_cost, task_id)
 tmp.ims<- tmp.ims%>%left_join(all$tasks,by=join_by(task_id))
-tmp.ims.templ<-read_excel("../MOA_PMP/IntermediateMilestonesTemplate.xlsx")
+tmp.ims.templ<-read_excel("../../MOA_PMP/IntermediateMilestonesTemplate.xlsx")
 tmp.both<- tmp.ims.templ %>% left_join(tmp.ims, join_by(Activity==code))
 
 write_xlsx(tmp.ims%>%

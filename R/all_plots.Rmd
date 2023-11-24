@@ -333,8 +333,8 @@ ggplot(t.by.month%>%filter(FY==2023), aes(x=month, y=cumu,colour=ctc))+
 This is the actuals spreadsheet that ETD sends out each month with updated values for the year.
 I had to edit the spreadsheet to add a column name for taskcode.
 ```{r}
-tmp<- read_xlsx("../finance/SV_Q1903_2024-01 OCT_Costs by Month_20231106.xlsx", n_max=7, col_names=FALSE)
-tmp.2<- read_xlsx("../finance/SV_Q1903_2024-01 OCT_Costs by Month_20231106.xlsx", skip=7, col_names=FALSE)
+tmp<- read_xlsx("../../finance/SV_Q1903_2024-01 OCT_Costs by Month_20231106.xlsx", n_max=7, col_names=FALSE)
+tmp.2<- read_xlsx("../../finance/SV_Q1903_2024-01 OCT_Costs by Month_20231106.xlsx", skip=7, col_names=FALSE)
 names(tmp.2)<- paste(slice(tmp,7),slice(tmp,1),sep='.')
 tmp<- tmp.2 %>% pivot_longer(-NA.Task.code)
 tmp.3<- str_split(tmp$name, "\\.",simplify=TRUE)
