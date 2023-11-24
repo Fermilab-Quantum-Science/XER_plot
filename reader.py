@@ -7,7 +7,7 @@ import networkx as nx
 import graphviz as gv
 import datetime as dt
 import get_args as getargs
-import longdelays as funs
+#import longdelays as funs
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
@@ -194,6 +194,31 @@ def get_group(an, ahigh, alow):
 
     return grp
 
+def filter_by_wbs(g, wbs_item):
+    wbs=wbs_item
+    print(f"filtering on {wbs}")
+    anp=set()
+    # nodes is list of (node_num, node_data)
+    for n in g.nodes(data=True):
+        if n[1]['wbs'].startswith(wbs): 
+            anp.add(n[0])
+            for e in g.in_edges(n[0]):
+                anp.add(e[0])
+                anp.add(e[1])
+            for e in g.out_edges(n[0]):
+                anp.add(e[0])
+                anp.add(e[1])
+    print(f'added {anp}')
+    return g.subgraph(list(anp))
+
+colors={
+    0:'azure', 1:'aqua', 2:'aquamarine', 3:'darkolivegreen1', 4:'cadetblue3', 5:'chartreuse',
+    6:'chocolate', 7:'coral', 8:'cornflowerblue', 9:'antiquewhite', 10:'darkorange',
+    11:'darkseagreen', 12:'cyan3', 13:'forestgreen', 14:'gold2', 15:'gray',
+    16:'darksalmon', 17:'darkorchid1', 18:'deeppink2'
+}
+
+
 
 def filter_by_paths(g, ps, later_id, earlier_id):
     print(f"filtering by paths")
@@ -255,7 +280,7 @@ class GNode:
         self.wbs_low=g.nodes[n]['wbs_low']
         self.category=get_category(self.name)
         self.group=get_group(self.name, self.wbs_high, self.wbs_low)
-        self.areacol=funs.colors[self.area]
+        self.areacol=colors[self.area]
         #print(self.areacol)
         tmp_end = pd.to_datetime(self.t_end).date()
         tmp_start = pd.to_datetime(self.t_start).date()
@@ -301,7 +326,7 @@ def write_areas(g_init,areas,args):
     w = csv.writer(f)
     w.writerow(["code", "path"])
     for a in areas:
-        g = funs.filter_by_wbs(g_init,f'{a:02d}')
+        g = filter_by_wbs(g_init,f'{a:02d}')
         for n in g.nodes(data=True):
             node = GNode(g,n[0])
             w.writerow([node.n,a])
@@ -368,7 +393,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.wbs_filter:
-        g = funs.filter_by_wbs(g,args.wbs_item)
+        g = filter_by_wbs(g,args.wbs_item)
         render_all(g,args)
         sys.exit(0)
 
