@@ -2,11 +2,12 @@
 
 export PY=python.exe
 export DEF_PATH=/home/jbk/jimk/MAGIS-100
-export DEF_CODE=$DEF_PATH/read_stuff
+export DEF_CODE=$DEF_PATH/read_stuff/python
 : ${MAGIS_PATH:=$DEF_PATH}
 : ${MAGIS_CODE:=$DEF_CODE}
 export XER_HOME=$MAGIS_PATH/XER_files
-export SCHED_HOME=$MAGIS_CODE/input
+export SCHED_HOME=$MAGIS_PATH/read_stuff/input
+export EXTRACT_HOME=$MAGIS_PATH/read_stuff/extracted
 DO_COPY='n'
 
 if [ $# -eq 0 ] 
@@ -16,9 +17,10 @@ then
     echo " -n : name for this schedule, \$SCHED_HOME/schedule_<name>.xer"
     echo " example schedule names:  current, WS2309, BL2307"
     echo " example XER names: MAGIS100BL-BCR, MAGIS100WS-2309"
-    echo " data is extracted to \$MAGIS_CODE/extracted/tab_*_<name>.csv"
+    echo " data is extracted to \$EXTRACT_HOME/tab_*_<name>.csv"
     echo " SCHED_HOME=${SCHED_HOME}"
     echo " XER_HOME=${XER_HOME}"
+    echo " EXTRACTED_HOME=${EXTRACT_HOME}"
     echo " \$MAGIS_PATH default is ${DEF_PATH}"
     echo " \$MAGIS_CODE default is ${DEF_CODE}"
     exit 1
@@ -47,6 +49,6 @@ then
     cp $XER_HOME/$XER_NAME.xer $SCHED_HOME/schedule_$SCHED_NAME.xer
 fi
 
-$PY python/xer_extractor.py -x $SCHED_NAME
-$PY python/reader.py -d -x $SCHED_NAME -S
+$PY ./xer_extractor.py -x $SCHED_NAME
+$PY ./reader.py -d -x $SCHED_NAME -S
 

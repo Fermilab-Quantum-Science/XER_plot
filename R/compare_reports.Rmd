@@ -1,0 +1,76 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+
+This is a comparison between two schedules
+
+all <- get.all.schedule("current")
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+
+
+
+```{r}
+curr_name <- "BL2307"
+work_name <- "WS2309"
+bcrs_name <- "BL2309"
+d_curr_name <- paste('.',curr_name,sep="")
+d_work_name <- paste('.',work_name,sep="")
+d_bcrs_name <- paste('.',bcrs_name,sep="")
+
+current <- get.all.schedule("current")
+working <- get.all.schedule("WS2309") # first
+bcrs<- get.all.schedule("BLBCR") # other
+
+charges <- get.all.kronos()
+
+all.current<- current$all.data
+all.working<- working$all.data
+all.bcrs<- bcrs$all.data
+```
+
+
+
+
+```{r}
+mstones.work <- milestones.filter(all.working, exclude.future=FALSE)
+mstones.cur <- milestones.filter(all.current, exclude.future=FALSE)
+
+mstones.both <- full_join(mstones.cur, mstones.work, by=join_by(code), suffix=c(".BL",".WS")) %>%
+  mutate(dend=target_end.WS - target_end.BL, dfloat=total_float.WS - total_float.BL) %>%
+  select(code, name.BL, target_end.BL, target_end.WS, dend, total_float.BL, total_float.WS, dfloat) %>%
+  filter(str_detect(name.BL,"T[0-2]")) %>% arrange(target_end.BL)
+
+mstones.both%>% view()
+```
+
+
+```{r}
+edate <- as.Date("2028-01-01")
+reviews.work <- reviews.filter(all.working, exclude.future=FALSE, end.date=edate)
+reviews.cur <- reviews.filter(all.current, exclude.future=FALSE, end.date=edate)
+
+reviews.both <- full_join(reviews.cur, reviews.work, by=join_by(code), suffix=c(".BL",".WS")) %>%
+  mutate(dend=target_end.WS - target_end.BL, dfloat=total_float.WS - total_float.BL) %>%
+  select(code, name.BL, target_end.BL, target_end.WS, dend, total_float.BL, total_float.WS, dfloat) %>%
+  arrange(target_end.BL)
+ # filter(str_detect(name.BL,"T[0-2]")) %>% 
+
+reviews.both%>% view()
+```
+
+

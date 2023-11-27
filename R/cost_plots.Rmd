@@ -1,0 +1,73 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(rlang)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+
+```{r}
+#all <- get.all.schedule("BLBCR")
+all <- get.all.schedule("WS2309")
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+```
+
+```{r}
+labor <- bin.labor(tasks.people)
+costs <- bin.expenses(all$all.data)
+costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
+```
+
+
+
+
+
+```{r}
+# costs.week%>%filter(FY==2024 & csum>1000000)%>% slice(1)
+costs.g5<- ggplot(costs.week%>% filter(FY==2024),
+                  aes(x=week)) + 
+  geom_step(aes(y=csum))+
+  #geom_vline(aes(xintercept=costs.week%>%filter(FY==2024&csum>1300000)%>%slice(1)%>%pull(week)))+
+  #geom_hline(aes(yintercept=costs.week%>%filter(FY==2024&csum>1300000)%>%slice(1)%>%pull(csum)))+
+  scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90),axis.text=element_text()) +
+  labs(x="Week", y="dollars")
+
+print(costs.g5)
+
+```
+
+
+```{r}
+
+costs.by.month <- costs$target.by.day %>%
+  mutate(month=floor_date(week,unit="month",week_start=1)) %>%
+    group_by(FY, month) %>% summarise(msum=sum(hsum,na.rm=TRUE),.groups='drop')
+
+t.by.day<- unnest(costs$target.day.grouped,cols=c(dl),names_sep='.') %>% arrange(s) %>%
+    mutate(week=floor_date(dl.d,unit="week",week_start=1)) %>%
+    mutate(FY.orig=fiscal.from.date(week), FY=fiscal.date.adjust(week,FY.orig)) %>%
+    group_by(FY, ctc, week) %>% summarise(hsum=sum(dl.hours,na.rm=TRUE),.groups='drop') %>%
+    mutate(month=floor_date(week,unit="month",week_start=1)) %>%
+    group_by(FY, ctc, month) %>% summarise(msum=sum(hsum,na.rm=TRUE),.groups='drop')
+t.by.month <- t.by.day %>% 
+  arrange(FY, ctc, month) %>% group_by(FY, ctc) %>% mutate(cumu=cumsum(msum))
+
+ggplot(t.by.month%>%filter(FY==2023), aes(x=month, y=cumu,colour=ctc))+
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+        geom_point() + geom_step()
+```
+

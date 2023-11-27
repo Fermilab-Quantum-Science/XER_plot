@@ -1,0 +1,53 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+
+
+
+```{r}
+#hrs.prj<- read_xlsx("../finance/ETD Project Labor Report 2023-12-SEP 2023.10.04.xlsx", sheet="Sheet1")
+#hrs.prj<-hrs.prj%>%pivot_longer(2:15)%>%filter(!is.na(value) & !name=="...15")
+hrs.prj<- read_xlsx("../finance/ETD Project Labor Report 2023-12-SEP 2023.10.04.xlsx", sheet="Project Hours", skip=5)
+hrs.bud<- read_xlsx("../finance/ETD Project Labor Report 2023-12-SEP 2023.10.04.xlsx", sheet="Budget vs Actual Hours", skip=4)
+names(hrs.bud) <- c("name","budget.hours","actual.hours", "blob", "variance", "EOC")
+hrs.ctc <- hrs.bud %>%filter(str_detect(name, "Q1903"))
+#hrs.bud<-hrs.bud%>%pivot_longer(2:15)%>%filter(!is.na(value) & !name=="...15")
+```
+
+
+This is the actuals spreadsheet that ETD sends out each month with updated values for the year.
+I had to edit the spreadsheet to add a column name for taskcode.
+```{r}
+tmp<- read_xlsx("../../finance/SV_Q1903_2024-01 OCT_Costs by Month_20231106.xlsx", n_max=7, col_names=FALSE)
+tmp.2<- read_xlsx("../../finance/SV_Q1903_2024-01 OCT_Costs by Month_20231106.xlsx", skip=7, col_names=FALSE)
+names(tmp.2)<- paste(slice(tmp,7),slice(tmp,1),sep='.')
+tmp<- tmp.2 %>% pivot_longer(-NA.Task.code)
+tmp.3<- str_split(tmp$name, "\\.",simplify=TRUE)
+tmp$month<- tmp.3[,1]
+tmp$fyear<- as.numeric(str_sub(tmp.3[,2],start=3))+2000
+tmp$date<- rollforward(my(paste(tmp$month,tmp$fyear,sep='.')))
+tmp$date<- if_else(month(tmp$date)>=10,tmp$date-years(1),tmp$date)
+tmp$taskcode.orig<- as.data.frame(str_split(tmp$NA.Task.code, "[\\._]",simplify=TRUE, n=4))%>% select(V2,V3) %>% mutate(taskcode=paste(V2,V3,sep='.'))%>%pull(3)
+tmp<- tmp%>% left_join(MAGIS100PM::taskcodemap, by=join_by(taskcode.orig))
+tmp.4<- tmp%>%filter(!is.na(taskcode)&date<as.Date('2023-10-01'))%>%arrange(taskcode,date) %>% group_by(taskcode,date) %>% summarise(total=sum(value)) %>% mutate(cumu=cumsum(total))
+
+print(ggplot(tmp.4, aes(x=date, y=total, colour=taskcode))+
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+        geom_point() + geom_line())
+print(ggplot(tmp.4, aes(x=date, y=cumu, colour=taskcode))+
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+        geom_point() + geom_step())
+```

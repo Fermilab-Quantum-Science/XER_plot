@@ -1,0 +1,339 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+
+This is a comparison between two schedules
+
+all <- get.all.schedule("current")
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+
+
+
+```{r}
+curr_name <- "BL2307"
+work_name <- "WS2309"
+bcrs_name <- "BL2309"
+d_curr_name <- paste('.',curr_name,sep="")
+d_work_name <- paste('.',work_name,sep="")
+d_bcrs_name <- paste('.',bcrs_name,sep="")
+
+current <- get.all.schedule("current")
+working <- get.all.schedule("WS2309") # first
+bcrs<- get.all.schedule("BLBCR") # other
+
+charges <- get.all.kronos()
+
+all.current<- current$all.data
+all.working<- working$all.data
+all.bcrs<- bcrs$all.data
+
+exp.curr <- bin.expenses(all.current)
+exp.work <- bin.expenses(all.working)
+exp.bcrs <- bin.expenses(all.bcrs)
+```
+
+
+
+Quick summary of expenses
+```{r}
+sum.curr<- exp.curr$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
+sum.work<- exp.work$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
+sum.bcrs<- exp.bcrs$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
+
+sum.both<- full_join(sum.work, sum.bcrs, by=join_by(FY),suffix=c(d_work_name,d_curr_name)) %>%
+  mutate(diff=tot_tc.BL2307-tot_tc.WS2309)
+
+sum.both.total<- sum.both %>% summarise(WS=sum(tot_tc.WS2309),BL=sum(tot_tc.BL2307))
+```
+
+
+
+```{r}
+reduce.cols <- function(x) {
+  x %>% select(code, name, actual_start, actual_end, target_start, target_end, total_cost, total_float, dur)
+}
+
+bcrs.curr <- full_join(reduce.cols(all.current), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
+bcrs.work <- full_join(reduce.cols(all.working), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
+
+bcrs.curr <- bcrs.curr%>% mutate(cost.diff=total_cost.BCR-total_cost.cur, 
+                                 float.diff=total_float.BCR-total_float.cur,
+                                 actual.diff=target_start.BCR-actual_start.cur,
+                                 target.diff=target_start.BCR-target_start.cur
+                                 ) #%>% filter(cost.diff!=0 | target.diff!=days(0))
+bcrs.work <- bcrs.work%>% mutate(cost.diff=total_cost.BCR-total_cost.cur, 
+                                 float.diff=total_float.BCR-total_float.cur,
+                                 actual.diff=target_start.BCR-actual_start.cur,
+                                 target.diff=target_start.BCR-target_start.cur
+                                 ) #%>% filter(cost.diff!=0 | target.diff!=days(0))
+
+write_xlsx(bcrs.work, "WS_BCR.xlsx")
+write_xlsx(bcrs.curr, "BL_BCR.xlsx")
+
+#view(bcrs.curr)
+view(bcrs.work)
+```
+
+```{r}
+
+tmp.both<- left_join(all.current, all.working, by=join_by(code),suffix=c(".BL2307",".WS2309"))
+
+tmp.diff<- tmp.both %>% 
+  select(code, name.BL2307, dur.BL2307, dur.WS2309, 
+         target_start.BL2307, target_start.WS2309, target_end.BL2307, target_end.WS2309, 
+         late_start.BL2307, late_start.WS2309, late_end.BL2307, late_end.WS2309, 
+         total_float.BL2307, total_float.WS2309, 
+         total_cost.BL2307, total_cost.WS2309, cost.WS2309, cost.BL2307,  
+         wbs.BL2307, group.BL2307,category.BL2307) %>% 
+  mutate(dur.diff=dur.BL2307-dur.WS2309,
+         float.diff=total_float.BL2307-total_float.WS2309,
+         tot.cost.diff=total_cost.BL2307-total_cost.WS2309, 
+         dd.task=dur.BL2307==dur.WS2309*2,
+         FY.BL2307=fiscal.from.date(target_start.BL2307),
+         FY.WS2309=fiscal.from.date(target_start.WS2309)
+         )
+sum.by.fy<- left_join(
+  tmp.diff%>% group_by(FY.BL2307)%>%summarise(tot=sum(total_cost.BL2307,na.rm=TRUE)),
+  tmp.diff%>% group_by(FY.WS2309)%>%summarise(tot=sum(total_cost.WS2309,na.rm=TRUE)),
+  by=join_by(FY.BL2307==FY.WS2309)) %>%
+    mutate(dif=tot.y-tot.x)
+
+tmp.filtered<- tmp.diff %>% 
+#  filter((target_start.BL2307 %within% fuller.interval | target_end.BL2307 %within% fuller.interval)) %>%
+  mutate(end.diff=target_end.BL2307 - target_end.WS2309,
+         start.diff=target_start.BL2307 - target_start.WS2309) 
+
+#%>% filter(dur.x!=0)
+
+write_xlsx(tmp.filtered, "differences.xlsx")
+
+#tmp.filtered %>% filter((target_start.cur %within% FY24.interval | target_end.cur %within% FY24.interval)) %>% summarise(tcost=sum(total_cost.cur))
+```
+
+
+
+
+bin by month and other factor
+```{r}
+filtfunc<- function (d) { filter(d, week>=as.Date("2023-02-01")) }
+sumrm <- function(d) { sum(d, na.rm=TRUE) }
+
+make.sum <- function(s, cat)
+{
+  tbm <- s$target.by.month %>% filtfunc() %>%
+    group_by(week)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat=cat)
+  tbmt <- s$target.by.month %>% filtfunc() %>%
+  group_by(week, code)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat=cat) 
+  tbmc <- s$target.by.month.ctc %>% filtfunc() %>% 
+    group_by(week, ctc)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat=cat)
+  tbmw <- s$target.by.month.wbs %>% filtfunc() %>% 
+    group_by(week, wbs)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat=cat)
+
+         list(
+           cat = cat,
+           by.month = tbm,
+           by.month.task = tbmt,
+           by.month.ctc = tbmc,
+           by.month.wbs = tbmw
+         )
+}
+
+WS<- make.sum(exp.work, "WS2309")
+BL<- make.sum(exp.curr, "BL2307")
+#BL<- make.sum(exp.bcrs, "BL2309")
+```
+
+This is replaced by the above code
+
+WS.by.month<- exp.work$target.by.month %>% filtfunc() %>%
+  group_by(week)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat="WS2309")
+WS.by.month.task<- exp.work$target.by.month %>% filtfunc() %>%
+  group_by(week, code)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat="WS2309") 
+WS.by.month.ctc<- exp.work$target.by.month.ctc %>% filtfunc() %>% 
+  group_by(week, ctc)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat="WS2309")
+WS.by.month.wbs<- exp.work$target.by.month.wbs %>% filtfunc() %>% 
+  group_by(week, wbs)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat="WS2309")
+
+BL.by.month<- exp.curr$target.by.month %>% filtfunc() %>%
+  group_by(week)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat="BL2307")
+BL.by.month.task<- exp.curr$target.by.month %>% filtfunc() %>%
+  group_by(week, code)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat="BL2307") 
+BL.by.month.ctc<- exp.curr$target.by.month.ctc %>% filtfunc() %>% 
+  group_by(week, ctc)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat="BL2307")
+BL.by.month.wbs<- exp.curr$target.by.month.wbs %>% filtfunc() %>% 
+  group_by(week, wbs)%>% summarise(tsum=sumrm(hsum)) %>% mutate(cat="BL2307")
+
+
+
+Combine
+```{r}
+
+both <- list(
+  left = BL$cat, right = WS$cat,
+  
+  by.month = rbind(ungroup(BL$by.month), ungroup(WS$by.month)) %>%
+    mutate(tsum=replace_na(tsum,0)) %>% arrange(cat, week)%>% group_by(cat) %>%
+    mutate(csum=cumsum(tsum)),
+
+  by.month.ctc = rbind(ungroup(BL$by.month.ctc), ungroup(WS$by.month.ctc)) %>%
+    mutate(tsum=replace_na(tsum,0)) %>% arrange(cat, ctc, week)%>% group_by(cat,ctc) %>%
+    mutate(csum=cumsum(tsum)), 
+
+  by.month.wbs = rbind(ungroup(BL$by.month.wbs), ungroup(WS$by.month.wbs)) %>%
+    filter(tsum!=0) %>%
+    mutate(tsum=replace_na(tsum,0)) %>% arrange(cat, wbs, week)%>% group_by(cat,wbs) %>%
+    mutate(csum=cumsum(tsum)), 
+
+by.month.task = rbind(ungroup(BL$by.month.task), ungroup(WS$by.month.task)) %>%
+  mutate(tsum=replace_na(tsum,0)) %>% arrange(cat, code, week)%>% group_by(cat,code) %>%
+   mutate(csum=cumsum(tsum)) 
+)
+
+```
+
+Plots
+```{r}
+ggplot(both$by.month.wbs, aes(x=week, y=csum, colour=cat)) +
+    facet_grid(vars(wbs),scales="free_y") + 
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(n.breaks=6) +
+        theme(axis.text.x = element_text(angle = 90)) + 
+        geom_jitter() + geom_line()
+
+ggplot(both$by.month, aes(x=week, y=csum, colour=cat)) +
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(n.breaks=6) +
+        #scale_y_log10(n.breaks=10) +
+        theme(axis.text.x = element_text(angle = 90)) + 
+        geom_point() + geom_line()
+
+```
+
+Differences
+```{r}
+far<- 10000
+csum_left<- rlang::sym(paste("csum",both$left, sep="_"))
+csum_right<- rlang::sym(paste("csum",both$right, sep="_"))
+tsum_left<- rlang::sym(paste("tsum",both$left, sep="_"))
+tsum_right<- rlang::sym(paste("tsum",both$right, sep="_"))
+
+by.month.diff<- pivot_wider(both$by.month, names_from = "cat", values_from = c("tsum", "csum")) %>%
+  mutate(diff=!!csum_right-!!csum_left) %>%
+  mutate(delta=c(0,diff(diff)),far=abs(delta)>far)
+
+by.month.tdiff<- pivot_wider(both$by.month.task, names_from = "cat", values_from = c("tsum", "csum")) %>%
+  mutate(!!csum_right:=replace_na(!!csum_right,0),!!csum_left:=replace_na(!!csum_left,0)) %>% 
+  mutate(!!tsum_right:=replace_na(!!tsum_right,0),!!tsum_left:=replace_na(!!tsum_left,0)) %>% 
+  #filter(tsum_WS2309>20000 | tsum_BL2307>20000) %>% 
+  mutate(cdiff=!!csum_right-!!csum_left) %>%
+  mutate(tdiff=!!tsum_right-!!tsum_left) %>%
+  mutate(delta=c(0,diff(cdiff)),far=abs(delta)>far)
+  #filter(diff>10000|diff<(-10000)) 
+
+by.month.wdiff<- pivot_wider(both$by.month.wbs, names_from = "cat", values_from = c("tsum", "csum")) %>%
+  mutate(!!csum_right:=replace_na(!!csum_right,0),!!csum_left:=replace_na(!!csum_left,0)) %>% 
+  mutate(!!tsum_right:=replace_na(!!tsum_right,0),!!tsum_left:=replace_na(!!tsum_left,0)) %>% 
+  mutate(cdiff=!!csum_right-!!csum_left) %>%
+  mutate(tdiff=!!tsum_right-!!tsum_left) %>%
+  mutate(delta=c(0,diff(cdiff)),far=abs(delta)>far)
+  #filter(diff>10000|diff<(-10000)) 
+
+
+
+ggplot(by.month.diff, aes(x=week, y=diff)) +
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(n.breaks=10) +
+        theme(axis.text.x = element_text(angle = 90)) + 
+        geom_point() + geom_line() #+
+  #geom_hline(aes(yintercept=-800000))
+
+```
+
+
+```{r}
+tmp1<- both$by.month.task%>% select(week,code,tsum,cat) %>%
+  full_join(both$by.month, by=join_by(cat, week), suffix=c("_code","_tot")) %>%
+  filter(tsum_code>0) %>% 
+  group_by(cat,week) %>% 
+  arrange(desc(tsum_code)) %>% 
+  mutate(csum=csum, cumu_tot=cumsum(tsum_code), tot=tsum_tot-cumu_tot) %>% 
+  arrange(week,cat) # %>%select(-cumu_tot)
+
+code_left<- rlang::sym(paste("tsum_code",both$left, sep="_"))
+code_right<- rlang::sym(paste("tsum_code",both$right, sep="_"))
+
+
+tmp2<- pivot_wider(tmp1, names_from = "cat", values_from = c("tsum_code", "tsum_tot", "csum", "tot","cumu_tot")) %>%
+  mutate(diff_code=replace_na(!!code_right,0) - replace_na(!!code_left,0)) 
+
+tmp4<- tmp1%>%group_by(week,cat) %>% slice_max(abs(tsum_code)) %>%filter(abs(tsum_code)>120000)
+
+
+ggplot(tmp1, aes(x=week, y=cumu_tot, colour=cat)) +
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(n.breaks=6) +
+        #scale_y_log10(n.breaks=10) +
+        theme(axis.text.x = element_text(angle = 90)) + 
+  facet_grid(cols=vars(cat))+
+        #geom_jitter(width=.2) +
+  geom_jitter(aes(shape=cat),width=0.0, height=.1)+ #+geom_line()
+  geom_text(data=tmp4, aes(x=week,y=tsum_code, label=code, angle=90),inherit.aes=FALSE, nudge_x=10, size=3)
+
+ggplot(tmp1, aes(x=week, y=tsum_code, colour=cat)) +
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(n.breaks=6) +
+        #scale_y_log10(n.breaks=10) +
+        theme(axis.text.x = element_text(angle = 90)) + 
+  #facet_grid(cols=vars(cat))+
+        #geom_jitter(width=.2) +
+  geom_jitter(aes(shape=cat),width=0.1, height=.1) + #+geom_line()
+  geom_text(data=tmp4, aes(x=week,y=tsum_code, label=code, angle=90),inherit.aes=FALSE, nudge_x=10, size=3)
+
+
+
+ggplot(tmp1, aes(x=week, y=csum, colour=cat)) +
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(n.breaks=6) +
+        #scale_y_log10(n.breaks=10) +
+        theme(axis.text.x = element_text(angle = 90)) + 
+  #facet_grid(cols=vars(cat))+
+        #geom_jitter(width=.2) +
+  geom_jitter(aes(shape=cat),width=0.0, height=.1) #+geom_line()
+
+tmp3<- tmp2%>%group_by(week) %>% slice_max(abs(diff_code)) %>%filter(abs(diff_code)>40000)
+
+ggplot(tmp2, aes(x=week, y=diff_code)) +
+        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(n.breaks=10) +
+        theme(axis.text.x = element_text(angle = 90)) + 
+        geom_point() + geom_line() +
+  geom_hline(aes(yintercept=-800000)) + 
+  geom_text(data=tmp3, aes(x=week,y=diff_code, label=code, angle=90),inherit.aes=FALSE, nudge_x=10, size=3)
+  #geom_text(data=tmp3, aes(x=week,y=diff_code, label=code, angle=90),inherit.aes=FALSE, size=2)
+```
+
+
+
+```{r}
+a.tmp<- by.month.diff%>% filter(far)%>%select(week)%>% pull()
+a.tmp1<- by.month.tdiff %>% ungroup() %>% right_join(data.frame(week=a.tmp), by=join_by(week))
+a.tmp2<- both$by.month.task %>% ungroup() %>% right_join(data.frame(week=a.tmp),by=join_by(week)) %>% group_by(week, code, cat) %>% summarise(ttsum=sum(tsum), tcsum=sum(csum))
+a.tmp2<- pivot_wider(a.tmp2, names_from = "cat", values_from = c("ttsum", "tcsum")) %>%
+  mutate(diff=tcsum_WS2309-tcsum_BL2307) %>% filter(diff>0)
+```
+

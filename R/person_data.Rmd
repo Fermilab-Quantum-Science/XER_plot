@@ -1,0 +1,78 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(rlang)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+
+```{r}
+#all <- get.all.schedule("BLBCR")
+all <- get.all.schedule("WS2309")
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+```
+
+```{r}
+labor <- bin.labor(tasks.people)
+costs <- bin.expenses(all$all.data)
+costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
+```
+
+
+
+```{r}
+#labor <- bin.labor(tasks.people)
+
+persons.FY23Q34<- labor$by.week.person %>%
+  filter(FY==2023)%>%
+  filter(week %within% interval('2023-07-01','2023-10-01')) %>%
+  group_by(person,FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805/4)) %>%
+  filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, div=DSC),join_by(person) )
+
+persons.FY2324<- labor$by.week.person %>%
+  filter(FY %in% c(2023,2024)) %>%
+  group_by(person,FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name),join_by(person) )
+write_xlsx(persons.FY2324, "persons_FY2324.xlsx")
+
+types.FY2324<- labor$by.week.all %>%
+  filter(FY %in% c(2023,2024)) %>%
+  group_by(type,person, FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) )
+write_xlsx(types.FY2324, "types_FY2324.xlsx")
+
+tpt.FY<- labor$by.week.person.task %>%
+  filter(FY>2022) %>%
+  group_by(type,person,task_id, FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person)) %>%
+  left_join(all$tasks%>%select(task_id, task_name, task_code, target_start_date, target_end_date), by=join_by(task_id))
+write_xlsx(tpt.FY%>% filter(FY %in% c(2023,2024)), "TPT_FY23_24.xlsx")
+
+
+```
+

@@ -1,0 +1,90 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+
+
+
+
+```{r}
+chg.names = c("budget.code", "name", "code","J1","J2","J3","J4","J5", "work.sched", "work.performed", 
+              "actual.cost","J6", "sched.variance","J7", "cost.variance", "BAT", "EAT", "VAT", "SPI", "CPI")
+
+chg.cols = rep('text',length(chg.names))
+chg.cols[9]='numeric'
+chg.cols[10]='numeric'
+chg.cols[11]='numeric'
+chg.cols[13]='numeric'
+chg.cols[15]='numeric'
+chg.cols[16]='numeric'
+chg.cols[16]='numeric'
+chg.cols[17]='numeric'
+chg.cols[18]='numeric'
+chg.cols[19]='numeric'
+
+read.repair<- function(x)
+{
+  print(x)
+  a<- read_xlsx(x, col_types=chg.cols)
+  names(a)<- chg.names 
+  #a$tag<-
+  a
+}
+flist <- dir(paste(base.path,'../../CPRs',sep=''), full.names = FALSE, pattern='xlsx$')
+
+#all.tmp <- bind_rows(lapply(flist,read.repair)) #function(x) {read_xlsx(x)}))
+print(flist)
+
+read.cpr <- function(x,num, fix=FALSE)
+{
+  cpr <-   read_xlsx(x, skip=11, n_max=6, col_names=FALSE) %>% select(1:length(chg.names))
+  if(fix)
+    { cpr <- cpr %>% mutate(dud=num,.before=names(cpr)[1]) }
+  names(cpr)<- chg.names
+  #print(names(cpr))
+  cpr <- cpr %>% mutate(num=num,.before=names(cpr)[1])
+}
+
+#tmp<- read_xlsx("../CPRs/MAGIS100 CPR for September 2023 Data - 2309.xlsx", sheet="Report-June 2023", skip=11, n_max=6, col_names=FALSE)
+#names(tmp)<- chg.names
+#c("budget.code", "name", "code","J1","J2","J3","J4","J5", "work.sched", "work.performed", "actual.cost","J6", "sched.variance","J7", "cost.variance", "BAT", "EAT", "VAT", "SPI", "CPI")
+
+cpr.Sep1<- read.cpr("../CPRs/MAGIS100 CPR for September 2023 Data - 2309.xlsx","Sep1")
+cpr.Jun1<- read.cpr("../CPRs/MAGIS100 CPR for June 2023 Data - 0623.xlsx","Jun1")
+cpr.Jun2<- read.cpr("../CPRs/MAGIS100 CPR for June 2023 Data w Variances- 0623.xlsx","Jun2")
+cpr.Jun3<- read.cpr("../CPRs/MAGIS100 CPR for June 2023 Data - 0623 - Fixed CTCs.xlsx","Jun3")
+
+tmp<- rbind(cpr.Sep1, cpr.Jun3, cpr.Jun2)
+tmp<- select(tmp, num, name, work.sched, work.performed, actual.cost, BAT, EAT, VAT, SPI, CPI ) %>% pivot_wider(names_from = c(num), values_from=c(work.sched, work.performed, actual.cost, BAT, EAT, VAT, SPI, CPI))
+
+#cpr.Feb1<- read_xlsx("../CPRs/MAGIS100 CPR for February 2023 Data - 0223.xlsx", skip=11, n_max=6, col_names=FALSE)
+#cpr.Feb1<- cpr.Feb1 %>% mutate(dud=1,.before=names(cpr.Feb1)[1])
+#cpr.Feb2<- read_xlsx("../CPRs/MAGIS100 CPR for February 2023 Data - 0223 w Actualized Past.xlsx", skip=11, n_max=6, col_names=FALSE)
+#cpr.Feb2<- cpr.Feb2 %>% mutate(dud=1,.before=names(cpr.Feb2)[1])
+#cpr.Feb3<- read_xlsx("../CPRs/MAGIS100 CPR for February 2023 Data - 0223 - w CTCsB.xlsx", skip=11, n_max=6, col_names=FALSE)
+#cpr.Feb3<- cpr.Feb3 %>% mutate(dud=1,.before=names(cpr.Feb3)[1])
+#cpr.Feb4<- read_xlsx("../CPRs/MAGIS100 CPR for February 2023 Data - 0223 - w CTCs.xlsx", skip=11, n_max=6, col_names=FALSE)
+#cpr.Feb4<- cpr.Feb4 %>% mutate(dud=1,.before=names(cpr.Feb4)[1])
+#cpr.Apr1<- read_xlsx("../CPRs/MAGIS100 CPR for April 2023 Data - 0423B.xlsx", skip=11, n_max=6, col_names=FALSE)
+#cpr.Apr1<- cpr.Apr1 %>% mutate(dud=1,.before=names(cpr.Apr1)[1])
+#cpr.Apr2<- read_xlsx("../CPRs/MAGIS100 CPR for April 2023 Data - 0423.xlsx", skip=11, n_max=6, col_names=FALSE)
+#cpr.Apr2<- cpr.Apr2 %>% mutate(dud=1,.before=names(cpr.Apr2)[1])
+#cpr.Apr3<- read_xlsx("../CPRs/MAGIS100 CPR for April 2023 Data - 0423 w Variance Notes.xlsx", skip=11, n_max=6, col_names=FALSE)
+#cpr.Apr3<- cpr.Apr3 %>% mutate(dud=1,.before=names(cpr.Apr3)[1])
+
+#names(cpr.Apr3)<- chg.names
+#cpr.Apr3 %>%view()
+```
+
