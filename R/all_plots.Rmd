@@ -18,11 +18,16 @@ library(MAGIS100PM)
 
 
 ```{r}
-#all <- get.all.schedule("BLBCR")
-all <- get.all.schedule("WS2309")
+#all <- get.all.schedule("BL2307")
+#all <- get.all.schedule("BL2309")
+all.orig <- get.all.schedule("WS2309")
+# note: if using WS schedule, the target dates need to be adjusted using the baseline
+all <- apply.baseline.schedule(all.orig, "BCRBL2")
+
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
+
 ```
 
 ```{r}
@@ -34,7 +39,7 @@ costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%
 
 ```{r}
 fte<- FTE.plots(labor$by.day.all%>%filter(code!='other'))
-activities<- activities.plot(all$all.data, start.date=as.Date('2023-08-01'),end.date=as.Date('2023-12-01'))
+activities<- activities.plot(all$all.data, start.date=as.Date('2023-03-01'),end.date=as.Date('2023-12-01'))
 milestones<- milestones.plot(all$all.data)
 resources<- resources.plot(labor$by.week, device="png")
 proc<- procurements.plot(all, en=Sys.Date()+weeks(8*4))
@@ -42,13 +47,13 @@ reviews<- reviews.plot(all$all.data)
 ```
 
 ```{r}
-ggsave(resources, filename=paste(base.path,"/hours.png",sep=''), width=24, units='in', device='png')
-ggsave(milestones, filename=paste(base.path,'/milestones.png',sep=''), width=11, units='in', device="png")
-ggsave(activities, filename=paste(base.path,"/active.pdf",sep=''),width=11, units="in", device="pdf")
-ggsave(reviews, filename=paste(base.path,"/reviews.pdf",sep=''),units="in", width=11, device="pdf")
-ggsave(proc$plot, filename=paste(base.path,"/procurements.pdf",sep=''),units="in", width=16, device="pdf")
-ggsave(fte[[1]], filename=paste(base.path,"/fte_role.png",sep=''),units="in", device="png")
-ggsave(fte[[2]], filename=paste(base.path,"/fte_div.png",sep=''),units="in", device="png")
+ggsave(resources, filename=paste(base.path,"/output/hours.png",sep=''), width=24, units='in', device='png')
+ggsave(milestones, filename=paste(base.path,'/output/milestones.png',sep=''), width=11, units='in', device="png")
+ggsave(activities, filename=paste(base.path,"/output/active.pdf",sep=''),width=12, height=10, units="in", device="pdf")
+ggsave(reviews, filename=paste(base.path,"/output/reviews.pdf",sep=''),units="in", width=11, device="pdf")
+ggsave(proc$plot, filename=paste(base.path,"/output/procurements.pdf",sep=''),units="in", width=16, device="pdf")
+ggsave(fte[[1]], filename=paste(base.path,"/output/fte_role.png",sep=''),units="in", device="png")
+ggsave(fte[[2]], filename=paste(base.path,"/output/fte_div.png",sep=''),units="in", device="png")
 
 ```
 

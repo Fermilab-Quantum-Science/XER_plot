@@ -44,8 +44,7 @@ all.bcrs<- bcrs$all.data
 ```
 
 
-
-
+Compare milestones.
 ```{r}
 mstones.work <- milestones.filter(all.working, exclude.future=FALSE)
 mstones.cur <- milestones.filter(all.current, exclude.future=FALSE)
@@ -55,10 +54,11 @@ mstones.both <- full_join(mstones.cur, mstones.work, by=join_by(code), suffix=c(
   select(code, name.BL, target_end.BL, target_end.WS, dend, total_float.BL, total_float.WS, dfloat) %>%
   filter(str_detect(name.BL,"T[0-2]")) %>% arrange(target_end.BL)
 
-mstones.both%>% view()
+write_xlsx(mstones.both, path=paste(base.path,"output/mstones_comp.xlsx",sep=""))
 ```
 
 
+Compare all reviews.
 ```{r}
 edate <- as.Date("2028-01-01")
 reviews.work <- reviews.filter(all.working, exclude.future=FALSE, end.date=edate)
@@ -70,7 +70,19 @@ reviews.both <- full_join(reviews.cur, reviews.work, by=join_by(code), suffix=c(
   arrange(target_end.BL)
  # filter(str_detect(name.BL,"T[0-2]")) %>% 
 
-reviews.both%>% view()
+write_xlsx(reviews.both, path=paste(base.path,"output/reviews_comp.xlsx",sep=""))
 ```
 
 
+Compare activities.
+```{r}
+acts.work <- activities.filter(all.working, exclude.future=FALSE)
+acts.cur <- activities.filter(all.current, exclude.future=FALSE)
+
+acts.both <- full_join(acts.cur, acts.work, by=join_by(code), suffix=c(".BL",".WS")) %>%
+  mutate(dend=target_end.WS - target_end.BL, dfloat=total_float.WS - total_float.BL) %>%
+  select(code, name.BL, name.WS, target_end.BL, target_end.WS, dend, total_float.BL, total_float.WS, dfloat) %>%
+  arrange(target_end.WS)
+
+write_xlsx(acts.both, path=paste(base.path,"output/acts_comp.xlsx",sep=""))
+```

@@ -23,7 +23,9 @@ library(MAGIS100PM)
 
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
-all <- get.all.schedule("WS2309")
+all.orig <- get.all.schedule("WS2309")
+# note: if using WS schedule, the target dates need to be adjusted using the baseline
+all <- apply.baseline.schedule(all.orig, "BCRBL2")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
@@ -31,7 +33,7 @@ tasks.people <- combine.tasks.people(people, all)
 run.kable <- function(d)
 {
   kable(d, booktabs=TRUE) %>%
-    kable_styling(latex_options = "hold_position", font_size=10) %>%
+    kable_styling(latex_options = "hold_position", font_size=9) %>%
   column_spec(2, width="3in") %>%
   row_spec(which(d$State=="Complete"), background="lime", bold=TRUE) %>%
   row_spec(which(d$State=="Late"), background="yellow", bold=TRUE) %>%
@@ -44,6 +46,7 @@ run.kable <- function(d)
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
 labor <- bin.labor(tasks.people)
+expenses <- bin.expenses(all$all.data)
 ```
 
 # Milestone tracking
@@ -179,9 +182,11 @@ run.kable(tmp.both%>%filter(Tier=="T1")%>%
 
 \newpage
 
-# Reviews
+# Status for this reporting period
 
-There are the review.
+## Reviews
+
+There are the reviews.
 
 ```{r}
 #| echo: false
@@ -199,7 +204,34 @@ run.kable(reviews%>%
 
 \newpage
 
-# All Milestones
+## Procurements
+
+Here are the procurements.
+
+```{r}
+#| echo: false
+#| label: tbl-procurements
+#| tbl-cap: "Procurements"
+#| tbl-colwidths: [12,50,14,14,10]
+
+sti <- as.Date("2023-10-01")
+proc<- procurements.filter(all, st= sti-months(2), en=sti+months(10))
+procs <- proc$data %>%
+  select(task_code, task_name, state, status_code, total_cost, target_start_date, target_end_date, area) %>%
+  filter(total_cost>=0) %>% arrange(target_start_date) %>%
+  left_join(MAGIS100PM::ctcmap%>%filter(level=="L1")%>%mutate(area=as.integer(wbs)), by=join_by(area))
+
+run.kable(procs%>%
+  select(Activity=task_code, Name=task_name, Date=target_start_date, Cost=total_cost,State=state,L1=wbs)%>%
+  arrange(Date))
+
+```
+
+\newpage
+
+## Current project Milestones
+
+Here are all the recent milestones in the schedule.
 
 ```{r}
 #| echo: false
@@ -207,8 +239,7 @@ run.kable(reviews%>%
 #| tbl-cap: "All Milestones"
 #| tbl-colwidths: [12,50,14,14,10]
 
-ms<- milestones.filter(all$all.data)
-
+ms<- milestones.filter(all$all.data, exclude.future=TRUE)
 run.kable(ms%>%
   select(Activity=code, Name=name, Date=target_start, Ended=actual_end,State=state)%>%
   arrange(Date))
@@ -217,27 +248,9 @@ run.kable(ms%>%
 
 \newpage
 
-# Procurements
+## Current Activities
 
-```{r}
-#| echo: false
-#| label: tbl-procurements
-#| tbl-cap: "Procurements"
-#| tbl-colwidths: [12,50,14,14,10]
-
-proc<- procurements.filter(all, en=Sys.Date()+months(4))
-
-run.kable(proc$data%>%
-  select(Activity=task_code, Name=task_name, Date=target_start_date, Cost=total_cost,State=state)%>%
-  arrange(Date))
-
-```
-
-\newpage
-
-# Current Activities
-
-Current activities here
+Current activities here.
 
 ```{r}
 #| echo: false
@@ -248,15 +261,19 @@ Current activities here
 now <- Sys.Date()
 st <- quarter(now, fiscal_start=10, type="date_first") - months(3)
 en <- now + months(3)
-acts.before<- activities.filter(all$all.data, start.date=st, end.date=now)
-acts.after<- activities.filter(all$all.data, start.date=now, end.date=en)
+acts.before<- activities.filter(all$all.data, start.date=st, end.date=now, exclude.future = FALSE)
+acts.after<- activities.filter(all$all.data, start.date=now, end.date=en, exclude.future = FALSE)
 
 run.kable(acts.before%>%
   select(Activity=code, Name=name, Date=target_start, Ended=actual_end,State=state)%>%
   arrange(Date))
-
-
 ```
+
+\newpage
+
+## Current activity after today
+
+Continuation of current activities.
 
 ```{r}
 #| echo: false
@@ -267,6 +284,8 @@ run.kable(acts.before%>%
 run.kable(acts.after%>%
   select(Activity=code, Name=name, Date=target_start, Ended=actual_end,State=state)%>%
   arrange(Date))
-
-
 ```
+
+# Changes from BCRs and variances
+
+

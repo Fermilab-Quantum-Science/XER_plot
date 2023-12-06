@@ -17,11 +17,12 @@ library(MAGIS100PM)
 
 This is a comparison between two schedules
 
-all <- get.all.schedule("current")
+```{r}
+all <- get.all.schedule("WS2309")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
-
+```
 
 More random stuff:
 This code does not work on my Windows system for running python chunks.
@@ -37,14 +38,14 @@ use_python("/Users/jimk/AppData/Local/Microsoft/WindowsApps/PythonSoftwareFounda
 #```
 
 
-Extract milestones.
+Extract T0, T1, T2 milestones.
 
 ```{r}
 print(getwd())
 tmp.ims<-all$all.data%>%filter(str_detect(name,"^T0|^T1|^T2"))%>%select(code, name, target_end)
 tmp.ims.templ<-read_excel("../MOA_PMP/IntermediateMilestonesTemplate.xlsx")
 tmp.both<- tmp.ims.templ %>% left_join(tmp.ims, join_by(Activity==code))
-write_xlsx(tmp.both%>%select(Activity, Name=name, Date=target_end, Tier, Section, Group),"tmp-milestones.xlsx")
+write_xlsx(tmp.both%>%select(Activity, Name=name, Date=target_end, Tier, Section, Group),"../output/tmp-milestones.xlsx")
 ```
 
 Really random stuff: show how dates work.
@@ -94,3 +95,16 @@ This block below is all special code that really only needs to be run once or fo
 
 
 ```
+
+
+Extract procurements for FY24.
+```{r}
+sti <- as.Date("2023-10-01")
+proc<- procurements.filter(all, st= sti-months(2), en=sti+months(12))
+procs <- proc$data %>%
+  select(task_code, task_name, state, status_code, total_cost, target_start_date, target_end_date, area) %>%
+  filter(total_cost>0) %>% arrange(target_start_date) %>%
+  left_join(MAGIS100PM::ctcmap%>%filter(level=="L1")%>%mutate(area=as.integer(wbs)), by=join_by(area))
+#write_xlsx(procs, "../output/procurementsFY24.xlsx")
+```
+

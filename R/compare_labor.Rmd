@@ -115,18 +115,52 @@ ggsave(p6.data$p6.g2, filename=paste(base.path,"/P6CumuHoursByName.pdf",sep=''),
 person.comp <- rbind(mutate(p6.data$p62,from="P6"),mutate(kr.data$kr2,from="KR"))
   #left_join(mutate(tmp.2,from="KR"), by=join_by(Full.Name,d), suffix=c(".p6",".kr"))
 
+# mutate(d=ceiling_date(d, unit="month"))%>%
+# group_by(FY,from, ctc,week)%>%summarise(sum=sum(sum), csum=sum(csum))
+
+#person.comp.p <- pivot_wider(person.comp, names_from=c("from"), values_from = c("sum","csum"))
+#person.comp.p <- full_join(person.comp%>%filter(from=="KR"),person.comp%>%filter(from=="P6"), by=join_by(d,ctc,grouping), 
+
+person.comp.p <- person.comp %>% filter(d<as.Date("2023-10-01")) %>% 
+  group_by(from,d,grouping) %>% summarise(sum=sum(sum), csum=sum(csum))
+person.comp.p <- full_join(person.comp.p%>%filter(from=="KR"),person.comp.p%>%filter(from=="P6"), by=join_by(d,grouping), suffix=c(".KR",".P6")) %>% 
+  mutate(sum.KR=replace_na(sum.KR,0), sum.P6=replace_na(sum.P6,0)) %>%
+  mutate(csum.KR=replace_na(csum.KR,0), csum.P6=replace_na(csum.P6,0))
+
+person.g3p<- ggplot(person.comp.p,aes(x=d)) + 
+  geom_step(aes(y=csum.KR, colour=from.KR)) +
+  geom_step(aes(y=csum.P6, colour=from.P6)) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
+  facet_wrap(vars(grouping),scales="free_y") + 
+  #facet_wrap(vars(ctc,grouping),scales="free_y") + 
+  theme(axis.text.x = element_text(angle = 90))
+person.g3pb<- ggplot(person.comp.p,aes(x=d, y=(csum.KR-csum.P6))) + 
+  geom_step() +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
+  facet_wrap(vars(grouping),scales="free_y") + 
+  #facet_wrap(vars(ctc,grouping),scales="free_y") + 
+  theme(axis.text.x = element_text(angle = 90))
+
+print(person.g3p)
+print(person.g3pb)
+
+
 person.g3<- ggplot(person.comp,aes(x=d, colour=from)) + 
   geom_step(aes(y=csum)) +
-  geom_step(aes(y=csum)) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90)) +
   facet_wrap(vars(ctc,grouping),scales="free_y")
 
 print(person.g3)
-ggsave(person.g3, filename=paste(base.path,"/CumuHoursByRole.pdf",sep=''),units="in", height=12, width=24, device="pdf")
+ggsave(person.g3, filename=paste(base.path,"output/CumuHoursByRole.pdf",sep=''),units="in", height=12, width=24, device="pdf")
 
 tmp<- person.comp %>% ungroup() %>% select(from, d, isum=sum) %>% group_by(from,d)%>% summarise(sum=sum(isum)) %>% arrange(from, d) %>% group_by(from) %>% mutate(csum=cumsum(sum))
 
 person.g4<- ggplot(tmp,aes(x=d, colour=from)) + 
-  geom_step(aes(y=csum))# +
+  geom_step(aes(y=csum)) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
+
 #  geom_step(aes(y=csum)) +
 #  facet_wrap(vars(from),scales="free_y")
 print(person.g4)
@@ -135,6 +169,18 @@ print(person.g4)
 ctc.comp <- rbind(mutate(p6.data$p6,from="P6"),mutate(kr.data$kr,from="KR"))
 
 tmp<- ctc.comp %>% ungroup() %>% select(from, FY, ctc, d, Hours) %>% group_by(FY,from,ctc,d)%>% summarise(sum=sum(Hours)) %>% arrange(FY, from, ctc, d) %>% group_by(FY, from, ctc) %>% mutate(csum=cumsum(sum))
+
+ctc.g5b<- ggplot(tmp%>%filter(FY==2023)%>% mutate(week=ceiling_date(d, unit="month"))%>%group_by(FY,from, ctc,week)%>%summarise(tot=sum(sum)),
+                 aes(x=week, colour=from)) + 
+  geom_step(aes(y=tot)) +
+#  geom_step(aes(y=csum)) +
+  facet_wrap(vars(FY,ctc),scales="free_y", nrow=1) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
+  #scale_y_continuous(name="cumulative costs", n.breaks=6) +
+        theme(axis.text.x = element_text(angle = 90))
+print(ctc.g5b)
+
+
 
 ctc.g5<- ggplot(tmp,aes(x=d, colour=from)) + 
   geom_step(aes(y=csum)) +
@@ -157,6 +203,6 @@ print(person.g6)
 ```{r}
 k<- kr.proc("Full.Name", charges)
 tmpp<- ggplot(k$kr2, aes(x=d, colour=ctc)) + geom_step(aes(y=csum)) + facet_wrap(vars(grouping), scales="free_y", ncol=4)
-ggsave("./kr2_cyc.pdf", tmpp)
+ggsave("../output/kr2_cyc.pdf", tmpp)
 print(tmpp)
 ```

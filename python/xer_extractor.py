@@ -39,6 +39,7 @@ if __name__ == "__main__":
         ,xer.udfvalues.get_tsv()
         ,xer.udftypes.get_tsv()
         ,xer.roles.get_tsv()
+        ,xer.projects.get_tsv()
     ]
 
     for t in tabs:
