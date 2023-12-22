@@ -1,5 +1,8 @@
 ---
-title: "Current Status Report for MAGIS-100"
+title: "Status Report for MAGIS-100"
+subtitle: "Reporting period FY23Q4, working schedule WS2309"
+date: "12/18/2023"
+abstract: "Summary report for fall 2023, including 4th quarter FY2023 status reporting and BCRs generated through October 2023."
 format: 
   pdf:
     df-print: kable
@@ -33,7 +36,7 @@ tasks.people <- combine.tasks.people(people, all)
 run.kable <- function(d)
 {
   kable(d, booktabs=TRUE) %>%
-    kable_styling(latex_options = "hold_position", font_size=9) %>%
+    kable_styling(latex_options = "hold_position", font_size=8) %>%
   column_spec(2, width="3in") %>%
   row_spec(which(d$State=="Complete"), background="lime", bold=TRUE) %>%
   row_spec(which(d$State=="Late"), background="yellow", bold=TRUE) %>%
@@ -42,6 +45,7 @@ run.kable <- function(d)
 }
 
 ```
+
 
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
@@ -288,4 +292,11 @@ run.kable(acts.after%>%
 
 # Changes from BCRs and variances
 
+```{r}
+
+```
+
+![thing](../output/VS-WS2309.pdf){#fig-vs}
+
+This is @fig-vs.
 

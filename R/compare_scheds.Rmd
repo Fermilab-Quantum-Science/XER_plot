@@ -65,7 +65,8 @@ d_bcrs_name <- paste('.',bcrs_name,sep="")
 
 current <- get.all.schedule("current")
 working <- get.all.schedule("WS2309") # first
-bcrs<- get.all.schedule("BLBCR") # other
+working <- apply.baseline.schedule(working, "BCRBL2")
+bcrs<- get.all.schedule("BL2309") # other
 
 charges <- get.all.kronos()
 
@@ -179,8 +180,8 @@ calc_diffs<- function(nbase, nwork, sbase, swork)
            start.diff=!!target_start_BL - !!target_start_WS) 
 }
 
-#tmp.filtered<- calc_diffs("BL2307", "WS2309", all.current, all.working)
-tmp.filtered<- calc_diffs("BL2309", "WS2309", all.bcrs, all.working)
+tmp.filtered<- calc_diffs("BL2307", "WS2309", all.current, all.working)
+#tmp.filtered<- calc_diffs("BL2309", "WS2309", all.bcrs, all.working)
 
 #%>% filter(dur.x!=0)
 
@@ -218,8 +219,8 @@ make.sum <- function(s, cat)
 }
 
 WS<- make.sum(exp.work, "WS2309")
-#BL<- make.sum(exp.curr, "BL2307")
-BL<- make.sum(exp.bcrs, "BL2309")
+BL<- make.sum(exp.curr, "BL2307")
+#BL<- make.sum(exp.bcrs, "BL2309")
 ```
 
 This is replaced by the above code

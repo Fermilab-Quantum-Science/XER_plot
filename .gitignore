@@ -1,6 +1,8 @@
 saved_output
 saved_xlsx
 __pycache__
+.RData
+.Rhistory
 myTimeLine_files
 images
 output/*.pdf

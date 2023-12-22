@@ -1,0 +1,202 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(rlang)
+library(lubridate)
+library(scales)
+
+library(MAGIS100PM)
+```
+
+
+
+```{r}
+all <- get.all.schedule("WS2309")
+all <- apply.baseline.schedule(all, "BCRBL2")
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+```
+
+```{r}
+labor <- bin.labor(tasks.people)
+costs <- bin.expenses(all$all.data)
+costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
+```
+
+
+
+
+
+Name $ Actuals+March23 $ FY23 Q3-4 $ FY24 $ FY25 $ FY26 $ FY27 $ Totals
+Planned work $ 3,913,740 $ 2,146,677 $ 1,768,276 $ 3,073,656 $ 3,317,993 $ 1,495,395 $ 15,715,738
+Guidance $ 5,400,000 $ 1,000,000 $ 2,000,000 $ 4,000,000 $ 4,000,000 $ 3,331,336 $ 19,731,336
+
+carryover  $5,018,000 $ 0		 $3,382,000 	 $4,000,000 	 $4,000,000 	 $3,295,832 
+
+2/27/2023: BCWS=3,611,484	BCWP=3,611,484	ACWP=3,611,484
+
+          BCWS      BCWP      ACWP      BAC         EAC
+6/30/2023 4,671,765	4,223,610	4,273,491 15,714,400	15,727,715
+9/30/2023 5,415,397	4,785,084	4,948,566 15,752,059	15,758,634
+
+
+
+
+```{r}
+d.laser.atom.interactions <- as.Date("2027-04-02")
+d.last.reporting.date <- as.Date("2023-09-30")
+d.now = as.Date(now())
+
+pmp <- data.frame(
+  names=c("Actuals+March23","FY23 Q3-4", "FY24", "FY25", "FY26", "project end", "FY27")
+  ,dates=c("2023-04-01", "2023-10-01", "2024-10-01", "2025-09-30", "2026-09-30", "2027-04-02", "2027-09-30")
+  ,planned=c(3913740,2146677,1768276,3073656,3317993,1495395,0)
+  ,guidance=c(5400000,1000000,2000000,4000000,4000000,3331336,0)
+  ,planned.carryover=c(3899212,1488355,2283370, 3274925, 3310015, 1495395,0)
+  ,guidance.carryover=c(3899212,1488355,3382000-369567, 4000000,4000000, 3295832,0)
+  ) %>% 
+  mutate(
+    cumu.planned=cumsum(planned)
+    ,cumu.guidance=cumsum(guidance)
+    ,cumu.planned.co=cumsum(planned.carryover)
+    ,cumu.guidance.co=cumsum(guidance.carryover)
+    ,dates=ymd(dates)
+    ,timestamps=as.numeric(as_datetime(dates))
+  )
+
+min.planned <- first(pmp$planned)
+max.planned <- max(pmp$planned)
+
+fyears <- data.frame(
+  names=c("FY24", "FY25", "FY26", "FY27", "Last Status", "Now", "Project End" ),
+  dates=c( as.Date("2023-10-01"), as.Date("2024-10-01"), as.Date("2025-10-01"), as.Date("2026-10-01"),d.last.reporting.date, d.now, d.laser.atom.interactions),
+  colors=c("yellow","yellow","yellow","yellow","lightblue","lightblue","lightblue"),
+  alphas=c(1.0,1.0,1.0,.4,.4,.4,.4),
+  ypos=c(min.planned, min.planned, min.planned, min.planned,max.planned+1e6, 8e6, min.planned+1e6)
+)
+
+max.dates <- max(fyears$dates)
+min.dates <- min(fyears$dates)
+
+fcosts <- data.frame(
+  colors=c("grey70","grey70","grey80","grey80","grey90","grey90"),
+  costs=c(15715738.00, 19731336.00, 15758634,15752059,15727715,15714400),
+  names=c("PMP Planned Work", "PMP Guidance", "EAC Sep", "BAC Sep", "EAC Jun", "BAC Jun"),
+  xpos=c(min.dates, min.dates, max.dates, max.dates, max.dates, max.dates)
+)
+
+fcprs <- read_xlsx("../../Finance/SummaryCPRs.xlsx")
+fcprs <- fcprs %>% filter(str_detect(Name,"Totals")) %>% arrange(End.Date)
+fcprs <- fcprs %>% mutate(Period=as.Date(Period), Completion.Date=as.Date(Completion.Date))
+fcprs.p <- pivot_longer(fcprs, c("BCWS", "BCWP", "ACWP", "BAC", "EAC"))
+
+
+#print(ggplot(pmp, aes(x=timestamps, y=cumu.guidance)) + geom_line())
+
+```
+
+Work Scheduled = BCWS = Budgeted cost of work scheduled	
+Work Performed = BCWP = Budgeted cost of work performed	
+Actual Cost    = ACWP = Actual cost of work performed
+SV = schedule variance
+
+
+What's left?  
+Need table of CPR data, with dates of measurement and completion dates for that schedule.
+There should be a starting record at 3/1/2023 (This is the line from Jan-23 entry with 3611484 BCWS)
+There should be two records with BAC/EAC filled in (Jun, Sept).
+There could be one more with BCWP, BCWS, ACWP filled in from April.
+
+columns: cpr.date, BCWS, BCWP, ACWP, SW, CV, BAC, EAC, completion.date
+
+"2023-03-01", 3611484,	3611484,	3611484,	0,        0,      NA, NA, "2027-04-02"
+"2023-04-30", 4059270,	3896789,	3911762,	-162481, -14,973, NA, NA, "2027-04-02"
+"2023-06-30", 4671765,	4223610,	4273491,	-448155, -49,881, 15714400,	15727715, "2027-04-02"
+"2023-09-30", 5415397,	4785084,	4948566,	-630312, -163,482,15752059,	15758634, "2027-04-02"
+
+
+```{r}
+other <- get.all.schedule("BL2307")
+other.costs <- bin.expenses(other$all.data)
+
+WS.monthly <- costs$target.by.month  %>% 
+  arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
+  mutate(ctot=cumsum(tot)) %>%
+  mutate(prerollup=week<as.Date("2023-03-03"), from="BL.2309") 
+
+BL.monthly <- other.costs$target.by.month  %>% 
+  arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
+  mutate(ctot=cumsum(tot)) %>%
+  mutate(prerollup=week<as.Date("2023-03-03"), from="PMP.Schedule") 
+
+monthly=rbind(WS.monthly, BL.monthly)
+```
+
+```{r}
+# need to use the ggplot function definition functions for this,
+# that is: ggptoto() and layer()
+# https://ggplot2.tidyverse.org/articles/extending-ggplot2.html 
+vline_labeled <- function(value, label="", col="black", alpha=1.0, ...)
+{
+  geom_vline(aes(xintercept=value),alpha=alpha, colour=col, ...)+
+    geom_text(aes(x = value, label = label, hjust="left",vjust="bottom"))
+}
+
+filt.date <- as.Date("2028-10-02")
+filt.cost <- 30e6
+
+filt.data <- list(
+  months = monthly %>% filter(prerollup==FALSE & week<filt.date),
+  pmp = pmp %>% filter( dates<filt.date),
+  fyears = fyears %>% filter( dates<filt.date),
+  fcprs = fcprs.p %>% filter( Period<filt.date & Period>=as.Date("2023-01-01")),
+  fcosts = fcosts %>% filter( xpos<filt.date & costs<filt.cost)
+)
+
+g5d<- ggplot(filt.data$months,
+                 aes(x=week, colour=from)) + 
+  
+  geom_ribbon(data=filt.data$pmp, aes(x=dates,ymin=cumu.planned, ymax=cumu.guidance),
+              inherit.aes=FALSE, fill="lightyellow",alpha=.6) +
+  geom_ribbon(data=filt.data$pmp, aes(x=dates,ymin=cumu.planned.co, ymax=cumu.guidance.co),
+              inherit.aes=FALSE, fill="orange",alpha=.2) +
+  
+  geom_vline(data=filt.data$fyears, aes(xintercept=dates), alpha=1.0, colour=filt.data$fyears$colors) +
+  geom_text(data=filt.data$fyears, aes(x=dates,y=ypos, label=names, hjust="left",vjust="top"),
+            size=3,inherit.aes=FALSE, check_overlap = TRUE, nudge_y=-1e5) +
+  # width=8.0
+  
+  geom_hline(data=filt.data$fcosts, aes(yintercept=costs), colour=filt.data$fcosts$colors)+
+  geom_text(data=filt.data$fcosts, aes(y=costs,x=xpos, label=names, hjust="left",vjust="bottom"),
+            size=2.5,inherit.aes=FALSE, check_overlap = TRUE, nudge_y=1e5) +
+
+  geom_point(data=filt.data$fcprs%>%filter(!str_detect(name,"BAC|EAC")), aes(x=Period, y=value, colour=name), inherit.aes = FALSE, show.legend = FALSE) + 
+  geom_line(data=filt.data$fcprs%>%filter(!str_detect(name,"BAC|EAC")), aes(x=Period, y=value, colour=name), inherit.aes = FALSE, show.legend = FALSE) + 
+  #geom_jitter(data=fcprs.p%>%filter(str_detect(name,"BAC|EAC")), aes(x=Completion.Date, y=value, colour=name), inherit.aes = FALSE) + 
+
+  geom_line(aes(y=ctot)) +
+  
+  #scale_color_hue(labels = c("A","B","C","PMP schedule", "Baseline 2023-09")) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(name="cumulative expenses", n.breaks=10, 
+                     labels=label_number(scale=1e-6,accuracy=.1,prefix="$", suffix="M")) +
+  theme(axis.text.x = element_text(angle = 90))
+
+
+print(g5d)
+# width=12, height=10,
+ggsave(g5d, filename=paste(base.path,"/output/evms.pdf",sep=''), units="in", device="pdf")
+
+# shows guidance envelope
+```
+

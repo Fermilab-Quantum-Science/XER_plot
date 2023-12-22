@@ -97,7 +97,7 @@ tmp<-alldata.tmp
 tmp$label.shape<-replace(tmp$label.shape,is.na(tmp$label.shape),"NA")
 
 gp<-ggplot(tmp%>%filter(label.shape!="skip"), aes(xmin=target_start, xmax=target_end, 
-                   y=label,# ymin = g, ymax = g+.8, 
+                   y= label,# ymin = g, ymax = g+.8, 
                    fill = category)) +
 
   geom_rect(data=box.spans, aes(ymin=low,ymax=high,xmin=mi, xmax=mx), inherit.aes=FALSE,  fill=c("pink","limegreen","orange"), alpha=.4) +

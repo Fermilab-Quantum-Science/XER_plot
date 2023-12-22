@@ -32,9 +32,10 @@ d_curr_name <- paste('.',curr_name,sep="")
 d_work_name <- paste('.',work_name,sep="")
 d_bcrs_name <- paste('.',bcrs_name,sep="")
 
-current <- get.all.schedule("current")
+current <- get.all.schedule("BL2307")
 working <- get.all.schedule("WS2309") # first
-bcrs<- get.all.schedule("BLBCR") # other
+working <- apply.baseline.schedule(working, "BCRBL2")
+bcrs<- get.all.schedule("BL2309") # other
 
 charges <- get.all.kronos()
 

@@ -19,6 +19,7 @@ This is a comparison between two schedules
 
 ```{r}
 all <- get.all.schedule("WS2309")
+all <- apply.baseline.schedule(all, "BCRBL2")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)

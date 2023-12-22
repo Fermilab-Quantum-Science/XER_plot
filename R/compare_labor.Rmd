@@ -12,6 +12,7 @@ library(writexl)
 library(stringr)
 library(rlang)
 library(lubridate)
+library(scales)
 
 library(MAGIS100PM)
 ```
@@ -20,6 +21,7 @@ library(MAGIS100PM)
 
 ```{r}
 all <- get.all.schedule("WS2309")
+all <- apply.baseline.schedule(all, "BCRBL2")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
@@ -36,35 +38,43 @@ Full.Name = Full.Name
 Full.Name = Role
 
 ```{r}
-kr.proc <- function(grouping.name, charges)
+kr.proc <- function(grouping.name, charges, st=as.Date("2023-03-01"), en=as.Date("2028-01-01"))
 {
   grouping.sym = rlang::sym(grouping.name)
 
-  kr.tmp<- charges %>% filter(Timecard.Start>as.Date("2023-03-01")) %>%
+  # this is (a) the timeframe, (b) the fields renamed to common ones, (c) LOE clearly identified
+  kr.tmp<- charges %>% filter(Timecard.Start>=st&Timecard.Start<=en) %>%
     select(FY=fiscal.year, d=Timecard.Start, Hours=Hours, Full.Name=Full.Name,ctc=taskcode,department=DSC, role=Role) %>%
     mutate(LOE=ctc=='Q1903.01') %>%
     mutate(role.new=if_else(LOE=='TRUE'&!is.na(ctc), "LOE", role))
 
+  # this is a grouping by ctc, the parameter grouping name, and the week
   kr.tmp.1<- kr.tmp%>% group_by(ctc, !!grouping.sym, d) %>% summarise(sum=sum(Hours),.groups='keep')
+  # this adds the cumulative total to the prior one
   kr.tmp.2<- kr.tmp.1%>% arrange(ctc, !!grouping.sym, d) %>% group_by(ctc, !!grouping.sym) %>% mutate(csum=cumsum(sum))
+  # fix the grouping name to be the parameter string
   kr.tmp.1<- rename(kr.tmp.1, grouping=grouping.name)
   kr.tmp.2<- rename(kr.tmp.2, grouping=grouping.name)
 
+  # produce the plots of hours per week and cumulative hours per week
   kr.tmp.g1<- ggplot(kr.tmp.1,aes(x=d, y=sum)) + geom_step() + facet_wrap(vars(ctc,grouping),scales="free_y")
   kr.tmp.g2<- ggplot(kr.tmp.2,aes(x=d, y=csum)) + geom_step() + facet_wrap(vars(ctc,grouping),scales="free_y")
 
+  # return everything (charges with all fields, hours by ctc and arg, cumu hours by ctc and group)
   list(kr=kr.tmp, kr1=kr.tmp.1, kr2=kr.tmp.2, kr.g1=kr.tmp.g1, kr.g2=kr.tmp.g2)
 }
 
-p6.proc <- function(grouping.name, labor.by.week)
+p6.proc <- function(grouping.name, labor.by.week, st=as.Date("2023-03-01"), en=as.Date("2024-01-01"))
 {
   grouping.sym = rlang::sym(grouping.name)
   
-  p6.tmp<- labor.by.week %>% filter(week>=as.Date("2023-03-01")&week<=as.Date("2024-01-01")) %>%
+  # this is (a) the timeframe, (b) the fields renamed to common ones, (c) LOE clearly identified
+  p6.tmp<- labor.by.week %>% filter(week>=st&week<=en) %>%
     select(FY=FY, d=week, Hours=dl.hours, Full.Name=person, department=code, ctc=ctc, role=Role) %>%
     mutate(LOE=ctc=='Q1903.01')%>%
     mutate(role.new=if_else(LOE=='TRUE'&role!="RA", "LOE", role))
 
+  # this is the same as the kr code
   p6.tmp.1<- p6.tmp %>% group_by(ctc, !!grouping.sym, d) %>% summarise(sum=sum(Hours),.groups='keep')
   p6.tmp.2<- p6.tmp.1%>% arrange(ctc, !!grouping.sym, d) %>% group_by(ctc, !!grouping.sym) %>% mutate(csum=cumsum(sum))
   p6.tmp.1<- rename(p6.tmp.1, grouping=grouping.name)
@@ -114,6 +124,7 @@ ggsave(p6.data$p6.g2, filename=paste(base.path,"/P6CumuHoursByName.pdf",sep=''),
 #person.diff <- setdiff(unique(charges$Full.Name), unique(labor$by.week.person$person))
 person.comp <- rbind(mutate(p6.data$p62,from="P6"),mutate(kr.data$kr2,from="KR"))
   #left_join(mutate(tmp.2,from="KR"), by=join_by(Full.Name,d), suffix=c(".p6",".kr"))
+```
 
 # mutate(d=ceiling_date(d, unit="month"))%>%
 # group_by(FY,from, ctc,week)%>%summarise(sum=sum(sum), csum=sum(csum))
@@ -154,11 +165,17 @@ person.g3<- ggplot(person.comp,aes(x=d, colour=from)) +
 print(person.g3)
 ggsave(person.g3, filename=paste(base.path,"output/CumuHoursByRole.pdf",sep=''),units="in", height=12, width=24, device="pdf")
 
+```{r}
 tmp<- person.comp %>% ungroup() %>% select(from, d, isum=sum) %>% group_by(from,d)%>% summarise(sum=sum(isum)) %>% arrange(from, d) %>% group_by(from) %>% mutate(csum=cumsum(sum))
+```
 
+
+```{r}
 person.g4<- ggplot(tmp,aes(x=d, colour=from)) + 
-  geom_step(aes(y=csum)) +
+  geom_line(aes(y=csum)) +
+  scale_color_hue(labels = c("Kronos", "P6")) +
   theme(axis.text.x = element_text(angle = 90)) +
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
   scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
 
 #  geom_step(aes(y=csum)) +
@@ -169,10 +186,11 @@ print(person.g4)
 ctc.comp <- rbind(mutate(p6.data$p6,from="P6"),mutate(kr.data$kr,from="KR"))
 
 tmp<- ctc.comp %>% ungroup() %>% select(from, FY, ctc, d, Hours) %>% group_by(FY,from,ctc,d)%>% summarise(sum=sum(Hours)) %>% arrange(FY, from, ctc, d) %>% group_by(FY, from, ctc) %>% mutate(csum=cumsum(sum))
+```
 
 ctc.g5b<- ggplot(tmp%>%filter(FY==2023)%>% mutate(week=ceiling_date(d, unit="month"))%>%group_by(FY,from, ctc,week)%>%summarise(tot=sum(sum)),
                  aes(x=week, colour=from)) + 
-  geom_step(aes(y=tot)) +
+  geom_line(aes(y=tot)) +
 #  geom_step(aes(y=csum)) +
   facet_wrap(vars(FY,ctc),scales="free_y", nrow=1) +
   scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
@@ -188,21 +206,98 @@ ctc.g5<- ggplot(tmp,aes(x=d, colour=from)) +
   facet_wrap(vars(FY,ctc),scales="free_y")
 print(ctc.g5)
 
+#```{r}
 tmp2<- ctc.comp %>% ungroup() %>% select(from, FY, name=role.new, d, Hours) %>% group_by(FY,from,name,d)%>% summarise(sum=sum(Hours)) %>% arrange(FY, from, name, d) %>% group_by(FY, from, name) %>% mutate(csum=cumsum(sum))
+#```
 
 person.g6<- ggplot(tmp2,aes(x=d, colour=from)) + 
-  geom_step(aes(y=csum)) +
+  geom_line(aes(y=csum)) +
 #  geom_step(aes(y=csum)) +
   facet_wrap(vars(FY,name),scales="free_y")
 print(person.g6)
+#```
+
+```{r}
+tmp2<- ctc.comp %>% ungroup() %>% 
+  select(from, FY, ctc, d, Hours) %>% 
+  filter(FY%in%c(2023,2024)& !is.na(ctc)) %>%
+  arrange(from, FY, ctc, d) %>% 
+  group_by(from,ctc,d)%>%
+  summarise(sum=sum(Hours)) %>%
+  ungroup() %>% 
+  group_by(from, ctc) %>% 
+  mutate(csum=cumsum(sum)) %>%
+  mutate(week=ceiling_date(d, unit="month"))
+
+tmp2b<- tmp2%>%
+  arrange(from,ctc,week) %>% 
+  group_by(from, ctc, .drop=FALSE)%>%
+  mutate(tot=cumsum(sum))
+
+ctc.g5c<- ggplot(tmp2b,
+                 aes(x=d, colour=from)) + 
+  geom_line(aes(y=tot)) +
+  #geom_step(aes(y=csum)) +
+  facet_wrap(vars(ctc),scales="free_y", nrow=1) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(name="cumulative hours", n.breaks=6) +
+        theme(axis.text.x = element_text(angle = 90))
+print(ctc.g5c)
+
+ctc.g5z<- ggplot(tmp2b %>% group_by(from, ctc, week) %>% summarize(ssum=sum(sum)),
+                 aes(x=week, colour=from)) + 
+  geom_line(aes(y=ssum)) +
+  #geom_step(aes(y=csum)) +
+  facet_wrap(vars(ctc),scales="free_y", nrow=1) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(name="cumulative hours", n.breaks=6) +
+        theme(axis.text.x = element_text(angle = 90))
+print(ctc.g5z)
 
 
 ```
 
+```{r}
+
+#kr <- kr.proc("role.new", charges, en=as.Date("2028-01-01"))
+p6 <- p6.proc("role.new", labor$by.week.ctc, en=as.Date("2028-01-01")) # role
+
+monthly <- p6$p6 %>% select(d, Hours) %>% mutate(week=ceiling_date(d, unit="month")) %>%
+  arrange(week) %>% group_by(week) %>% summarise(tot=sum(Hours)) %>% mutate(ctot=cumsum(tot))
+
+g5d<- ggplot(monthly,
+                 aes(x=week)) + 
+  #geom_step(aes(y=tot)) +
+  geom_line(aes(y=ctot)) +
+    scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(name="cumulative hours", n.breaks=6) +
+        theme(axis.text.x = element_text(angle = 90))
+print(g5d)
+
+```
+
+
 
 ```{r}
 k<- kr.proc("Full.Name", charges)
-tmpp<- ggplot(k$kr2, aes(x=d, colour=ctc)) + geom_step(aes(y=csum)) + facet_wrap(vars(grouping), scales="free_y", ncol=4)
-ggsave("../output/kr2_cyc.pdf", tmpp)
-print(tmpp)
+dist.ctc<- k$kr2 %>% ungroup() %>% filter(!is.na(ctc)) %>% select(ctc) %>% distinct(ctc) %>% pull()
+
+plot.ctc <- function(ctcin)
+{
+  print(ctcin)
+  dset<- k$kr2
+  
+  tmpp<- ggplot(dset%>%filter(ctc==ctcin), aes(x=d, y=csum)) + 
+    geom_line() + 
+    facet_wrap(vars(grouping), scales="free", ncol=5)
+  print(tmpp)
+  tmpp
+}
+
+#tmpp<- plot.ctc('Q1903.01')
+vplot.ctc<- Vectorize(plot.ctc)
+vplots <- vplot.ctc(dist.ctc)
+
+#ggsave("../output/kr2_cyc.pdf", tmpp)
+#print(tmpp)
 ```
