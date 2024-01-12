@@ -152,8 +152,8 @@ vline_labeled <- function(value, label="", col="black", alpha=1.0, ...)
     geom_text(aes(x = value, label = label, hjust="left",vjust="bottom"))
 }
 
-filt.date <- as.Date("2028-10-02")
-filt.cost <- 30e6
+gen.evms <- function(filt.date, filt.cost)
+{
 
 filt.data <- list(
   months = monthly %>% filter(prerollup==FALSE & week<filt.date),
@@ -191,11 +191,23 @@ g5d<- ggplot(filt.data$months,
   scale_y_continuous(name="cumulative expenses", n.breaks=10, 
                      labels=label_number(scale=1e-6,accuracy=.1,prefix="$", suffix="M")) +
   theme(axis.text.x = element_text(angle = 90))
+g5d
+}
+```
 
+```{r}
 
-print(g5d)
+filt.date <- as.Date("2028-10-02")
+filt.cost <- 30e6
+
+evms.full<- gen.evms(as.Date("2028-10-02"), 30e6)
+evms.zoom<- gen.evms(as.Date("2024-10-02"), 10e6)
+
+print(evms.full)
+print(evms.zoom)
 # width=12, height=10,
-ggsave(g5d, filename=paste(base.path,"/output/evms.pdf",sep=''), units="in", device="pdf")
+ggsave(evms.zoom, filename=paste(base.path,"/output/evms_zoom.pdf",sep=''), units="in", device="pdf")
+ggsave(evms.full, filename=paste(base.path,"/output/evms_full.pdf",sep=''), units="in", device="pdf")
 
 # shows guidance envelope
 ```

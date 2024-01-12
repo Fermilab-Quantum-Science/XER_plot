@@ -64,7 +64,7 @@ kr.proc <- function(grouping.name, charges, st=as.Date("2023-03-01"), en=as.Date
   list(kr=kr.tmp, kr1=kr.tmp.1, kr2=kr.tmp.2, kr.g1=kr.tmp.g1, kr.g2=kr.tmp.g2)
 }
 
-p6.proc <- function(grouping.name, labor.by.week, st=as.Date("2023-03-01"), en=as.Date("2024-01-01"))
+p6.proc <- function(grouping.name, labor.by.week, st=as.Date("2023-03-01"), en=as.Date("2024-03-01"))
 {
   grouping.sym = rlang::sym(grouping.name)
   
@@ -167,11 +167,23 @@ ggsave(person.g3, filename=paste(base.path,"output/CumuHoursByRole.pdf",sep=''),
 
 ```{r}
 tmp<- person.comp %>% ungroup() %>% select(from, d, isum=sum) %>% group_by(from,d)%>% summarise(sum=sum(isum)) %>% arrange(from, d) %>% group_by(from) %>% mutate(csum=cumsum(sum))
+
+tmp2<- person.comp %>% ungroup() %>% filter(ctc!="Q1903.01" & d>=as.Date("2023-10-01")) %>% select(from, d, isum=sum) %>% group_by(from,d)%>% summarise(sum=sum(isum)) %>% arrange(from, d) %>% group_by(from) %>% mutate(csum=cumsum(sum))
+
+# p6.data$p6 %>% mutate(Full.Name=if_else(is.na(Full.Name),role.new,Full.Name)) %>% distinct(Full.Name) %>% view()
+# mutate(Full.Name=toupper(str_split_i(Name,", ",i=1)))
+
+hours.per.person.per.week <- p6.data$p6 %>% filter(d>=as.Date("2023-10-01")) %>% ungroup() %>%
+  mutate(Full.Name=if_else(is.na(Full.Name),role.new,Full.Name)) %>%
+  mutate(Last.Name=toupper(str_split_i(Full.Name,", ",i=1))) %>%
+  select(week=d, Last.Name, ctc, hours=Hours) %>%
+  group_by(Last.Name, week) %>% summarize(hours=sum(hours)) %>% ungroup() %>%
+  arrange(Last.Name, week) %>% group_by(Last.Name) %>% mutate(chours=cumsum(hours))
 ```
 
 
 ```{r}
-person.g4<- ggplot(tmp,aes(x=d, colour=from)) + 
+person.g4<- ggplot(tmp2,aes(x=d, colour=from)) + 
   geom_line(aes(y=csum)) +
   scale_color_hue(labels = c("Kronos", "P6")) +
   theme(axis.text.x = element_text(angle = 90)) +
@@ -182,6 +194,7 @@ person.g4<- ggplot(tmp,aes(x=d, colour=from)) +
 #  facet_wrap(vars(from),scales="free_y")
 print(person.g4)
 ```
+
 ```{r}
 ctc.comp <- rbind(mutate(p6.data$p6,from="P6"),mutate(kr.data$kr,from="KR"))
 
@@ -301,3 +314,9 @@ vplots <- vplot.ctc(dist.ctc)
 #ggsave("../output/kr2_cyc.pdf", tmpp)
 #print(tmpp)
 ```
+
+
+```{r}
+
+```
+
