@@ -74,3 +74,27 @@ print(reviews)
 #activities<- activities.plot(all$all.data, interval(as.Date('2024-09-01'),as.Date('2025-11-01')),tcost=1)
 #```
 
+
+This is a test for plotting over the T2 milestones
+```{r}
+milestones<- milestones.filter(all$all.data%>%filter(str_detect(name,"T2 ")),exclude.future=FALSE)
+
+gp3<-ggplot(
+    milestones,
+    aes( colour=  state, y=reorder(code,target_start))
+  ) +
+    geom_linerange(aes(xmin = target_end, xmax = late_end), linewidth=.10)+ #, colour='blue') +
+    geom_point(aes(x=target_end),size=2) +
+    geom_text(aes(hjust='left',x = target_end, label = short_name), nudge_x=9.6, nudge_y=.4) +
+    geom_text(aes(hjust='right',x=as.Date(max(late_end))+months(3), label = paste(total_float, sep='/')),
+              nudge_y=.4, check_overlap = TRUE) +
+    scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+    theme(axis.text.x = element_text(angle = 90)) +
+    labs(x="Target End Date", y="Milestone", colour="State")
+
+ggsave(gp3, filename=paste(base.path,'/output/milestones.pdf',sep=''), width=14, height=10, units='in', device="pdf")
+#print(gp3)
+
+```
+
+

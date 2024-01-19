@@ -90,6 +90,12 @@ write_xlsx(tpt.FY%>% filter(FY %in% c(2023,2024)), paste(base.path,"output/TPT_F
 #    mutate(week=ceiling_date(dl.d,unit="week",week_start=1)) %>%
 #    mutate(FY.orig=fiscal.from.date(week), FY=fiscal.date.adjust(week,FY.orig))
 
+
+ This is notes on all the fields that would be interesting to add (role and ctc)
+ across the three areas of requests, charges, and schedule.
+ There are not distinct combos of (Last.Name, ctc, role) for some of the entries
+ which is something that needs to be thought through.
+ 
 charges%>%distinct(Function.Category) %>% view() # don't use
 charges%>%distinct(Function.Role) %>% view() # role
 charges%>%distinct(taskcode) %>% view() # ctc
@@ -99,11 +105,47 @@ labor$by.week.ctc %>% ungroup() %>% distinct(Role) # role
 labor$by.week.ctc %>% ungroup() %>% distinct(ctc) # ctc
 
 
+```{r}
+
+roles.table <- data.frame(a=c("Op Specialist", "Specialist", "Exp"),
+                          b=c("Project Cntls", "Proj", "Prof"),
+                          c=c("Eng Phys", "Specialist", "Exp"),
+                          d=c("Particle Physicist", "Phys", "Phys"),
+                          e=c("Mech Eng", "Eng", "Mech"),
+                          f=c("PM", "Proj", "Proj"),
+                          g=c("RA", "Phys", "Phys"),
+                          h=c("Mech Design", "Design/Draft", "Mech"),
+                          i=c("Mech Draft", "Design/Draft", "Mech"),
+                          j=c("Mech Tech", "Tech", "Mech"),
+                          k=c("Electrical Tech", "Tech", "Elec"),
+                          l=c("Electrical Eng", "Eng", "Elec"),
+                          m=c("App Developer", "Other", "Other"),
+                          n=c("Metrologist", "Other", "Exp"),
+                          o=c("Civil Eng", "Other", "ISD"),
+                          p=c("Accel Sys Spec", "Specialist", "Exp"),
+                          q=c("Construct Coord", "Other", "ISD"),
+                          r=c("Electrical Task", "Tech", "Elec"),
+                          s=c("Geodesist", "Other", "ISD"),
+                          t=c("High Vac Tech", "Tech", "Exp"),
+                          row.names=c("role", "role.type", "role.cat")
+)
+
+roles.table <- rownames_to_column(roles.table) %>% 
+  pivot_longer(-rowname) %>% pivot_wider(names_from=rowname) %>% select (-name)
+
+role.trans <- full_join(
+  p6.tmp %>% distinct(role),
+  kr.tmp %>% distinct(role),
+  by=join_by(role), keep=TRUE, suffix=c(".p6",".kr"))
+
+```
+
+
 
 ```{r}
-filt.st<-as.Date("2023-07-01")
-filt.en<-as.Date("2023-10-02")
-filt.asof<- as.Date("2023-07-01")
+filt.st<-as.Date("2023-10-01")
+filt.en<-as.Date("2024-01-02")
+filt.asof<- as.Date("2023-10-01")
 filt.name<- "FY23Q4"
 
 req <- read_xlsx("../input/LaborRequestFrom202306.xlsx")
@@ -123,10 +165,10 @@ req.by.week <- req.by.day %>% filter(week>=filt.st & week<filt.en) %>%
   ungroup() %>% arrange(Last.Name, week) %>% group_by(Last.Name) %>%
   mutate(chours=cumsum(hours))
 
-
+# I don't think I need Timecase.End.
 kro <- charges %>% filter(Timecard.Start>=filt.asof & Timecard.Start<filt.en) %>% 
-  select(week=Timecard.Start,Timecard.End, Last.Name, Charged.Hours=Hours) %>% 
-  group_by(Last.Name, week,Timecard.End) %>% summarize(hours=sum(Charged.Hours)) %>% ungroup() %>%
+  select(week=Timecard.Start, Last.Name, Charged.Hours=Hours) %>% 
+  group_by(Last.Name, week) %>% summarize(hours=sum(Charged.Hours)) %>% ungroup() %>%
   arrange(Last.Name,week) %>% group_by(Last.Name) %>% 
   mutate(chours=cumsum(hours))
 
@@ -141,16 +183,29 @@ req.kro <- req.kro %>% arrange(Last.Name, week) %>% group_by(Last.Name) %>%
 write_xlsx(req.kro, paste(base.path,"output/BudgetVersusKronos.xlsx",sep=''))
 
 p6.tmp<- labor$by.week.ctc %>% ungroup() %>% filter(week>=filt.st&week<filt.en) %>%
-    select(FY=FY, d=week, Hours=dl.hours, Full.Name=person, department=code, ctc=ctc, role=Role) %>%
+    select(week, hours=dl.hours, Full.Name=person, department=code, ctc=ctc, role=Role) %>%
     mutate(LOE=ctc=='Q1903.01')%>%
     mutate(role.new=if_else(LOE=='TRUE'&role!="RA", "LOE", role)) %>%
   mutate(Full.Name=if_else(is.na(Full.Name),role.new,Full.Name)) %>%
-  mutate(Last.Name=toupper(str_split_i(Full.Name,", ",i=1)))
+  mutate(Last.Name=toupper(str_split_i(Full.Name,", ",i=1))) %>% 
+  select(-Full.Name)
 
-hours.per.person.per.week <- p6.tmp %>% filter(d>=filt.asof) %>% ungroup() %>%
-  select(week=d, Last.Name, ctc, hours=Hours) %>%
-  group_by(Last.Name, week) %>% summarize(hours=sum(hours)) %>% ungroup() %>%
-  arrange(Last.Name, week) %>% group_by(Last.Name) %>% mutate(chours=cumsum(hours))
+# this is nearly the same as kro
+kr.tmp<- charges %>% filter(Timecard.Start>=filt.asof&Timecard.Start<filt.en) %>%
+    select(Last.Name, week=Timecard.Start, hours=Hours, ctc=taskcode, department=DSC, role=Role) %>%
+    mutate(LOE=ctc=='Q1903.01') %>%
+    mutate(role.new=if_else(LOE=='TRUE'&!is.na(ctc), "LOE", role))
+
+person.comp <- bind_rows(p6=p6.tmp, kronos=kr.tmp, .id="src")
+
+hours.per.person.per.week <- person.comp %>% ungroup() %>% filter(week>=filt.asof) %>%
+  select(src,week, Last.Name, ctc, hours) %>%
+  group_by(src, Last.Name, week) %>% summarize(hours=sum(hours)) %>% ungroup() %>%
+  arrange(src, Last.Name, week) %>% group_by(src, Last.Name) %>% mutate(chours=cumsum(hours))
+
+comp.hours <- bind_rows(req.by.week %>% mutate(src="request"), 
+                        hours.per.person.per.week) 
+
 
 ```
 
@@ -170,13 +225,6 @@ good.names <- c("NOBREGA","CURFMAN","FUNK","HURD","KELLETT",
 
 #good.names <- "NOBREGA|CURFMAN|FUNK|HURD|KELLETT|KOWAL|KIBURG|PLUNK|UNNAMED|MECH|SPECI|METRO|PARTICLE|SAFETY"
 
-# hours.per.person.per.week is calulated in compare_labor.Rmd
-comp.hours <- bind_rows(request=req.by.week%>%filter(week<=filt.en), 
-                        kronos=select(kro,-Timecard.End), 
-                        p6=hours.per.person.per.week, 
-                        .id="src") 
-#%>%
-#  filter(Last.Name%in%good.names)
 
 # p6.tmp%>% filter(Hours>0) %>% group_by(department,Full.Name) %>% summarize(tot=sum(Hours)) %>% arrange(Full.Name,department) %>% view()
 
@@ -205,18 +253,72 @@ g3<- ggplot(comp.hours, aes(x=week, y=chours,colour=src)) +facet_wrap(vars(Last.
 
 ```{r}
 
-tmp2<- person.comp %>% ungroup() %>% filter(ctc!="Q1903.01" & d>=as.Date("2023-10-01")) %>% select(from, d, isum=sum) %>% group_by(from,d)%>% summarise(sum=sum(isum)) %>% arrange(from, d) %>% group_by(from) %>% mutate(csum=cumsum(sum))
+person.comp.r <- left_join(person.comp, roles.table, by=join_by(role))
 
-person.g4<- ggplot(tmp2,aes(x=d, colour=from)) + 
-  geom_line(aes(y=csum)) +
-  scale_color_hue(labels = c("Kronos", "p6")) +
+tmp2<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
+  select(src, week, ihours=hours) %>%
+  group_by(src, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,  week) %>% 
+  group_by(src) %>% mutate(chours=cumsum(hours))
+
+tmp2.r<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
+  select(src,role.type, week, ihours=hours) %>%
+  group_by(src,role.type, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,role.type,  week) %>% 
+  group_by(src,role.type) %>% mutate(chours=cumsum(hours))
+
+tmp2.c<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
+  select(src,role.cat, week, ihours=hours) %>%
+  group_by(src,role.cat, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,role.cat,  week) %>% 
+  group_by(src,role.cat) %>% mutate(chours=cumsum(hours))
+
+tmp2.rc<- person.comp.r %>% ungroup() %>% #filter(ctc!="Q1903.01") %>%
+  select(src,role.type, role.cat, week, ihours=hours) %>%
+  group_by(src,role.type, role.cat, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,role.type, role.cat,  week) %>% 
+  group_by(src,role.type, role.cat) %>% mutate(chours=cumsum(hours))
+
+person.g4<- ggplot(tmp2,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  #scale_color_hue(labels = c("Kronos", "p6")) +
   theme(axis.text.x = element_text(angle = 90)) +
+  #facet_wrap(vars(department),scales="free_y") + 
   scale_y_continuous(name="cumulative hours",n.breaks=6) +
   scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
 
-#  geom_step(aes(y=csum)) +
-#  facet_wrap(vars(from),scales="free_y")
 print(person.g4)
+
+person.g5<- ggplot(tmp2.r,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  #scale_color_hue(labels = c("Kronos", "p6")) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(vars(role.type),scales="free_y") + 
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
+
+print(person.g5)
+
+person.g6<- ggplot(tmp2.c,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  #scale_color_hue(labels = c("Kronos", "p6")) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(vars(role.cat),scales="free_y") + 
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
+
+print(person.g6)
+
+person.g7<- ggplot(tmp2.rc,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  #scale_color_hue(labels = c("Kronos", "p6")) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(vars(role.type, role.cat),scales="free_y") + 
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
+
+print(person.g7)
+
 ```
 
 ```{r}
@@ -230,5 +332,30 @@ tmp.g <- ggplot(req.by.week %>% filter(str_detect(Last.Name, "NOBREGA|CURFMAN|FU
 
 print(tmp.g)
 ```
+
+By-hand assignments:
+
+        role.p6            role.kr          role.type     role.cat
+1       Op Specialist               <NA>   Specialist      Exp
+2       Project Cntls      Project Cntls         Proj     Proj
+3            Eng Phys               <NA>   Specialist      Exp
+4  Particle Physicist Particle Physicist         Phys     Phys
+5            Mech Eng           Mech Eng          Eng     Mech
+6                  PM                 PM         Proj     Proj
+7                  RA                 RA         Phys     Phys
+8         Mech Design        Mech Design Design/Draft     Mech
+9          Mech Draft               <NA> Design/Draft     Mech
+10          Mech Tech          Mech Tech         Tech     Mech
+11    Electrical Tech    Electrical Tech         Tech     Tech
+12     Electrical Eng     Electrical Eng          Eng     Elec
+13      App Developer               <NA>        Other    Other
+14        Metrologist               <NA>        Other      Exp
+15               <NA>          Civil Eng        Other      ISD
+16               <NA>     Accel Sys Spec   Specialist      Exp
+17               <NA>    Construct Coord        Other      ISD
+18               <NA>    Electrical Task         Tech     Elec
+19               <NA>          Geodesist        Other      ISD
+20               <NA>      High Vac Tech         Tech      Exp
+
 
 
