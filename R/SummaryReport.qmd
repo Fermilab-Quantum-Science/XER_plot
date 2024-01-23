@@ -46,7 +46,6 @@ run.kable <- function(d)
 
 ```
 
-
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
 labor <- bin.labor(tasks.people)
@@ -78,15 +77,17 @@ MAGIS-100 has defined three tiers of high-level project key performance mileston
 
 T0 high-level project Key Performance Milestones are repeated for each of the tiers. The T1 milestone set has additional Key Performance Milestones that mark the end of each T2 milestone group.
 
-\newpage
+## T2 Milestones
 
-## S-1: Site ready to accept experiment
+The T2 key performance milestones are broken down into four areas.
 
-The S-1 Key Performance Milestone is met when the MINOS site is ready to accept installation of the scientific apparatus and all Intermediate Milestones have been met.
+### S-1: Site ready to accept experiment
+
+The S-1 Key Performance Milestone is met when the MINOS site is ready to accept installation of the scientific apparatus and all Intermediate Milestones have been met. The status of S-1 milestones can be seen in table @tbl-t2-s1.
 
 ```{r}
 #| echo: false
-#| label: tbl-tb2
+#| label: tbl-t2-s1
 #| tbl-cap: "S-1 Milestones"
 #| tbl-colwidths: [12,50,14,14,10]
 
@@ -99,15 +100,13 @@ run.kable(tb2)
 
 ```
 
-\newpage
+### S-2: Experiment apparatus components installed
 
-## S-2: Experiment apparatus components installed
-
-The S-2 Key Performance Milestone is met when all essential scientific equipment is assembled, certified, unit tested, and installed.
+The S-2 Key Performance Milestone is met when all essential scientific equipment is assembled, certified, unit tested, and installed. The status of S-2 milestones can be seen in table @tbl-t2-s2.
 
 ```{r}
 #| echo: false
-#| label: tbl-tb3
+#| label: tbl-t2-s2
 #| tbl-cap: "S-2 Milestones"
 #| tbl-colwidths: [12,50,14,14,10]
 
@@ -116,15 +115,13 @@ run.kable(tmp.both%>%filter(Tier=="T2" & Section=="S-2")%>%
   arrange(Date))
 ```
 
-\newpage
+### S-3: Experiment support systems operational
 
-## S-3: Experiment support systems operational
-
-The S-3 Key Performance Milestone is met when these systems are installed. The experimental support systems operational group of milestones includes all the components that support the operations of the experiment. These systems are related to either safety or readouts and are not covered in the site or experiment apparatus sections.
+The S-3 Key Performance Milestone is met when these systems are installed. The experimental support systems operational group of milestones includes all the components that support the operations of the experiment. These systems are related to either safety or readouts and are not covered in the site or experiment apparatus sections. The status of S-3 milestones can be seen in table @tbl-t2-s3.
 
 ```{r}
 #| echo: false
-#| label: tbl-tb4
+#| label: tbl-t2-s3
 #| tbl-cap: "S-3 Milestones"
 #| tbl-colwidths: [12,50,14,14,10]
 
@@ -135,15 +132,13 @@ run.kable(tmp.both%>%filter(Tier=="T2" & Section=="S-3")%>%
   arrange(Date))
 ```
 
-\newpage
+### S-4: Atom-laser interactions observed
 
-## S-4: Atom-laser interactions observed
-
-The S-4 Key Performance Milestone is met when each of the main systems is tested and ready for experiment commissioning. These milestones indicate that site preparation, apparatus installation, and support system installation are complete.
+The S-4 Key Performance Milestone is met when each of the main systems is tested and ready for experiment commissioning. These milestones indicate that site preparation, apparatus installation, and support system installation are complete. The status of S-4 milestones can be seen in table @tbl-t2-s4.
 
 ```{r}
 #| echo: false
-#| label: tbl-tb5
+#| label: tbl-t2-s4
 #| tbl-cap: "S-4 Milestones"
 #| tbl-colwidths: [12,50,14,14,10]
 
@@ -152,15 +147,13 @@ run.kable(tmp.both%>%filter(Tier=="T2" & Section=="S-4")%>%
   arrange(Date))
 ```
 
-\newpage
+### T0 High-level Key Performance Milestones
 
-## T0 High-level Key Performance Milestones
-
-T0 Milestones are held by DOE. The distance between these key performance milestones and T1 is twelve months.
+T0 Milestones are held by DOE. The distance between these key performance milestones and T1 is twelve months. The status of T0 milestones can be seen in table @tbl-t0.
 
 ```{r}
 #| echo: false
-#| label: tbl-tb6
+#| label: tbl-t0
 #| tbl-cap: "T0 Milestones"
 #| tbl-colwidths: [12,50,14,14,10]
 
@@ -169,13 +162,13 @@ run.kable(tmp.both%>%filter(Tier=="T0")%>%
   arrange(Date))
 ```
 
-## T1 High-level Key Performance Milestones
+### T1 High-level Key Performance Milestones
 
-T1 Milestones are held by the Project Office. The distance between these key performance milestones and T2 milestones is six months.
+T1 Milestones are held by the Project Office. The distance between these key performance milestones and T2 milestones is six months. The status of T1 milestones can be seen in table @tbl-t1.
 
 ```{r}
 #| echo: false
-#| label: tbl-tb7
+#| label: tbl-t1
 #| tbl-cap: "T1 Milestones"
 #| tbl-colwidths: [12,50,14,14,10]
 
@@ -184,17 +177,17 @@ run.kable(tmp.both%>%filter(Tier=="T1")%>%
   arrange(Date))
 ```
 
-\newpage
+# Activity Status
 
-# Status for this reporting period
-
-## Reviews
-
-There are the reviews.
+- Reviews: @tbl-reviews
+- Procurements: @tbl-procurements
+- All project milestones: @tbl-all-m
+- Project activities (up to three months out): @tbl-acts
+- Project activities (after three months out): @tbl-acts2
 
 ```{r}
 #| echo: false
-#| label: tbl-tb8
+#| label: tbl-reviews
 #| tbl-cap: "Reviews"
 #| tbl-colwidths: [12,50,14,14,10]
 
@@ -205,12 +198,6 @@ run.kable(reviews%>%
   arrange(Date))
 
 ```
-
-\newpage
-
-## Procurements
-
-Here are the procurements.
 
 ```{r}
 #| echo: false
@@ -231,12 +218,6 @@ run.kable(procs%>%
 
 ```
 
-\newpage
-
-## Current project Milestones
-
-Here are all the recent milestones in the schedule.
-
 ```{r}
 #| echo: false
 #| label: tbl-all-m
@@ -249,12 +230,6 @@ run.kable(ms%>%
   arrange(Date))
 
 ```
-
-\newpage
-
-## Current Activities
-
-Current activities here.
 
 ```{r}
 #| echo: false
@@ -273,12 +248,6 @@ run.kable(acts.before%>%
   arrange(Date))
 ```
 
-\newpage
-
-## Current activity after today
-
-Continuation of current activities.
-
 ```{r}
 #| echo: false
 #| label: tbl-acts2
@@ -294,9 +263,21 @@ run.kable(acts.after%>%
 
 ```{r}
 
+tmp.CPRs<-read_excel("../../finance/SummaryCPRs.xlsx", sheet="CPR_Data")
+
 ```
 
-![thing](../output/VS-WS2309.pdf){#fig-vs}
+# Project summary information
 
-This is @fig-vs.
+![Visual schedule](../output/VS-WS2309.pdf){#fig-vs} 
+
+![EVMS summary, full project](../output/evms_full.pdf){#fig-evms-full} 
+
+![EVMS summary, up through FY24](../output/evms_zoom.pdf){#fig-evms-zoom}
+
+- The visual schedule can be seen in figure @fig-vs.
+- The EVMS summary values from CPRs can be seen for the project in @fig-evms-full.
+- The EVMS summary values from CPRS up through FY24 can be seen in @fig-evms-zoom.
+
+
 

@@ -187,7 +187,7 @@ g5d<- ggplot(filt.data$months,
   geom_line(aes(y=ctot)) +
   
   #scale_color_hue(labels = c("A","B","C","PMP schedule", "Baseline 2023-09")) +
-  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y") +
+  scale_x_date(name="Date (by month)", date_breaks='2 month', date_labels = "%b %y") +
   scale_y_continuous(name="cumulative expenses", n.breaks=10, 
                      labels=label_number(scale=1e-6,accuracy=.1,prefix="$", suffix="M")) +
   theme(axis.text.x = element_text(angle = 90))

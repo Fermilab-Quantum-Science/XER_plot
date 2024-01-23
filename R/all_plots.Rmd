@@ -83,16 +83,19 @@ gp3<-ggplot(
     milestones,
     aes( colour=  state, y=reorder(code,target_start))
   ) +
-    geom_linerange(aes(xmin = target_end, xmax = late_end), linewidth=.10)+ #, colour='blue') +
+    #geom_linerange(aes(xmin = target_end, xmax = late_end), linewidth=.10)+ #, colour='blue') +
     geom_point(aes(x=target_end),size=2) +
-    geom_text(aes(hjust='left',x = target_end, label = short_name), nudge_x=9.6, nudge_y=.4) +
-    geom_text(aes(hjust='right',x=as.Date(max(late_end))+months(3), label = paste(total_float, sep='/')),
-              nudge_y=.4, check_overlap = TRUE) +
-    scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
-    theme(axis.text.x = element_text(angle = 90)) +
+  # nudge_y=.4 was set for both the next ones
+    geom_text(aes(hjust='left',x = target_end, label = paste(short_name, ' (', total_float,')', sep='')),
+              nudge_x=9.6) +
+    #geom_text(aes(hjust='right',x=as.Date(max(late_end))+months(3), label = paste(total_float, sep='/')),
+    #          check_overlap = TRUE) +
+    scale_x_date(date_breaks='3 month', date_labels = "%b %y", limits=c(as.Date("2023-03-01"), as.Date("2030-03-01"))) +
+    theme(axis.text.x = element_text(angle = 90), legend.position = "top") +
     labs(x="Target End Date", y="Milestone", colour="State")
 
-ggsave(gp3, filename=paste(base.path,'/output/milestones.pdf',sep=''), width=14, height=10, units='in', device="pdf")
+fac=.7
+ggsave(gp3, filename=paste(base.path,'/output/milestones.pdf',sep=''),height=15*fac, width=14*fac,units='in', device="pdf")
 #print(gp3)
 
 ```
