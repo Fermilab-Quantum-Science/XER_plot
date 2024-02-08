@@ -108,4 +108,3 @@ procs <- proc$data %>%
   left_join(MAGIS100PM::ctcmap%>%filter(level=="L1")%>%mutate(area=as.integer(wbs)), by=join_by(area))
 #write_xlsx(procs, "../output/procurementsFY24.xlsx")
 ```
-

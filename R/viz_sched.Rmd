@@ -9,6 +9,7 @@ library(ggplot2)
 library(readxl)
 library(stringr)
 library(lubridate)
+library(RColorBrewer)
 
 library(MAGIS100PM)
 ```
@@ -17,6 +18,7 @@ library(MAGIS100PM)
 ```{r}
 
 sched_name <- "WS2309"
+#sched_name <- "WS2312"
 # note: if using WS schedule, the target dates need to be adjusted using the baseline
 all.orig <- get.all.schedule(sched_name)
 all <- apply.baseline.schedule(all.orig, "BCRBL2")
@@ -63,13 +65,69 @@ label.cat <- c(
 "Alignment", 
 "Commissioning")
 
-labels.ord <- data.frame(label=label.cat, ord=length(label.cat):1)
-alldata.tmp <- alldata %>% left_join(labels.ord, by=join_by(label))
+map.label.cat <- c(
+  "Modular Sections",
+  "NA",
+  "Mechanical Infrastructure & Installation",
+"Atom Sources",
+"Atom Sources",
+"Atom Sources",
+"Modular Sections",
+"Modular Sections",
+"Modular Sections",
+"Modular Sections",
+"Modular Sections",
+"Modular Sections",
+"Interferometry Laser System",
+"Mechanical Infrastructure & Installation",
+"Civil Instrastructure & Utilities",
+"Mechanical Infrastructure & Installation",
+"Mechanical Infrastructure & Installation",
+"Civil Instrastructure & Utilities",
+"Mechanical Infrastructure & Installation",
+"Mechanical Infrastructure & Installation",
+"Civil Instrastructure & Utilities",
+"Civil Instrastructure & Utilities",
+"Civil Instrastructure & Utilities",
+"Computing Infrastructure",
+"Computing Infrastructure",
+"Computing Infrastructure",
+"Interferometry Laser System",
+"Civil Instrastructure & Utilities",
+"Interferometry Laser System",
+"Mechanical Infrastructure & Installation",
+"Computing Infrastructure",
+"Computing Infrastructure",
+"Mechanical Infrastructure & Installation", 
+"NA")
+
+# Design, Procure, Integrate, Install, Operate,
+# c("Design",    "Install",   "Integrate", "NA",        "Operate",   "Procure"  )
+
+cat.list <- c(
+  "Procure", "Design", "NA", "Prototype",
+  "Qualification", "Ground installation",
+  "Shaft installation", "Assembly",
+  "Integration", "Operations", "Transport")
+cat.list.ord <- c(4,3,1,2, 5,9, 10,6, 7,11,8)
+cat.list.ord.inv <- 11-cat.list.ord
+cat.compact <- c("Procure", "Design","NA","Design",
+                 "Integrate", "Install",
+                 "Install", "Integrate", 
+                 "Integrate", "Operate", "Integrate")
+cat.compact <- as.factor(cat.compact) # %>% reorder(c(6,1,4,1,3,2,2,3,3,5,3))
+
+labels.ord <- data.frame(label=label.cat, ord=length(label.cat):1, compact.label=as.factor(map.label.cat))
+cats.ord <- data.frame(category=cat.list, cat.list.ord=cat.list.ord.inv, compact.cat=cat.compact)
+alldata.tmp <- alldata %>% left_join(labels.ord, by=join_by(label)) %>% left_join(cats.ord, by=join_by(category))
 alldata.tmp$label <- reorder(alldata.tmp$label, alldata.tmp$ord)
+alldata.tmp$category <- reorder(alldata.tmp$category, alldata.tmp$cat.list.ord)
 
 alldata.tmp <- alldata.tmp %>%
   mutate(
-    a=as.numeric(label)
+    a=as.numeric(label),
+    b=as.numeric(compact.label),
+    b.cat=as.numeric(compact.cat)
   )
 
 box.ys <- data.frame(category=c("Assembly","Shaft installation", "Shaft installation"), label=c("Assembly of modular sections", "Final shaft work", "Modular section and connection node installation"), ord=c(34,33,32), low=c(24,12,1), high=c(28,30,31))
@@ -96,11 +154,14 @@ Here are the name mappings:
 tmp<-alldata.tmp
 tmp$label.shape<-replace(tmp$label.shape,is.na(tmp$label.shape),"NA")
 
+box.brew <- brewer.pal(12,"Set3")
+box.cols <- c(box.brew[6], box.brew[2], box.brew[2])
+
 gp<-ggplot(tmp%>%filter(label.shape!="skip"), aes(xmin=target_start, xmax=target_end, 
                    y= label,# ymin = g, ymax = g+.8, 
                    fill = category)) +
 
-  geom_rect(data=box.spans, aes(ymin=low,ymax=high,xmin=mi, xmax=mx), inherit.aes=FALSE,  fill=c("pink","limegreen","orange"), alpha=.4) +
+  geom_rect(data=box.spans, aes(ymin=low,ymax=high,xmin=mi, xmax=mx), inherit.aes=FALSE,  fill=box.cols, alpha=.4) +
   # colour=c("lightyellow","green","blue"),
   geom_text(data=box.spans, aes(x=mid.x,y=mid.y, label=label, angle=90),inherit.aes=FALSE, size=2) +
   
@@ -114,7 +175,8 @@ gp<-ggplot(tmp%>%filter(label.shape!="skip"), aes(xmin=target_start, xmax=target
   theme(axis.text.x = element_text(angle = 90)) + 
   #geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3
   geom_text(aes(x = target_start, label = code, hjust="left",vjust="bottom"), size=.5, position=position_dodge2(width=.8)) +
-  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=.05, position=position_dodge2(width=.8))
+  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=.05, position=position_dodge2(width=.8))+
+  scale_fill_brewer(palette="Set3")
   
 print(gp)
 ggsave(gp, filename=paste(base.path,'/output/VS-',sched_name,'.png',sep=''), width=12, height=12, units='in', device="png")
@@ -123,6 +185,36 @@ ggsave(gp, filename=paste(base.path,'/output/VS-',sched_name,'.pdf',sep=''), wid
 ```
 
 
+```{r}
+alt.tmp<-alldata.tmp
+alt.tmp$label.shape<-replace(alt.tmp$label.shape,is.na(alt.tmp$label.shape),"NA")
+
+gp<-ggplot(alt.tmp%>%filter(label.shape!="skip" & compact.label!="NA" & !is.na(compact.label)), aes(xmin=target_start, xmax=target_end, 
+                   y= compact.label,# ymin = g, ymax = g+.8, 
+                   fill = compact.cat)) +
+
+  geom_vline(aes(xintercept=as.Date("2023-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2024-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2025-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2026-10-01")))+
+  geom_rect(aes(ymin = b-.4, ymax = b+.4)) +
+
+  scale_y_discrete("label") +
+  scale_x_date(name="date", date_breaks='2 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+
+  geom_text(aes(x = target_start, label = code, hjust="left",vjust="bottom"), 
+            size=.5, position=position_dodge2(width=.8)) +
+  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', 
+                 linewidth=.05,  position=position_dodge2(width=.8)) + 
+  scale_fill_brewer(palette="Set3") + 
+  labs(fill="Category")
+  
+print(gp)
+ggsave(gp, filename=paste(base.path,'/output/VS-condensed-',sched_name,'.png',sep=''), width=12, height=12, units='in', device="png")
+ggsave(gp, filename=paste(base.path,'/output/VS-condensed-',sched_name,'.pdf',sep=''), width=8, height=8, units='in', device="pdf")
+
+```
 
 
 

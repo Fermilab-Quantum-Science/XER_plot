@@ -21,6 +21,7 @@ library(MAGIS100PM)
 #all <- get.all.schedule("BL2307")
 #all <- get.all.schedule("BL2309")
 all.orig <- get.all.schedule("WS2309")
+#all.orig <- get.all.schedule("WS2312")
 # note: if using WS schedule, the target dates need to be adjusted using the baseline
 all <- apply.baseline.schedule(all.orig, "BCRBL2")
 
@@ -39,11 +40,11 @@ costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%
 
 ```{r}
 fte<- FTE.plots(labor$by.day.all%>%filter(code!='other'))
-activities<- activities.plot(all$all.data, start.date=as.Date('2023-03-01'),end.date=as.Date('2023-12-01'))
-milestones<- milestones.plot(all$all.data)
+activities<- activities.plot(all$all.data, start.date=as.Date('2023-03-01'),end.date=as.Date('2024-03-01'))
+milestones<- milestones.plot(all$all.data, exclude.future=FALSE, earliest.date = as.Date("2023-10-01"), latest.date = as.Date("2024-10-01"))
 resources<- resources.plot(labor$by.week, device="png")
 proc<- procurements.plot(all, en=Sys.Date()+weeks(8*4))
-reviews<- reviews.plot(all$all.data)
+reviews<- reviews.plot(all$all.data, start.date=as.Date("2023-05-01"))
 ```
 
 ```{r}
@@ -77,25 +78,26 @@ print(reviews)
 
 This is a test for plotting over the T2 milestones
 ```{r}
-milestones<- milestones.filter(all$all.data%>%filter(str_detect(name,"T2 ")),exclude.future=FALSE)
+milestones<- milestones.filter(all$all.data%>%filter(str_detect(name,"T2 ")),exclude.future=FALSE,
+                               earliest.date = as.Date("2023-03-01"), latest.date = as.Date("2024-12-30"))
+max_end<- tmp %>% slice_max(target_end,n=1,with_ties = FALSE) %>% pull(target_end)
+min_end<- tmp %>% slice_min(target_end,n=1,with_ties = FALSE) %>% pull(target_end)
+
 
 gp3<-ggplot(
     milestones,
-    aes( colour=  state, y=reorder(code,target_start))
+    aes( colour=  state, x=target_end, y=reorder(code,target_start))
   ) +
-    #geom_linerange(aes(xmin = target_end, xmax = late_end), linewidth=.10)+ #, colour='blue') +
-    geom_point(aes(x=target_end),size=2) +
-  # nudge_y=.4 was set for both the next ones
-    geom_text(aes(hjust='left',x = target_end, label = paste(short_name, ' (', total_float,')', sep='')),
+    geom_point(size=1) +
+    geom_text(aes(hjust='left',label = paste(short_name, ' (', total_float/8,')', sep='')),
               nudge_x=9.6) +
-    #geom_text(aes(hjust='right',x=as.Date(max(late_end))+months(3), label = paste(total_float, sep='/')),
-    #          check_overlap = TRUE) +
-    scale_x_date(date_breaks='3 month', date_labels = "%b %y", limits=c(as.Date("2023-03-01"), as.Date("2030-03-01"))) +
+    scale_x_date(date_breaks='3 month', date_labels = "%b %y",
+                 limits=c(min_end, max_end)) +
     theme(axis.text.x = element_text(angle = 90), legend.position = "top") +
-    labs(x="Target End Date", y="Milestone", colour="State")
+    labs(x="Forecast End Date", y="Milestone", colour="State")
 
-fac=.7
-ggsave(gp3, filename=paste(base.path,'/output/milestones.pdf',sep=''),height=15*fac, width=14*fac,units='in', device="pdf")
+fac=.5
+ggsave(gp3, filename=paste(base.path,'/output/milestonesS.pdf',sep=''),height=15*fac, width=14*fac,units='in', device="pdf")
 #print(gp3)
 
 ```
