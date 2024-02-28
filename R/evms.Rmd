@@ -20,7 +20,7 @@ library(MAGIS100PM)
 
 
 ```{r}
-all <- get.all.schedule("WS2309")
+all <- get.all.schedule("WS2312")
 all <- apply.baseline.schedule(all, "BCRBL2")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
@@ -54,7 +54,8 @@ carryover  $5,018,000 $ 0		 $3,382,000 	 $4,000,000 	 $4,000,000 	 $3,295,832
 
 ```{r}
 d.laser.atom.interactions <- as.Date("2027-04-02")
-d.last.reporting.date <- as.Date("2023-09-30")
+#d.last.reporting.date <- as.Date("2023-09-30")
+d.last.reporting.date <- as.Date("2023-12-31")
 d.now = as.Date(now())
 
 pmp <- data.frame(
@@ -89,10 +90,10 @@ max.dates <- max(fyears$dates)
 min.dates <- min(fyears$dates)
 
 fcosts <- data.frame(
-  colors=c("grey70","grey70","grey80","grey80","grey90","grey90"),
-  costs=c(15715738.00, 19731336.00, 15758634,15752059,15727715,15714400),
-  names=c("PMP Planned Work", "PMP Guidance", "EAC Sep", "BAC Sep", "EAC Jun", "BAC Jun"),
-  xpos=c(min.dates, min.dates, max.dates, max.dates, max.dates, max.dates)
+  colors=c("grey70","grey70","grey80","grey80","grey90","grey90","grey90","grey90"),
+  costs=c(15715738.00, 19731336.00, 15718609,15691757, 15758634,15752059, 15727715,15714400),
+  names=c("PMP Planned Work", "PMP Guidance", "EAC Dec", "BAC Dec", "EAC Sep", "BAC Sep", "EAC Jun", "BAC Jun"),
+  xpos=c(min.dates, min.dates, max.dates, max.dates, max.dates, max.dates, max.dates, max.dates)
 )
 
 fcprs <- read_xlsx("../../Finance/SummaryCPRs.xlsx")
@@ -125,21 +126,32 @@ columns: cpr.date, BCWS, BCWP, ACWP, SW, CV, BAC, EAC, completion.date
 "2023-09-30", 5415397,	4785084,	4948566,	-630312, -163,482,15752059,	15758634, "2027-04-02"
 
 
+Attention:
+Show probably add a third line that is the current baseline.  
+Other is really the PMP schedule (BL2307)
+
 ```{r}
-other <- get.all.schedule("BL2307")
-other.costs <- bin.expenses(other$all.data)
+baseline.current <- get.all.schedule("BCRBL2")
+baseline.current.costs <- bin.expenses(baseline.current$all.data)
+baseline.pmp <- get.all.schedule("BL2307")
+baseline.pmp.costs <- bin.expenses(baseline.pmp$all.data)
 
 WS.monthly <- costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  mutate(prerollup=week<as.Date("2023-03-03"), from="BL.2309") 
+  mutate(prerollup=week<as.Date("2023-03-03"), from="2312.Forecast") 
 
-BL.monthly <- other.costs$target.by.month  %>% 
+BL.monthly <- baseline.current.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  mutate(prerollup=week<as.Date("2023-03-03"), from="PMP.Schedule") 
+  mutate(prerollup=week<as.Date("2023-03-03"), from="2310.Baseline") 
 
-monthly=rbind(WS.monthly, BL.monthly)
+PMP.monthly <- baseline.pmp.costs$target.by.month  %>% 
+  arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
+  mutate(ctot=cumsum(tot)) %>%
+  mutate(prerollup=week<as.Date("2023-03-03"), from="2307.PMP") 
+
+monthly=rbind(WS.monthly, BL.monthly, PMP.monthly)
 ```
 
 ```{r}

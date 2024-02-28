@@ -20,7 +20,7 @@ library(MAGIS100PM)
 
 
 ```{r}
-all <- get.all.schedule("WS2309")
+all <- get.all.schedule("WS2312")
 all <- apply.baseline.schedule(all, "BCRBL2")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
@@ -132,7 +132,7 @@ person.comp <- rbind(mutate(p6.data$p62,from="P6"),mutate(kr.data$kr2,from="KR")
 #person.comp.p <- pivot_wider(person.comp, names_from=c("from"), values_from = c("sum","csum"))
 #person.comp.p <- full_join(person.comp%>%filter(from=="KR"),person.comp%>%filter(from=="P6"), by=join_by(d,ctc,grouping), 
 
-person.comp.p <- person.comp %>% filter(d<as.Date("2023-10-01")) %>% 
+person.comp.p <- person.comp %>% filter(d<as.Date("2024-01-09")) %>% 
   group_by(from,d,grouping) %>% summarise(sum=sum(sum), csum=sum(csum))
 person.comp.p <- full_join(person.comp.p%>%filter(from=="KR"),person.comp.p%>%filter(from=="P6"), by=join_by(d,grouping), suffix=c(".KR",".P6")) %>% 
   mutate(sum.KR=replace_na(sum.KR,0), sum.P6=replace_na(sum.P6,0)) %>%
@@ -188,7 +188,8 @@ person.g4<- ggplot(tmp2,aes(x=d, colour=from)) +
   scale_color_hue(labels = c("Kronos", "P6")) +
   theme(axis.text.x = element_text(angle = 90)) +
   scale_y_continuous(name="cumulative hours",n.breaks=6) +
-  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("All hours without LOE")
 
 #  geom_step(aes(y=csum)) +
 #  facet_wrap(vars(from),scales="free_y")

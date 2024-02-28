@@ -19,7 +19,7 @@ library(MAGIS100PM)
 
 ```{r}
 #all <- get.all.schedule("BLBCR")
-all <- get.all.schedule("WS2309")
+all <- get.all.schedule("WS2312")
 all <- apply.baseline.schedule(all, "BCRBL2")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
@@ -45,6 +45,16 @@ persons.FY23Q34<- labor$by.week.person %>%
   mutate(ftes=hrs/(1805/4)) %>%
   filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name, div=DSC),join_by(person) )
+
+persons.FY24Q1<- labor$by.week.person %>%
+  filter(FY==2023)%>%
+  filter(week %within% interval('2023-07-01','2024-02-12')) %>%
+  group_by(person,FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805/4)) %>%
+  filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, div=DSC),join_by(person) )
+
 
 persons.FY2324<- labor$by.week.person %>%
   filter(FY %in% c(2023,2024)) %>%
@@ -144,9 +154,9 @@ role.trans <- full_join(
 
 ```{r}
 filt.st<-as.Date("2023-10-01")
-filt.en<-as.Date("2024-01-02")
+filt.en<-as.Date("2024-02-12")
 filt.asof<- as.Date("2023-10-01")
-filt.name<- "FY23Q4"
+filt.name<- "FY24Q1"
 
 req <- read_xlsx("../input/LaborRequestFrom202306.xlsx")
 
@@ -255,6 +265,13 @@ g3<- ggplot(comp.hours, aes(x=week, y=chours,colour=src)) +facet_wrap(vars(Last.
 
 person.comp.r <- left_join(person.comp, roles.table, by=join_by(role))
 
+tmp2a<- person.comp.r %>% ungroup()  %>%
+  select(src, week, ihours=hours) %>%
+  group_by(src, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,  week) %>% 
+  group_by(src) %>% mutate(chours=cumsum(hours))
+
+
 tmp2<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
   select(src, week, ihours=hours) %>%
   group_by(src, week)%>% summarise(hours=sum(ihours)) %>%
@@ -279,13 +296,24 @@ tmp2.rc<- person.comp.r %>% ungroup() %>% #filter(ctc!="Q1903.01") %>%
   arrange(src,role.type, role.cat,  week) %>% 
   group_by(src,role.type, role.cat) %>% mutate(chours=cumsum(hours))
 
+person.g4a<- ggplot(tmp2a,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("All hours with LOE")
+
+print(person.g4a)
+
+
 person.g4<- ggplot(tmp2,aes(x=week, y=chours, colour=src)) + 
   geom_line() +
   #scale_color_hue(labels = c("Kronos", "p6")) +
   theme(axis.text.x = element_text(angle = 90)) +
   #facet_wrap(vars(department),scales="free_y") + 
   scale_y_continuous(name="cumulative hours",n.breaks=6) +
-  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("All hours without LOE")
 
 print(person.g4)
 
@@ -295,7 +323,9 @@ person.g5<- ggplot(tmp2.r,aes(x=week, y=chours, colour=src)) +
   theme(axis.text.x = element_text(angle = 90)) +
   facet_wrap(vars(role.type),scales="free_y") + 
   scale_y_continuous(name="cumulative hours",n.breaks=6) +
-  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("Hours by role type without LOE")
+
 
 print(person.g5)
 
@@ -305,7 +335,8 @@ person.g6<- ggplot(tmp2.c,aes(x=week, y=chours, colour=src)) +
   theme(axis.text.x = element_text(angle = 90)) +
   facet_wrap(vars(role.cat),scales="free_y") + 
   scale_y_continuous(name="cumulative hours",n.breaks=6) +
-  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("Hours by role category without LOE")
 
 print(person.g6)
 
@@ -315,22 +346,44 @@ person.g7<- ggplot(tmp2.rc,aes(x=week, y=chours, colour=src)) +
   theme(axis.text.x = element_text(angle = 90)) +
   facet_wrap(vars(role.type, role.cat),scales="free_y") + 
   scale_y_continuous(name="cumulative hours",n.breaks=6) +
-  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("Hours by role type and category with LOE")
 
 print(person.g7)
 
 ```
 
 ```{r}
-tmp.g <- ggplot(req.by.week %>% filter(str_detect(Last.Name, "NOBREGA|CURFMAN|FUNK|HURD|KELLETT"))
-                , aes(x=week, y=chours)) + 
+tmp2.ra<- person.comp.r %>% ungroup()  %>%
+  select(src, Last.Name, week, ihours=hours) %>%
+  group_by(src, Last.Name, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src, Last.Name,  week) %>% 
+  group_by(src, Last.Name) %>% mutate(chours=cumsum(hours))
+
+tmp.g <- ggplot(tmp2.ra %>% 
+                  filter(str_detect(Last.Name, "NOBREGA|CURFMAN|FUNK|HURD|KELLETT|MURP|SANTU"))
+                , aes(x=week, y=chours, colour=src)) + 
   geom_line() +
-  facet_wrap(vars(Last.Name),scales="free_y", nrow=5) +
-  scale_x_date(name="Date", date_breaks='1 week', date_labels = "%b %y") +
+  facet_wrap(vars(Last.Name),scales="free_y", nrow=3) +
+  scale_x_date(name="Date", date_breaks='1 month', date_labels = "%b %y") +
   scale_y_continuous(name="cumulative hours", n.breaks=6) +
         theme(axis.text.x = element_text(angle = 90))
 
+tech.names <- "FEDERWITZ|KELLETT|CASTILLO URIBE|ROGERS|WILLIAMS|LOPEZ|FLANAGAN|MONTIEL"
+
+
+tmp.gt <- 
+ggplot(tmp2.ra %>% filter(str_detect(Last.Name, tech.names))
+                , aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  facet_wrap(vars(Last.Name),scales="free_y", nrow=3) +
+  scale_x_date(name="Date", date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(name="cumulative hours", n.breaks=6) +
+        theme(axis.text.x = element_text(angle = 90))
+
+  
 print(tmp.g)
+print(tmp.gt)
 ```
 
 By-hand assignments:

@@ -20,8 +20,8 @@ library(MAGIS100PM)
 ```{r}
 #all <- get.all.schedule("BL2307")
 #all <- get.all.schedule("BL2309")
-all.orig <- get.all.schedule("WS2309")
-#all.orig <- get.all.schedule("WS2312")
+#all.orig <- get.all.schedule("WS2309")
+all.orig <- get.all.schedule("WS2312")
 # note: if using WS schedule, the target dates need to be adjusted using the baseline
 all <- apply.baseline.schedule(all.orig, "BCRBL2")
 
@@ -40,11 +40,11 @@ costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%
 
 ```{r}
 fte<- FTE.plots(labor$by.day.all%>%filter(code!='other'))
-activities<- activities.plot(all$all.data, start.date=as.Date('2023-03-01'),end.date=as.Date('2024-03-01'))
+activities<- activities.plot(all$all.data, start.date=as.Date('2023-08-01'),end.date=as.Date('2024-04-01'))
 milestones<- milestones.plot(all$all.data, exclude.future=FALSE, earliest.date = as.Date("2023-10-01"), latest.date = as.Date("2024-10-01"))
 resources<- resources.plot(labor$by.week, device="png")
 proc<- procurements.plot(all, en=Sys.Date()+weeks(8*4))
-reviews<- reviews.plot(all$all.data, start.date=as.Date("2023-05-01"))
+reviews<- reviews.plot(all$all.data, start.date=as.Date("2023-05-01"), end.date=as.Date("2024-10-01"))
 ```
 
 ```{r}

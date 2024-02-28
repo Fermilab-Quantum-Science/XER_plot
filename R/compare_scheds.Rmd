@@ -56,15 +56,15 @@ read.a.sched <- function(sname)
        expenses=expen)
 }
 
-curr_name <- "BL2307"
-work_name <- "WS2309"
+curr_name <- "BL2309"
+work_name <- "WS2312"
 bcrs_name <- "BL2309"
 d_curr_name <- paste('.',curr_name,sep="")
 d_work_name <- paste('.',work_name,sep="")
 d_bcrs_name <- paste('.',bcrs_name,sep="")
 
-current <- get.all.schedule("current")
-working <- get.all.schedule("WS2309") # first
+current <- get.all.schedule("BL2309")
+working <- get.all.schedule("WS2312") # first
 working <- apply.baseline.schedule(working, "BCRBL2")
 bcrs<- get.all.schedule("BL2309") # other
 
@@ -88,9 +88,9 @@ sum.work<- exp.work$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum
 sum.bcrs<- exp.bcrs$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
 
 sum.both<- full_join(sum.work, sum.bcrs, by=join_by(FY),suffix=c(d_work_name,d_curr_name)) %>%
-  mutate(diff=tot_tc.BL2307-tot_tc.WS2309)
+  mutate(diff=tot_tc.BL2309-tot_tc.WS2312)
 
-sum.both.total<- sum.both %>% summarise(WS=sum(tot_tc.WS2309),BL=sum(tot_tc.BL2307))
+sum.both.total<- sum.both %>% summarise(WS=sum(tot_tc.WS2312),BL=sum(tot_tc.BL2309))
 ```
 
 
@@ -180,7 +180,7 @@ calc_diffs<- function(nbase, nwork, sbase, swork)
            start.diff=!!target_start_BL - !!target_start_WS) 
 }
 
-tmp.filtered<- calc_diffs("BL2307", "WS2309", all.current, all.working)
+tmp.filtered<- calc_diffs("BL2309", "WS2312", all.current, all.working)
 #tmp.filtered<- calc_diffs("BL2309", "WS2309", all.bcrs, all.working)
 
 #%>% filter(dur.x!=0)
@@ -218,8 +218,8 @@ make.sum <- function(s, cat)
          )
 }
 
-WS<- make.sum(exp.work, "WS2309")
-BL<- make.sum(exp.curr, "BL2307")
+WS<- make.sum(exp.work, "WS2312")
+BL<- make.sum(exp.curr, "BL2309")
 #BL<- make.sum(exp.bcrs, "BL2309")
 ```
 
@@ -328,7 +328,7 @@ by.month.wdiff<- pivot_wider(both$by.month.wbs, names_from = "cat", values_from 
 
 
 tmp.g<- ggplot(by.month.diff, aes(x=week, y=diff)) +
-        scale_x_date(date_breaks='1 month', date_labels = "%b %y") +
+        scale_x_date(date_breaks='2 month', date_labels = "%b %y") +
   scale_y_continuous(name="difference in cost", n.breaks=10) +
         theme(axis.text.x = element_text(angle = 90)) + 
         geom_point() + geom_line() #+
