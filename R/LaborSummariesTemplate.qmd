@@ -1,0 +1,563 @@
+---
+title: "LaborSummaries20240426"
+subtitle: "Labor Charge Report"
+date: "04/15/2024"
+number-sections: true
+format: 
+  pdf:
+    df-print: kable
+    tbl-colwidths: [12,50,14,14,10]
+    fig-pos: 'hb'
+editor: visual
+geometry:
+  - top=1in
+  - bottom=1in
+  - left=1in
+  - right=1in
+---
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(rlang)
+library(lubridate)
+
+library(MAGIS100PM)
+library(kableExtra)
+library(knitr)
+
+```
+
+```{r}
+#| echo: false
+#| label: tbl-header
+#| tbl-cap: "Heading"
+
+
+filt.st<-as.Date("2024-01-01")
+#filt.st<-as.Date("2023-10-01")
+filt.en<-as.Date("2024-04-22")
+filt.asof<- as.Date("2024-01-01")
+#filt.asof<- as.Date("2023-10-01")
+filt.name<- "FY24Q2"
+
+sched.name <- "WS2404"
+sched.base <- "BL2404"
+#sched.name <- "WS2312"
+#sched.base <- "BCRBL2"
+
+heading <- data.frame(Field=c("Name", "Start", "End", "Schedule", "Baseline"),
+                      Value=c(filt.name, 
+                              as.character(filt.st), as.character(filt.en), 
+                              sched.name, sched.base))
+
+heading.k <- kbl(heading, align='c') %>% column_spec(2,width="1in")
+```
+
+`r heading.k`
+
+This report covers `r filt.name`.
+The report start date is `r filt.st` and the end date is `r filt.en`.
+The working schedule is `r sched.name`.
+The baseline schedule is `r sched.base`.
+
+
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+
+all <- get.all.schedule(sched.name)
+all <- apply.baseline.schedule(all, sched.base)
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+
+labor <- bin.labor(tasks.people)
+costs <- bin.expenses(all$all.data)
+costs.week <- costs$target.by.week%>%
+  filter(FY>=2023&FY<2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+
+# labor <- bin.labor(tasks.people)
+
+tpt.FY<- labor$by.week.person.task %>%
+  filter(FY>2022) %>%
+  group_by(type,person,task_id, FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person)) %>%
+  left_join(all$tasks%>%select(task_id, task_name, task_code, target_start_date, target_end_date), by=join_by(task_id))
+write_xlsx(tpt.FY%>% filter(FY %in% c(2023,2024)), paste(base.path,"output/TPT_FY23_24.xlsx",sep=''))
+
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+
+p6.tmp<- labor$by.week.ctc %>% ungroup() %>% filter(week>=filt.st&week<filt.en) %>%
+    select(week, hours=dl.hours, Full.Name=person, department=code, ctc=ctc, role=Role) %>%
+    mutate(LOE=ctc=='Q1903.01')%>%
+    mutate(role.new=if_else(LOE=='TRUE'&role!="RA", "LOE", role)) %>%
+  mutate(Full.Name=if_else(is.na(Full.Name),role.new,Full.Name)) %>%
+  mutate(Last.Name=toupper(str_split_i(Full.Name,", ",i=1))) %>% 
+  select(-Full.Name)
+
+# this is nearly the same as kro
+kr.tmp<- charges %>% filter(Timecard.Start>=filt.asof&Timecard.Start<filt.en) %>%
+    select(Last.Name, week=Timecard.Start, hours=Hours, ctc=taskcode, department=DSC, role=Role) %>%
+    mutate(LOE=ctc=='Q1903.01') %>%
+    mutate(role.new=if_else(LOE=='TRUE'&!is.na(ctc), "LOE", role))
+
+person.comp <- bind_rows(p6=p6.tmp, kronos=kr.tmp, .id="src")
+
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+
+# This is all the labor summaries that I use now. 
+# Remember that person.comp is filtered by the time internal we are interested in.
+
+
+roles.table <- get.roles.table()
+
+person.comp.r <- left_join(person.comp, roles.table, by=join_by(role))
+
+tmp2a<- person.comp.r %>% ungroup()  %>%
+  select(src, week, ihours=hours) %>%
+  group_by(src, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,  week) %>% 
+  group_by(src) %>% mutate(chours=cumsum(hours))
+
+# by week
+tmp2<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
+  select(src, week, ihours=hours) %>%
+  group_by(src, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,  week) %>% 
+  group_by(src) %>% mutate(chours=cumsum(hours))
+
+# by role by week
+tmp2.r<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
+  select(src,role.type, week, ihours=hours) %>%
+  group_by(src,role.type, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,role.type,  week) %>% 
+  group_by(src,role.type) %>% mutate(chours=cumsum(hours))
+
+# by category by week
+tmp2.c<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
+  select(src,role.cat, week, ihours=hours) %>%
+  group_by(src,role.cat, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,role.cat,  week) %>% 
+  group_by(src,role.cat) %>% mutate(chours=cumsum(hours))
+
+# by role by category by week
+tmp2.rc<- person.comp.r %>% ungroup() %>% #filter(ctc!="Q1903.01") %>%
+  select(src,role.type, role.cat, week, ihours=hours) %>%
+  group_by(src,role.type, role.cat, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,role.type, role.cat,  week) %>% 
+  group_by(src,role.type, role.cat) %>% mutate(chours=cumsum(hours))
+```
+
+# Cumulative project hours
+
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-cumuhours1
+#| fig-cap: "Cumulative hours"
+#| fig-subcap: 
+#|   - "With LOE"
+#|   - "Without LOE"
+#| layout-nrow: 2
+
+# -| fig-cap: "Cumulative Hours"
+
+person.g4a<- ggplot(tmp2a,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("All hours with LOE")
+
+
+person.g4<- ggplot(tmp2,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  #scale_color_hue(labels = c("Kronos", "p6")) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  #facet_wrap(vars(department),scales="free_y") + 
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("All hours without LOE")
+
+person.g4a
+person.g4
+```
+
+The cumulative hours for this period across the full project are 
+shown in @fig-cumuhours1.
+
+# Hours divided by role
+
+The next plots show cumulative hours segregated by role type and category.
+Role category tells what field they are working in (mechanical, electrical, etc.),
+and role type tells what area they work in (techician, engineer, etc.).
+These plots can be seen in @fig-cumu-hours-by-role, @fig-cumu-hours-cat-no-LOE,
+and @fig-cumu-hours-role-cat-LOE.
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-cumu-hours-by-role
+#| fig-cap: "Cumulative Hours by role without LOE"
+
+
+person.g5<- ggplot(tmp2.r,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  #scale_color_hue(labels = c("Kronos", "p6")) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(vars(role.type),scales="free_y") + 
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("Hours by role type without LOE")
+
+
+print(person.g5)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-cumu-hours-cat-no-LOE
+#| fig-cap: "Cumulative Hours by category without LOE"
+
+
+person.g6<- ggplot(tmp2.c,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  #scale_color_hue(labels = c("Kronos", "p6")) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(vars(role.cat),scales="free_y") + 
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("Hours by role category without LOE")
+
+print(person.g6)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-cumu-hours-role-cat-LOE
+#| fig-cap: "Cumulative Hours by role type and category with LOE"
+#| fig-width: 6.5
+#| fig-height: 5
+
+
+person.g7<- ggplot(tmp2.rc,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  #scale_color_hue(labels = c("Kronos", "p6")) +
+  theme(axis.text.x = element_text(angle = 90), legend.position = "top") +
+  facet_wrap(vars(role.type, role.cat),scales="free_y", nrow=4) + 
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("Hours by role type and category with LOE")
+
+print(person.g7)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: tbl-hours
+#| tbl-cap: "Hours test"
+
+optlist<- list(big.mark=',', digits=2, scientific=FALSE)
+
+max_week <- person.comp.r %>% filter(src=='kronos') %>%
+  select(src, week) %>% slice_max(week, n=1, with_ties=FALSE) %>% pull(week)
+
+people.recs <- person.comp.r %>% ungroup() %>% filter(week<=max_week) %>%
+  group_by(src, Last.Name, role.type, role.cat, department) %>%
+  summarise(total=sum(hours)) 
+
+people.joined <- full_join(people.recs%>%filter(src=="p6"), 
+                           people.recs%>%filter(src!="p6"), 
+                           by="Last.Name", suffix=c('.p6','.kr')) %>%
+  mutate(Scheduled=!is_na(total.p6),
+         total.p6=replace_na(total.p6,0),
+         total.kr=replace_na(total.kr,0),
+         Diff=total.p6-total.kr,
+         Frac=total.kr/total.p6)
+# %>% pivot_wider(names_from=c("src"), values_from=c("total"))
+
+tmp2.ra<- person.comp.r %>% ungroup()  %>%
+  select(src, Last.Name, week, ihours=hours) %>%
+  group_by(src, Last.Name, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src, Last.Name,  week) %>% 
+  group_by(src, Last.Name) %>% mutate(chours=cumsum(hours))
+
+ETs <- people.joined %>% filter(department.kr=="ET")
+ADs <- people.joined %>% filter(department.kr=="AD")
+ADTechs <- ADs %>% filter(role.type.kr=='Tech')
+ADNotTechs <- ADs %>% filter(role.type.kr!='Tech')
+PPDs <- people.joined %>% filter(department.kr=="PPD")
+ISs <- people.joined %>% filter(department.kr=="IS")
+others <- people.joined %>% filter(department.kr %in% c('ESHQ','APC','DO',NA))
+othersNotNA <- others %>% filter(!is.na(department.kr))
+othersAD <- others %>% filter(department.p6=="AD")
+othersNotAD <- others %>% filter(department.p6!="AD" & is.na(department.kr))
+
+tech.names <- "FEDERWITZ|KELLETT|CASTILLO URIBE|ROGERS|WILLIAMS|LOPEZ|FLANAGAN|MONTIEL"
+
+make.table.dep <- function(tab.df)
+{
+  kable(tab.df %>% select(Name=Last.Name, Hours.p6=total.p6, Hours.kr=total.kr,
+                          Role=role.type.kr, Role.type=role.cat.kr, Diff, Frac),
+    booktabs=TRUE, format.args=optlist) %>%
+    kable_styling(latex_options = "hold_position", font_size=8)
+}
+
+name.list <- function(grp)
+{
+  grp %>% pull(Last.Name) %>%  paste(collapse="|")
+}
+
+ADNotTech_names<- name.list(ADNotTechs)
+ADTech_names<- name.list(ADTechs)
+ET_names <- name.list(ETs)
+PPD_names <- name.list(PPDs)
+IS_names <- name.list(ISs)
+otherNotNA_names <- name.list(othersNotNA)
+otherNotAD_names <- name.list(othersNotAD)
+otherAD_names <- name.list(othersAD)
+
+make.plot <- function(ds_names)
+{
+  ggplot(tmp2.ra %>% 
+                  filter(str_detect(Last.Name, ds_names))
+                , aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  facet_wrap(vars(Last.Name),scales="free_y", nrow=3) +
+  scale_x_date(name="Date", date_breaks='1 month', date_labels = "%b %y") +
+  scale_y_continuous(name="cumulative hours", n.breaks=6) +
+        theme(axis.text.x = element_text(angle = 90), legend.position = "top")
+}
+
+unsched <- people.joined %>% filter(Scheduled==FALSE) %>% arrange(role.cat.kr, role.type.kr)
+outside_range <- people.joined %>% filter(Scheduled==TRUE & total.kr>0, Frac>1.1 | Frac<.9) %>% arrange(Frac)
+
+```
+
+
+Overall hours summary:
+
+- The total P6 hours is `r sum(people.joined$total.p6)`
+- The total Kronos hours is `r sum(people.joined$total.kr)`
+- The total hour difference overall is `r sum(people.joined$Diff)`.
+
+If we define unscheduled work in P6 as an entry for a week that has charged hours but no P6 scheduled time, here is a the view of hours charges and scheduled:
+
+- The total charged hours with no corresponding P6 time is `r sum(unsched$total.kr)`.
+- The total P6 scheduled hours with no hours charged is `r sum(filter(people.joined, total.kr==0)$total.p6)`
+
+<!--
+- The difference between the two above numbers is  `r sum(filter(people.joined, total.kr==0)$total.p6) - sum(unsched$total.kr)`.
+- The difference between scheduled and unscheduled is `r sum(filter(people.joined, Scheduled==FALSE)$total.kr) - sum(people.joined$total.kr)`.
+-->
+
+```{r}
+#| echo: false
+#| label: tbl-unsched
+#| tbl-cap: "unscheduled hours"
+
+
+# - | tbl-cap:
+# - |   - "unscheduled hours"
+# - |   - "Hours charged outside of 10% of the target from P6"
+# - |   - "No hours charged"
+# - | labout-nrow: 3
+# - | tbl-colwidths: [12,50,14,14,10]
+# - | tbl-cap: "All hours summaries"
+
+make.table.dep(unsched)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-outside
+#| tbl-cap: "Hours charged outside of 10% of the target from P6"
+#| 
+make.table.dep(outside_range)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-nohours
+#| tbl-cap: "No hours charged"
+#| 
+make.table.dep(filter(people.joined, total.kr==0 & total.p6>0))
+```
+
+Note that there is not perfect alignment with P6 and Kronos with regards
+to names of people (assignments) and roles, so this must be taken into
+account when looking at these sums and the next three tables.
+The tables of hours for this section can be seen in @tbl-unsched, @tbl-outside, and @tbl-nohours.
+
+
+
+# Charges by department
+
+Here we show tables of charges per person per department.
+The tables with other in the caption are the people that are either
+not named in the P6 schedule, or come in from from departments with only one
+person charging.
+
+These tables can be seen in @tbl-ETs, @tbl-ADs, @tbl-ISs,
+@tbl-PPDs, and @tbl-others.
+
+
+```{r}
+#| echo: false
+#| label: tbl-ETs
+#| tbl-cap: "ET charges"
+#| tbl-colwidths: [12,50,14,14,10]
+
+make.table.dep(ETs)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-ADs
+#| tbl-cap: "AD charges"
+#| tbl-colwidths: [12,50,14,14,10]
+
+make.table.dep(ADs)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-PPDs
+#| tbl-cap: "PPD charges"
+#| tbl-colwidths: [12,50,14,14,10]
+
+make.table.dep(PPDs)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-ISs
+#| tbl-cap: "IS charges"
+#| tbl-colwidths: [12,50,14,14,10]
+
+make.table.dep(ISs)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-others
+#| tbl-cap: "other charges"
+#| tbl-colwidths: [12,50,14,14,10]
+
+make.table.dep(others)
+```
+
+# Hours per person per department
+
+Here are the cumulative labor charge plots for each of the people
+in the various departments.  They are shown in @fig-ETs, @fig-ISs, @fig-PPDs,
+@fig-ADTechs, @fig-ADNotTechs, @fig-otherADs, and @fig-otherNotNAs.
+The plots of others (last three) contain the names of people that are not
+readily assigned to other areas.   If the name is a job function or title, it
+means that the filtering process could not find matching p6 and kronos records,
+or that there may be no one assigned to these areas yet.
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-ETs
+#| fig-cap: "Cumulative Hours by person in ET"
+
+make.plot(ET_names)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-PPDs
+#| fig-cap: "Cumulative Hours by person in PPD"
+
+make.plot(PPD_names)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-ISs
+#| fig-cap: "Cumulative Hours by person in IS"
+
+make.plot(IS_names)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-ADTechs
+#| fig-cap: "Cumulative Hours by techs in AD"
+
+make.plot(ADTech_names)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-ADNotTechs
+#| fig-cap: "Cumulative Hours in AD, not techs"
+
+make.plot(ADNotTech_names)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-otherADs
+#| fig-cap: "Cumulative Hours other people in AD"
+
+make.plot(otherAD_names)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-otherNotADs
+#| fig-cap: "Cumulative Hours other people not in AD"
+
+make.plot(otherNotAD_names)
+```
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-otherNotNAs
+#| fig-cap: "Cumulative Hours by other not NA"
+
+make.plot(otherNotNA_names)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#-| label: fig-example-by-person1
+#-| fig-cap: "Cumulative Hours by person"
+
+#ggplot(tmp2.ra %>% 
+#                  filter(str_detect(Last.Name, "NOBREGA|CURFMAN|FUNK|HURD|KELLETT|MURP|SANTU"))
+#                , aes(x=week, y=chours, colour=src)) + 
+#  geom_line() +
+#  facet_wrap(vars(Last.Name),scales="free_y", nrow=3) +
+#  scale_x_date(name="Date", date_breaks='1 month', date_labels = "%b %y") +
+#  scale_y_continuous(name="cumulative hours", n.breaks=6) +
+#        theme(axis.text.x = element_text(angle = 90))
+```

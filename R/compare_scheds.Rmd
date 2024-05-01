@@ -56,17 +56,18 @@ read.a.sched <- function(sname)
        expenses=expen)
 }
 
-curr_name <- "BL2309"
-work_name <- "WS2312"
-bcrs_name <- "BL2309"
+curr_name <- "WS2312"
+work_name <- "WS2404"
+bcrs_name <- "WS2312"
 d_curr_name <- paste('.',curr_name,sep="")
 d_work_name <- paste('.',work_name,sep="")
 d_bcrs_name <- paste('.',bcrs_name,sep="")
 
-current <- get.all.schedule("BL2309")
-working <- get.all.schedule("WS2312") # first
-working <- apply.baseline.schedule(working, "BCRBL2")
-bcrs<- get.all.schedule("BL2309") # other
+current <- get.all.schedule(curr_name)
+current <- apply.baseline.schedule(current, "BCRBL2")
+working <- get.all.schedule(work_name) # first
+working <- apply.baseline.schedule(working, "BL2404")
+bcrs<- get.all.schedule(bcrs_name) # other
 
 charges <- get.all.kronos()
 
@@ -87,10 +88,10 @@ sum.curr<- exp.curr$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum
 sum.work<- exp.work$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
 sum.bcrs<- exp.bcrs$target.by.week%>% group_by(FY) %>% summarise(tot_tc=sum(hsum, na.rm=TRUE))
 
-sum.both<- full_join(sum.work, sum.bcrs, by=join_by(FY),suffix=c(d_work_name,d_curr_name)) %>%
-  mutate(diff=tot_tc.BL2309-tot_tc.WS2312)
+sum.both<- full_join(sum.work, sum.curr, by=join_by(FY),suffix=c(d_work_name,d_curr_name)) %>%
+  mutate(diff=tot_tc.WS2312-tot_tc.WS2404)
 
-sum.both.total<- sum.both %>% summarise(WS=sum(tot_tc.WS2312),BL=sum(tot_tc.BL2309))
+sum.both.total<- sum.both %>% summarise(WS=sum(tot_tc.WS2404),BL=sum(tot_tc.WS2312))
 ```
 
 
@@ -100,8 +101,8 @@ reduce.cols <- function(x) {
   x %>% select(code, name, actual_start, actual_end, target_start, target_end, total_cost, total_float, dur)
 }
 
-bcrs.curr <- full_join(reduce.cols(all.current), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
-bcrs.work <- full_join(reduce.cols(all.working), reduce.cols(all.bcrs), by=join_by(code),suffix=c(".cur",".BCR"))
+bcrs.curr <- full_join(reduce.cols(all.current), reduce.cols(all.working), by=join_by(code),suffix=c(".cur",".BCR"))
+bcrs.work <- full_join(reduce.cols(all.working), reduce.cols(all.working), by=join_by(code),suffix=c(".cur",".BCR"))
 
 bcrs.curr <- bcrs.curr%>% mutate(cost.diff=total_cost.BCR-total_cost.cur, 
                                  float.diff=total_float.BCR-total_float.cur,
@@ -180,7 +181,7 @@ calc_diffs<- function(nbase, nwork, sbase, swork)
            start.diff=!!target_start_BL - !!target_start_WS) 
 }
 
-tmp.filtered<- calc_diffs("BL2309", "WS2312", all.current, all.working)
+tmp.filtered<- calc_diffs(curr_name, work_name, all.current, all.working)
 #tmp.filtered<- calc_diffs("BL2309", "WS2309", all.bcrs, all.working)
 
 #%>% filter(dur.x!=0)
@@ -218,8 +219,8 @@ make.sum <- function(s, cat)
          )
 }
 
-WS<- make.sum(exp.work, "WS2312")
-BL<- make.sum(exp.curr, "BL2309")
+WS<- make.sum(exp.work, work_name)
+BL<- make.sum(exp.curr, curr_name)
 #BL<- make.sum(exp.bcrs, "BL2309")
 ```
 
@@ -407,6 +408,6 @@ a.tmp<- by.month.diff%>% filter(far)%>%select(week)%>% pull()
 a.tmp1<- by.month.tdiff %>% ungroup() %>% right_join(data.frame(week=a.tmp), by=join_by(week))
 a.tmp2<- both$by.month.task %>% ungroup() %>% right_join(data.frame(week=a.tmp),by=join_by(week)) %>% group_by(week, code, cat) %>% summarise(ttsum=sum(tsum), tcsum=sum(csum))
 a.tmp2<- pivot_wider(a.tmp2, names_from = "cat", values_from = c("ttsum", "tcsum")) %>%
-  mutate(diff=tcsum_WS2309-tcsum_BL2309) %>% filter(diff>0)
+  mutate(diff=tcsum_WS2312-tcsum_WS2404) %>% filter(diff>0)
 ```
 

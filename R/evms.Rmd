@@ -20,8 +20,8 @@ library(MAGIS100PM)
 
 
 ```{r}
-all <- get.all.schedule("WS2312")
-all <- apply.baseline.schedule(all, "BCRBL2")
+all <- get.all.schedule("WS2404")
+all <- apply.baseline.schedule(all, "BL2404")
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
@@ -56,6 +56,7 @@ carryover  $5,018,000 $ 0		 $3,382,000 	 $4,000,000 	 $4,000,000 	 $3,295,832
 d.laser.atom.interactions <- as.Date("2027-04-02")
 #d.last.reporting.date <- as.Date("2023-09-30")
 d.last.reporting.date <- as.Date("2023-12-31")
+d.last.reporting.date <- as.Date("2024-03-31")
 d.now = as.Date(now())
 
 pmp <- data.frame(
@@ -90,10 +91,14 @@ max.dates <- max(fyears$dates)
 min.dates <- min(fyears$dates)
 
 fcosts <- data.frame(
-  colors=c("grey70","grey70","grey80","grey80","grey90","grey90","grey90","grey90"),
-  costs=c(15715738.00, 19731336.00, 15718609,15691757, 15758634,15752059, 15727715,15714400),
-  names=c("PMP Planned Work", "PMP Guidance", "EAC Dec", "BAC Dec", "EAC Sep", "BAC Sep", "EAC Jun", "BAC Jun"),
-  xpos=c(min.dates, min.dates, max.dates, max.dates, max.dates, max.dates, max.dates, max.dates)
+  colors=c("grey70","grey70","grey75","grey75",
+           "grey80","grey80","grey90","grey90","grey90","grey90"),
+  costs=c(15715738.00, 19731336.00, 16181576, 16150319, 
+          15718609,15691757, 15758634,15752059, 15727715,15714400),
+  names=c("PMP Planned Work", "PMP Guidance", "EAC Mar", "BAC Mar", 
+          "EAC Dec", "BAC Dec", "EAC Sep", "BAC Sep", "EAC Jun", "BAC Jun"),
+  xpos=c(min.dates, min.dates, max.dates, max.dates, 
+         max.dates, max.dates, max.dates, max.dates, max.dates, max.dates)
 )
 
 fcprs <- read_xlsx("../../Finance/SummaryCPRs.xlsx")
@@ -131,7 +136,8 @@ Show probably add a third line that is the current baseline.
 Other is really the PMP schedule (BL2307)
 
 ```{r}
-baseline.current <- get.all.schedule("BCRBL2")
+baseline.current <- get.all.schedule("BL2404")
+#baseline.current <- get.all.schedule("WS2312")
 baseline.current.costs <- bin.expenses(baseline.current$all.data)
 baseline.pmp <- get.all.schedule("BL2307")
 baseline.pmp.costs <- bin.expenses(baseline.pmp$all.data)
@@ -139,12 +145,12 @@ baseline.pmp.costs <- bin.expenses(baseline.pmp$all.data)
 WS.monthly <- costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  mutate(prerollup=week<as.Date("2023-03-03"), from="2312.Forecast") 
+  mutate(prerollup=week<as.Date("2023-03-03"), from="2403.Forecast") 
 
 BL.monthly <- baseline.current.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  mutate(prerollup=week<as.Date("2023-03-03"), from="2310.Baseline") 
+  mutate(prerollup=week<as.Date("2023-03-03"), from="2403.Baseline") 
 
 PMP.monthly <- baseline.pmp.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
@@ -192,7 +198,7 @@ g5d<- ggplot(filt.data$months,
   geom_text(data=filt.data$fcosts, aes(y=costs,x=xpos, label=names, hjust="left",vjust="bottom"),
             size=2.5,inherit.aes=FALSE, check_overlap = TRUE, nudge_y=1e5) +
 
-  geom_point(data=filt.data$fcprs%>%filter(!str_detect(name,"BAC|EAC")), aes(x=Period, y=value, colour=name), inherit.aes = FALSE, show.legend = FALSE) + 
+  geom_point(data=filt.data$fcprs%>%filter(!str_detect(name,"BAC|EAC")), aes(x=Period, y=value, colour=name), inherit.aes = FALSE, show.legend = TRUE) + 
   geom_line(data=filt.data$fcprs%>%filter(!str_detect(name,"BAC|EAC")), aes(x=Period, y=value, colour=name), inherit.aes = FALSE, show.legend = FALSE) + 
   #geom_jitter(data=fcprs.p%>%filter(str_detect(name,"BAC|EAC")), aes(x=Completion.Date, y=value, colour=name), inherit.aes = FALSE) + 
 
@@ -223,4 +229,4 @@ ggsave(evms.full, filename=paste(base.path,"/output/evms_full.pdf",sep=''), unit
 
 # shows guidance envelope
 ```
-
+ 

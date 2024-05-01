@@ -1,7 +1,7 @@
 ---
-title: "LaborSummaries"
+title: "LaborSummaries20240426"
 subtitle: "Labor Charge Report"
-date: "03/20/2024"
+date: "04/15/2024"
 number-sections: true
 format: 
   pdf:
@@ -39,20 +39,24 @@ library(knitr)
 #| tbl-cap: "Heading"
 
 
-filt.st<-as.Date("2023-10-01")
-filt.en<-as.Date("2024-03-12")
-filt.asof<- as.Date("2023-10-01")
-filt.name<- "FY24Q1"
+filt.st<-as.Date("2024-01-01")
+#filt.st<-as.Date("2023-10-01")
+filt.en<-as.Date("2024-04-22")
+filt.asof<- as.Date("2024-01-01")
+#filt.asof<- as.Date("2023-10-01")
+filt.name<- "FY24Q2"
 
-sched.name <- "WS2312"
-sched.base <- "BCRBL2"
+sched.name <- "WS2404"
+sched.base <- "BL2404"
+#sched.name <- "WS2312"
+#sched.base <- "BCRBL2"
 
 heading <- data.frame(Field=c("Name", "Start", "End", "Schedule", "Baseline"),
                       Value=c(filt.name, 
                               as.character(filt.st), as.character(filt.en), 
                               sched.name, sched.base))
 
-heading.k <- kable(heading, align='c') %>% column_spec(2,width="1in")
+heading.k <- kbl(heading, align='c') %>% column_spec(2,width="1in")
 ```
 
 `r heading.k`
@@ -67,7 +71,6 @@ The baseline schedule is `r sched.base`.
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
 
-# all <- get.all.schedule("BLBCR")
 all <- get.all.schedule(sched.name)
 all <- apply.baseline.schedule(all, sched.base)
 charges <- get.all.kronos()
@@ -356,11 +359,22 @@ outside_range <- people.joined %>% filter(Scheduled==TRUE & total.kr>0, Frac>1.1
 
 ```
 
-- The total hours of unscheduled work is `r sum(unsched$total.kr)`.
-- The total hours of P6 work with no hours charged is `r sum(filter(people.joined, total.kr==0)$total.p6)`
-- The total hour difference from P6 scheduled and charged is `r sum(filter(people.joined, Scheduled==TRUE)$Diff)`.
+
+Overall hours summary:
+
+- The total P6 hours is `r sum(people.joined$total.p6)`
+- The total Kronos hours is `r sum(people.joined$total.kr)`
 - The total hour difference overall is `r sum(people.joined$Diff)`.
 
+If we define unscheduled work in P6 as an entry for a week that has charged hours but no P6 scheduled time, here is a the view of hours charges and scheduled:
+
+- The total charged hours with no corresponding P6 time is `r sum(unsched$total.kr)`.
+- The total P6 scheduled hours with no hours charged is `r sum(filter(people.joined, total.kr==0)$total.p6)`
+
+<!--
+- The difference between the two above numbers is  `r sum(filter(people.joined, total.kr==0)$total.p6) - sum(unsched$total.kr)`.
+- The difference between scheduled and unscheduled is `r sum(filter(people.joined, Scheduled==FALSE)$total.kr) - sum(people.joined$total.kr)`.
+-->
 
 ```{r}
 #| echo: false
