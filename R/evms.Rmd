@@ -55,7 +55,7 @@ carryover  $5,018,000 $ 0		 $3,382,000 	 $4,000,000 	 $4,000,000 	 $3,295,832
 ```{r}
 d.laser.atom.interactions <- as.Date("2027-04-02")
 #d.last.reporting.date <- as.Date("2023-09-30")
-d.last.reporting.date <- as.Date("2023-12-31")
+#d.last.reporting.date <- as.Date("2023-12-31")
 d.last.reporting.date <- as.Date("2024-03-31")
 d.now = as.Date(now())
 
@@ -93,8 +93,8 @@ min.dates <- min(fyears$dates)
 fcosts <- data.frame(
   colors=c("grey70","grey70","grey75","grey75",
            "grey80","grey80","grey90","grey90","grey90","grey90"),
-  costs=c(15715738.00, 19731336.00, 16181576, 16150319, 
-          15718609,15691757, 15758634,15752059, 15727715,15714400),
+  costs=c(15715738.00, 19731336.00, 16771287, 16150319, 
+          16052283,15691757, 15915541,15752059, 15764280,15714400),
   names=c("PMP Planned Work", "PMP Guidance", "EAC Mar", "BAC Mar", 
           "EAC Dec", "BAC Dec", "EAC Sep", "BAC Sep", "EAC Jun", "BAC Jun"),
   xpos=c(min.dates, min.dates, max.dates, max.dates, 
@@ -142,10 +142,29 @@ baseline.current.costs <- bin.expenses(baseline.current$all.data)
 baseline.pmp <- get.all.schedule("BL2307")
 baseline.pmp.costs <- bin.expenses(baseline.pmp$all.data)
 
+# JBK - adjusting to use ACWP as starting point for forecast
+# replace ctot for first prerollup==TRUE with latest ACWP
+# mutate(ctot = replace(ctot, ctot==old.start, new.acwp))
+latest.ACWP <- fcprs %>% slice_max(Period) %>% pull(ACWP)
+
 WS.monthly <- costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  mutate(prerollup=week<as.Date("2023-03-03"), from="2403.Forecast") 
+  #mutate(prerollup=week<as.Date("2023-03-03"), from="2403.Forecast") 
+  mutate(prerollup=week<d.last.reporting.date, from="2403.Forecast") %>%
+  filter(prerollup==FALSE)
+
+first.month.tot <- WS.monthly %>% slice_head() %>% pull(tot)
+
+# JBK - this is a bit sloppy - we will start at d.last.reporting.date with
+# the ACWP from the last period.
+WS.monthly <- WS.monthly %>% 
+  add_row(week=floor_date(d.last.reporting.date,unit="month"),
+          tot=latest.ACWP-first.month.tot,ctot=latest.ACWP-first.month.tot,
+          prerollup=TRUE,from="2403.Forecast" ,.before=1) %>%
+  mutate(ctot=cumsum(tot))
+
+
 
 BL.monthly <- baseline.current.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%

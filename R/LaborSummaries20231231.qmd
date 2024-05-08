@@ -1,7 +1,7 @@
 ---
-title: "LaborSummaries20240426"
+title: "LaborSummaries 2023-12-31"
 subtitle: "Labor Charge Report"
-date: "04/15/2024"
+date: "02/15/2022"
 number-sections: true
 format: 
   pdf:
@@ -39,17 +39,23 @@ library(knitr)
 #| tbl-cap: "Heading"
 
 
-filt.st<-as.Date("2024-01-01")
-#filt.st<-as.Date("2023-10-01")
+filt.st<-as.Date("2023-10-01")
 filt.en<-as.Date("2024-04-22")
-filt.asof<- as.Date("2024-01-01")
-#filt.asof<- as.Date("2023-10-01")
-filt.name<- "FY24Q2"
+filt.asof<- as.Date("2023-10-01")
+filt.name<- "FY24Q1"
 
-sched.name <- "WS2404"
-sched.base <- "BL2404"
-#sched.name <- "WS2312"
-#sched.base <- "BCRBL2"
+sched.name <- "WS2312"
+sched.base <- "BCRBL2"
+
+file.suffix <- paste(sched.name, filt.st,filt.en, sep='_')
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-header
+#| fig-cap: "Report parameters"
 
 heading <- data.frame(Field=c("Name", "Start", "End", "Schedule", "Baseline"),
                       Value=c(filt.name, 
@@ -57,16 +63,12 @@ heading <- data.frame(Field=c("Name", "Start", "End", "Schedule", "Baseline"),
                               sched.name, sched.base))
 
 heading.k <- kbl(heading, align='c') %>% column_spec(2,width="1in")
+heading.k
 ```
 
-`r heading.k`
+<!-- `r heading.k` -->
 
-This report covers `r filt.name`.
-The report start date is `r filt.st` and the end date is `r filt.en`.
-The working schedule is `r sched.name`.
-The baseline schedule is `r sched.base`.
-
-
+This report covers `r filt.name`. The report start date is `r filt.st` and the end date is `r filt.en`. The working schedule is `r sched.name`. The baseline schedule is `r sched.base`.
 
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
@@ -126,7 +128,6 @@ person.comp <- bind_rows(p6=p6.tmp, kronos=kr.tmp, .id="src")
 
 ```
 
-
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
 
@@ -175,7 +176,6 @@ tmp2.rc<- person.comp.r %>% ungroup() %>% #filter(ctc!="Q1903.01") %>%
 
 # Cumulative project hours
 
-
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
 #| label: fig-cumuhours1
@@ -204,20 +204,22 @@ person.g4<- ggplot(tmp2,aes(x=week, y=chours, colour=src)) +
   scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
   ggtitle("All hours without LOE")
 
+f.start <- paste(base.path,"/output/Hours",file.suffix,sep='')
+
+ggsave(person.g4, filename=paste(f.start,"_NoLOE.pdf",sep=''),
+       units="in", device="pdf")
+ggsave(person.g4a, filename=paste(f.start,"_All.pdf",sep=''),
+       units="in", device="pdf")
+
 person.g4a
 person.g4
 ```
 
-The cumulative hours for this period across the full project are 
-shown in @fig-cumuhours1.
+The cumulative hours for this period across the full project are shown in @fig-cumuhours1.
 
 # Hours divided by role
 
-The next plots show cumulative hours segregated by role type and category.
-Role category tells what field they are working in (mechanical, electrical, etc.),
-and role type tells what area they work in (techician, engineer, etc.).
-These plots can be seen in @fig-cumu-hours-by-role, @fig-cumu-hours-cat-no-LOE,
-and @fig-cumu-hours-role-cat-LOE.
+The next plots show cumulative hours segregated by role type and category. Role category tells what field they are working in (mechanical, electrical, etc.), and role type tells what area they work in (techician, engineer, etc.). These plots can be seen in @fig-cumu-hours-by-role, @fig-cumu-hours-cat-no-LOE, and @fig-cumu-hours-role-cat-LOE.
 
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
@@ -359,23 +361,23 @@ outside_range <- people.joined %>% filter(Scheduled==TRUE & total.kr>0, Frac>1.1
 
 ```
 
-
 Overall hours summary:
 
-- The total P6 hours is `r sum(people.joined$total.p6)`
-- The total Kronos hours is `r sum(people.joined$total.kr)`
-- The total hour difference overall is `r sum(people.joined$Diff)`.
+-   The total P6 hours is `r sum(people.joined$total.p6)`
+-   The total Kronos hours is `r sum(people.joined$total.kr)`
+-   The total hour difference overall is `r sum(people.joined$Diff)`.
 
 If we define unscheduled work in P6 as an entry for a week that has charged hours but no P6 scheduled time, here is a the view of hours charges and scheduled:
 
-- The total charged hours with no corresponding P6 time is `r sum(unsched$total.kr)`.
-- The total P6 scheduled hours with no hours charged is `r sum(filter(people.joined, total.kr==0)$total.p6)`
+-   The total charged hours with no corresponding P6 time is `r sum(unsched$total.kr)`.
+-   The total P6 scheduled hours with no hours charged is `r sum(filter(people.joined, total.kr==0)$total.p6)`
 
+```{=html}
 <!--
 - The difference between the two above numbers is  `r sum(filter(people.joined, total.kr==0)$total.p6) - sum(unsched$total.kr)`.
 - The difference between scheduled and unscheduled is `r sum(filter(people.joined, Scheduled==FALSE)$total.kr) - sum(people.joined$total.kr)`.
 -->
-
+```
 ```{r}
 #| echo: false
 #| label: tbl-unsched
@@ -409,23 +411,13 @@ make.table.dep(outside_range)
 make.table.dep(filter(people.joined, total.kr==0 & total.p6>0))
 ```
 
-Note that there is not perfect alignment with P6 and Kronos with regards
-to names of people (assignments) and roles, so this must be taken into
-account when looking at these sums and the next three tables.
-The tables of hours for this section can be seen in @tbl-unsched, @tbl-outside, and @tbl-nohours.
-
-
+Note that there is not perfect alignment with P6 and Kronos with regards to names of people (assignments) and roles, so this must be taken into account when looking at these sums and the next three tables. The tables of hours for this section can be seen in @tbl-unsched, @tbl-outside, and @tbl-nohours.
 
 # Charges by department
 
-Here we show tables of charges per person per department.
-The tables with other in the caption are the people that are either
-not named in the P6 schedule, or come in from from departments with only one
-person charging.
+Here we show tables of charges per person per department. The tables with other in the caption are the people that are either not named in the P6 schedule, or come in from from departments with only one person charging.
 
-These tables can be seen in @tbl-ETs, @tbl-ADs, @tbl-ISs,
-@tbl-PPDs, and @tbl-others.
-
+These tables can be seen in @tbl-ETs, @tbl-ADs, @tbl-ISs, @tbl-PPDs, and @tbl-others.
 
 ```{r}
 #| echo: false
@@ -474,13 +466,7 @@ make.table.dep(others)
 
 # Hours per person per department
 
-Here are the cumulative labor charge plots for each of the people
-in the various departments.  They are shown in @fig-ETs, @fig-ISs, @fig-PPDs,
-@fig-ADTechs, @fig-ADNotTechs, @fig-otherADs, and @fig-otherNotNAs.
-The plots of others (last three) contain the names of people that are not
-readily assigned to other areas.   If the name is a job function or title, it
-means that the filtering process could not find matching p6 and kronos records,
-or that there may be no one assigned to these areas yet.
+Here are the cumulative labor charge plots for each of the people in the various departments. They are shown in @fig-ETs, @fig-ISs, @fig-PPDs, @fig-ADTechs, @fig-ADNotTechs, @fig-otherADs, and @fig-otherNotNAs. The plots of others (last three) contain the names of people that are not readily assigned to other areas. If the name is a job function or title, it means that the filtering process could not find matching p6 and kronos records, or that there may be no one assigned to these areas yet.
 
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
@@ -545,7 +531,6 @@ make.plot(otherNotAD_names)
 
 make.plot(otherNotNA_names)
 ```
-
 
 ```{r message=FALSE, warning=FALSE}
 #| echo: false
