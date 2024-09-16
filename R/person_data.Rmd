@@ -18,9 +18,12 @@ library(MAGIS100PM)
 
 
 ```{r}
+sched.name <- "WS2408"
+sched.base <- "BL2408BCR010"
+
 #all <- get.all.schedule("BLBCR")
-all <- get.all.schedule("WS2312")
-all <- apply.baseline.schedule(all, "BCRBL2")
+all <- get.all.schedule(sched.name)
+all <- apply.baseline.schedule(all, sched.base)
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
@@ -29,7 +32,31 @@ tasks.people <- combine.tasks.people(people, all)
 ```{r}
 labor <- bin.labor(tasks.people)
 costs <- bin.expenses(all$all.data)
-costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
+```
+
+```{r}
+# FY low = 2023, FY high = 2028
+costs.week <- costs$target.by.week%>% filter(FY>=2024&FY<2026)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
+costs.week.type.FY25 <- left_join(costs$target.by.month, all$all.data %>% select(code, rsrc_type), by=join_by(code)) %>%
+  filter(FY==2025)
+costs.week.ctc.FY25 <- left_join(costs$target.by.month.ctc, all$all.data %>% select(code, rsrc_type), by=join_by(code)) %>%
+  filter(FY==2025)
+costs.week.ctc.FY26 <- left_join(costs$target.by.month.ctc, all$all.data %>% select(code, rsrc_type), by=join_by(code)) %>%
+  filter(FY==2026)
+costs.week.ctc.FY27 <- left_join(costs$target.by.month.ctc, all$all.data %>% select(code, rsrc_type), by=join_by(code)) %>%
+  filter(FY==2027)
+costs.FY25.sum <- costs.week.type.FY25 %>% group_by(rsrc_type) %>% summarise(tot=sum(hsum))
+costs.FY25.sum.ctc <- costs.week.ctc.FY25 %>% group_by(rsrc_type, ctc) %>% summarise(tot=sum(hsum))
+costs.FY26.sum.ctc <- costs.week.ctc.FY26 %>% group_by(rsrc_type, ctc) %>% summarise(tot=sum(hsum))
+costs.FY27.sum.ctc <- costs.week.ctc.FY27 %>% group_by(rsrc_type, ctc) %>% summarise(tot=sum(hsum))
+#print(sum(costs.FY25.sum$tot))
+#print(costs.FY25.sum)
+
+costs.FY252627 <- bind_rows(FY25=ungroup(costs.FY25.sum.ctc), FY26=ungroup(costs.FY26.sum.ctc), FY27=ungroup(costs.FY27.sum.ctc),.id="FY")
+
+print(costs.FY25.sum.ctc)
+print(costs.FY26.sum.ctc)
+print(costs.FY27.sum.ctc)
 ```
 
 
@@ -48,7 +75,7 @@ tpt.FY<- labor$by.week.person.task %>%
   #filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person)) %>%
   left_join(all$tasks%>%select(task_id, task_name, task_code, target_start_date, target_end_date), by=join_by(task_id))
-write_xlsx(tpt.FY%>% filter(FY %in% c(2023,2024)), paste(base.path,"output/TPT_FY23_24.xlsx",sep=''))
+write_xlsx(tpt.FY%>% filter(FY %in% c(2025)), paste(base.path,"output/TPT_FY25.xlsx",sep=''))
 
 
 ```
@@ -56,10 +83,10 @@ write_xlsx(tpt.FY%>% filter(FY %in% c(2023,2024)), paste(base.path,"output/TPT_F
 
 Below is the more important quantities.
 ```{r}
-filt.st<-as.Date("2023-10-01")
-filt.en<-as.Date("2024-03-12")
-filt.asof<- as.Date("2023-10-01")
-filt.name<- "FY24Q1"
+filt.st<-as.Date("2024-09-01")
+filt.en<-as.Date("2028-04-01")
+filt.asof<- as.Date("2024-09-01")
+filt.name<- "FY25Q3"
 
 
 p6.tmp<- labor$by.week.ctc %>% ungroup() %>% filter(week>=filt.st&week<filt.en) %>%
@@ -124,6 +151,15 @@ tmp2.rc<- person.comp.r %>% ungroup() %>% #filter(ctc!="Q1903.01") %>%
   group_by(src,role.type, role.cat, week)%>% summarise(hours=sum(ihours)) %>%
   arrange(src,role.type, role.cat,  week) %>% 
   group_by(src,role.type, role.cat) %>% mutate(chours=cumsum(hours))
+
+# by role by ctc
+tmp2.ctc<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
+  select(src,ctc, week, ihours=hours) %>%
+  group_by(src,ctc, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,ctc,  week) %>% 
+  group_by(src,ctc) %>% mutate(chours=cumsum(hours))
+
+
 ```
 
 
@@ -154,6 +190,19 @@ print(person.g4)
 
 
 ```{r}
+person.g8<- ggplot(tmp2.ctc,aes(x=week, y=chours, colour=src)) + 
+  geom_line() +
+  #scale_color_hue(labels = c("Kronos", "p6")) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(vars(ctc),scales="free_y") + 
+  scale_y_continuous(name="cumulative hours",n.breaks=6) +
+  scale_x_date(name="Date (by month)", date_breaks='1 month', date_labels = "%b %y")+
+  ggtitle("Hours by CTC without LOE")
+
+
+print(person.g8)
+ggsave(person.g8, filename=paste(base.path,"/output/ctc_hours.pdf",sep=''), units="in", device="pdf")
+
 person.g5<- ggplot(tmp2.r,aes(x=week, y=chours, colour=src)) + 
   geom_line() +
   #scale_color_hue(labels = c("Kronos", "p6")) +
@@ -253,23 +302,65 @@ By-hand assignments:
 
 Next are two spreadsheet summaries that are written out
 ```{r}
-persons.FY2324<- labor$by.week.person %>%
-  filter(FY %in% c(2023,2024)) %>%
+persons.FY232425<- labor$by.week.person %>%
+  filter(FY %in% c(2023,2024,2025)) %>%
   group_by(person,FY)%>%
   summarise(hrs=sum(dl.hours)) %>% 
   mutate(ftes=hrs/(1805)) %>%
   filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name),join_by(person) )
-write_xlsx(persons.FY2324, paste(base.path,"persons_FY2324.xlsx",sep=''))
+write_xlsx(persons.FY232425, paste(base.path,"persons_FY232425.xlsx",sep=''))
 
-types.FY2324<- labor$by.week.all %>%
-  filter(FY %in% c(2023,2024)) %>%
+types.FY232425<- labor$by.week.all %>%
+  filter(FY %in% c(2023,2024,2025)) %>%
   group_by(type,person, FY)%>%
   summarise(hrs=sum(dl.hours)) %>% 
   mutate(ftes=hrs/(1805)) %>%
   #filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) )
-write_xlsx(types.FY2324, paste(base.path,"types_FY2324.xlsx",sep=''))
+write_xlsx(types.FY232425, paste(base.path,"types_FY232425.xlsx",sep=''))
+
+person.tasks.FY25<- labor$by.week.all %>%
+  filter(FY %in% c(2025)) %>%
+  group_by(type, person, task_id, FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) ) %>%
+  left_join(all$all.data%>% select(task_id, code, name), join_by(task_id))
+write_xlsx(person.tasks.FY25, paste(base.path,"tasks_FY25.xlsx",sep=''))
+
+person.tasks.ctc.FY25<- labor$by.week.all %>%
+  filter(FY %in% c(2025)) %>%
+  group_by(type, person, task_id, ctc, FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) ) %>%
+  left_join(all$all.data%>% select(task_id, code, name), join_by(task_id))
+write_xlsx(person.tasks.ctc.FY25, paste(base.path,"tasks_ctc_FY25.xlsx",sep=''))
+
+person.tasks.ctc.FY26<- labor$by.week.all %>%
+  filter(FY %in% c(2026)) %>%
+  group_by(type, person, task_id, ctc, FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) ) %>%
+  left_join(all$all.data%>% select(task_id, code, name), join_by(task_id))
+write_xlsx(person.tasks.ctc.FY26, paste(base.path,"tasks_ctc_FY26.xlsx",sep=''))
+
+person.tasks.ctc.FY27<- labor$by.week.all %>%
+  filter(FY %in% c(2027)) %>%
+  group_by(type, person, task_id, ctc, FY)%>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) ) %>%
+  left_join(all$all.data%>% select(task_id, code, name), join_by(task_id))
+write_xlsx(person.tasks.ctc.FY27, paste(base.path,"tasks_ctc_FY27.xlsx",sep=''))
+
+
 
 ```
 
@@ -423,5 +514,28 @@ g3<- ggplot(comp.hours, aes(x=week, y=chours,colour=src)) +facet_wrap(vars(Last.
 
 #print(g3)
 #print(g4)
+```
+
+```{r}
+#tasks.people %>% filter(target_start_date<as.Date("2025-01-01")) %>%
+#  select(task_id, rsrc_id, role_id, target_start_date, target_end_date, rsrc_type.x, rsrc_name, role_name, target_cost)%>%
+#  filter(str_detect(rsrc_name, "Electric")) %>%
+#  left_join(all$all.data%>%select(task_id, name, code, total_float), by=join_by(task_id)) %>%
+#  arrange(target_start_date) %>% 
+#  view()
+
+all$tasks %>% filter(plan_start_date<as.Date("2025-01-01")) %>% 
+  select(task_id, rsrc_id, plan_start_date, plan_end_date, task_code, task_name) %>%
+  left_join(all$taskrsrc%>% select(rsrc_id, role_id, rsrc_type), by=join_by(rsrc_id)) %>%
+  left_join(all$roles%>%select(role_id, role_name), by=join_by(role_id)) %>%
+  view()
+
+# from all_plots:
+proc<- procurements.plot(all, st=Sys.Date()-weeks(9*4), en=Sys.Date()+weeks(8*4))
+
+# only show relevant things:
+proc$data%>% select(task_code, task_name, total_cost, target_start_date, target_end_date, plan_start_date, plan_end_date, state, status_code, act_start_date) %>% view()
+
+tasks.people %>% select(task_id,target_qty, remain_qty, role_name, rsrc_name) %>% left_join(all$tasks%>% select(task_id,task_code, task_name), join_by(task_id)) %>%view()
 ```
 

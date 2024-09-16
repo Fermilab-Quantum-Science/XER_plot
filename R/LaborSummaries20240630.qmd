@@ -1,7 +1,7 @@
 ---
-title: "LaborSummaries20240426"
+title: "LaborSummaries20240630"
 subtitle: "Labor Charge Report"
-date: "04/15/2024"
+date: "08/07/2024"
 number-sections: true
 format: 
   pdf:
@@ -45,12 +45,12 @@ filt.st<-as.Date("2024-04-01")
 #filt.st<-as.Date("2023-10-01")
 #filt.en<-as.Date("2024-04-22")
 filt.en<-as.Date("2024-07-04")
-filt.asof<- as.Date("2024-04-01")
+filt.asof<- as.Date("2024-03-24")
 #filt.asof<- as.Date("2023-10-01")
 filt.name<- "FY24Q3"
 
-sched.name <- "WS2404"
-sched.base <- "BL2404"
+sched.name <- "WS2408"
+sched.base <- "BL2408"
 #sched.name <- "WS2312"
 #sched.base <- "BCRBL2"
 
@@ -124,7 +124,7 @@ p6.tmp<- labor$by.week.ctc %>% ungroup() %>% filter(week>=filt.st&week<filt.en) 
 
 # this is nearly the same as kro
 kr.tmp<- charges %>% filter(Timecard.Start>=filt.asof&Timecard.Start<filt.en) %>%
-    select(Last.Name, week=Timecard.Start, hours=Hours, ctc=taskcode, department=DSC, role=Role) %>%
+    select(Last.Name, week=Timecard.End, hours=Hours, ctc=taskcode, department=DSC, role=Role) %>%
     mutate(LOE=ctc=='Q1903.01') %>%
     mutate(role.new=if_else(LOE=='TRUE'&!is.na(ctc), "LOE", role))
 

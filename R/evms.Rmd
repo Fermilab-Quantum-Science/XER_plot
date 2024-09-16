@@ -20,8 +20,9 @@ library(MAGIS100PM)
 
 
 ```{r}
-all <- get.all.schedule("WS2404")
-all <- apply.baseline.schedule(all, "BL2404")
+all <- get.all.schedule("WS2408")
+all <- apply.baseline.schedule(all, "BL2408BCR010")
+#all$all.data <- all$all.data %>% filter(area==11)
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
@@ -56,7 +57,7 @@ carryover  $5,018,000 $ 0		 $3,382,000 	 $4,000,000 	 $4,000,000 	 $3,295,832
 d.laser.atom.interactions <- as.Date("2027-04-02")
 #d.last.reporting.date <- as.Date("2023-09-30")
 #d.last.reporting.date <- as.Date("2023-12-31")
-d.last.reporting.date <- as.Date("2024-03-31")
+d.last.reporting.date <- as.Date("2024-06-30")
 d.now = as.Date(now())
 
 pmp <- data.frame(
@@ -91,13 +92,13 @@ max.dates <- max(fyears$dates)
 min.dates <- min(fyears$dates)
 
 fcosts <- data.frame(
-  colors=c("grey70","grey70","grey75","grey75",
+  colors=c("grey70","grey70","grey75","grey75","grey75","grey75",
            "grey80","grey80","grey90","grey90","grey90","grey90"),
-  costs=c(15715738.00, 19731336.00, 16771287, 16150319, 
+  costs=c(15715738.00, 19731336.00, 16279373, 17203460, 16771287, 16150319, 
           16052283,15691757, 15915541,15752059, 15764280,15714400),
-  names=c("PMP Planned Work", "PMP Guidance", "EAC Mar", "BAC Mar", 
-          "EAC Dec", "BAC Dec", "EAC Sep", "BAC Sep", "EAC Jun", "BAC Jun"),
-  xpos=c(min.dates, min.dates, max.dates, max.dates, 
+  names=c("PMP Planned Work", "PMP Guidance", "EAC Jun24", "BAC Jun24", "EAC Mar24", "BAC Mar24", 
+          "EAC Dec23", "BAC Dec23", "EAC Sep23", "BAC Sep23", "EAC Jun23", "BAC Jun23"),
+  xpos=c(min.dates, min.dates, max.dates, max.dates, max.dates, max.dates, 
          max.dates, max.dates, max.dates, max.dates, max.dates, max.dates)
 )
 
@@ -136,8 +137,10 @@ Show probably add a third line that is the current baseline.
 Other is really the PMP schedule (BL2307)
 
 ```{r}
-baseline.current <- get.all.schedule("BL2404")
+baseline.current <- get.all.schedule("BL2408BCR010")
 #baseline.current <- get.all.schedule("WS2312")
+#baseline.current$all.data <- baseline.current$all.data %>% filter(area==11)
+
 baseline.current.costs <- bin.expenses(baseline.current$all.data)
 baseline.pmp <- get.all.schedule("BL2307")
 baseline.pmp.costs <- bin.expenses(baseline.pmp$all.data)
@@ -151,7 +154,7 @@ WS.monthly <- costs$target.by.month  %>%
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
   #mutate(prerollup=week<as.Date("2023-03-03"), from="2403.Forecast") 
-  mutate(prerollup=week<d.last.reporting.date, from="2403.Forecast") %>%
+  mutate(prerollup=week<d.last.reporting.date, from="2406.Forecast") %>%
   filter(prerollup==FALSE)
 
 first.month.tot <- WS.monthly %>% slice_head() %>% pull(tot)
@@ -161,7 +164,7 @@ first.month.tot <- WS.monthly %>% slice_head() %>% pull(tot)
 WS.monthly <- WS.monthly %>% 
   add_row(week=floor_date(d.last.reporting.date,unit="month"),
           tot=latest.ACWP-first.month.tot,ctot=latest.ACWP-first.month.tot,
-          prerollup=TRUE,from="2403.Forecast" ,.before=1) %>%
+          prerollup=TRUE,from="2406.Forecast" ,.before=1) %>%
   mutate(ctot=cumsum(tot))
 
 
@@ -169,7 +172,7 @@ WS.monthly <- WS.monthly %>%
 BL.monthly <- baseline.current.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  mutate(prerollup=week<as.Date("2023-03-03"), from="2403.Baseline") 
+  mutate(prerollup=week<as.Date("2023-03-03"), from="2406.Baseline") 
 
 PMP.monthly <- baseline.pmp.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
@@ -248,4 +251,71 @@ ggsave(evms.full, filename=paste(base.path,"/output/evms_full.pdf",sep=''), unit
 
 # shows guidance envelope
 ```
+
+Additional steps for ETC analysis of WBS Infrastructure (11)
+
+```{r}
+
+area11BL<-baseline.current$all.data %>% filter(area==11) %>% select(code, name, cost, total_cost, rsrc_type, total_float, target_start,status)
+
+area11WS <- all$all.data %>% filter(area==11) %>% select(code, name, wbs, wbs_low, cost, total_cost, rsrc_type, total_float, target_start,target_end, baseline_start, baseline_end, status) %>% arrange(wbs, cost)
+
+area11BL %>% view("BL")
+area11WS %>% view("WS")
+
+area11WS %>% summarise(ts=sum(total_cost, na.rm=TRUE))
+area11BL %>% summarise(ts=sum(total_cost, na.rm=TRUE))
+
+area11WS %>% group_by(wbs_low, status, rsrc_type) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType")
+area11WS %>% group_by(status, wbs_low) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.stat.wbs")
+area11WS %>% group_by(status, rsrc_type) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.stat.rsrc")
+area11WS %>% group_by(wbs_low) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.wbs")
+area11WS %>% group_by(status) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.stat")
+area11WS %>% group_by(rsrc_type) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.rsrc")
+
+area11WS %>% filter(wbs=="11.07") %>% arrange(desc(total_cost)) %>% view("WSbyEE")
+
+```
  
+
+Additional steps for ETC analysis of WBS Infrastructure (12)
+
+```{r}
+
+area12BL<-baseline.current$all.data %>% filter(area==12) %>% select(code, name, cost, total_cost, rsrc_type, total_float, target_start,status)
+
+area12WS <- all$all.data %>% filter(area==12) %>% select(code, name, wbs, wbs_low, cost, total_cost, rsrc_type, total_float, target_start,target_end, baseline_start, baseline_end, status) %>% arrange(wbs, cost)
+
+area12BL %>% view("BL")
+area12WS %>% view("WS")
+
+area12WS %>% summarise(ts=sum(total_cost, na.rm=TRUE))
+area12BL %>% summarise(ts=sum(total_cost, na.rm=TRUE))
+
+area12WS %>% group_by(status, wbs_low) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.stat.wbs")
+area12WS %>% group_by(status, rsrc_type) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.stat.rsrc")
+area12WS %>% group_by(wbs_low) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.wbs")
+area12WS %>% group_by(status) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.stat")
+area12WS %>% group_by(rsrc_type) %>% summarise(ts=sum(total_cost, na.rm=TRUE)) %>% view("WSbyType.rsrc")
+
+#area12WS %>% filter(wbs=="11.07") %>% arrange(desc(total_cost)) %>% view("WSbyEE")
+
+```
+
+
+Cumulative costs by CTC (this is ETC summary numbers)
+```{r}
+#jbk.ctc.mins <- group_by(costs$target.by.month.ctc, ctc)%>% slice_min(hsum, with_ties=FALSE)
+
+jbk.WS.monthly <- costs$target.by.month.ctc %>% ungroup() %>% filter(week>as.Date("2024-06-30")) %>% 
+    arrange(ctc,week) %>% group_by(ctc,week) %>% summarise(tot=sum(hsum)) %>%
+    mutate(ctot=cumsum(tot)) %>%
+    #mutate(prerollup=week<as.Date("2023-03-03"), from="2403.Forecast") 
+    mutate(prerollup=week<d.last.reporting.date, from="2406.Forecast") %>%
+    filter(prerollup==FALSE)
+jbk.months<- jbk.WS.monthly %>% filter(prerollup==FALSE & week<as.Date("2027-10-02"))
+
+print(ggplot(jbk.months, aes(x=week, colour=ctc)) + geom_line(aes(y=ctot)))
+
+```
+

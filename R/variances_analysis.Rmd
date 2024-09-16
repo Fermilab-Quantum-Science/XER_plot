@@ -1,0 +1,104 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(lubridate)
+library(RColorBrewer)
+
+library(MAGIS100PM)
+```
+
+```{r}
+filt.st<-as.Date("2024-04-01")
+filt.en<-as.Date("2024-07-04")
+filt.asof<- as.Date("2024-04-01")
+filt.name<- "FY24Q3"
+
+sched.name <- "WS2408"
+sched.base <- "BL2408"
+
+all <- get.all.schedule(sched.name)
+all <- apply.baseline.schedule(all, sched.base)
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+
+
+```
+
+
+```{r}
+
+tmp.vars <- read_xlsx("../../CPRs/variances_March_June_2024.xlsx")
+
+tmp.var.mar <- filter(tmp.vars, month=="March")
+tmp.var.jun <- filter(tmp.vars,month=="June") 
+tmp.var.dec <- filter(tmp.vars,month=="December")
+
+new.cols <- c("month.GEN", "WBS", "activity", "name", "planned%.GEN", "claimed%.GEN", "planned$.GEN", "claimed$.GEN", "variance.GEN", "person.GEN")
+
+names(tmp.var.mar) <- str_replace(new.cols,"GEN","mar")
+names(tmp.var.jun) <- str_replace(new.cols,"GEN","jun")
+names(tmp.var.dec) <- str_replace(new.cols,"GEN","dec")
+
+tmp.join <- full_join(tmp.var.mar, 
+                      tmp.var.jun,
+                      by=join_by('WBS', 'activity', "name"), 
+                      suffix=c(".mar", ".jun"))
+
+tmp.join <- full_join(tmp.join,
+                      tmp.var.dec,  
+                      by=join_by('WBS', 'activity', "name"), 
+                      suffix=c(".comb", ".dec")
+)
+
+tmp.join <- tmp.join %>% 
+  mutate(deltaJunMar=variance.jun-variance.mar,
+         deltaMarDec=variance.mar-variance.dec,
+         diffPerc=`planned%.jun`-`claimed%.jun`) %>%
+  arrange(WBS, variance.jun)
+```
+
+
+```{r}
+
+tmp.join.filt <- tmp.join %>% filter(abs(variance.jun)>=0000) %>% select(-contains("%"), -ends_with(".dec"), contains(".jun"),-starts_with("month"), -starts_with("person"))
+
+tmp.join.filt <- left_join(tmp.join.filt, select(all$all.data, activity=code, total_float, baseline_start,target_start, actual_start), 
+                           by=join_by(activity)) %>%
+  mutate(total_float=total_float/8)
+
+tmp.summ <-tmp.join %>% group_by(WBS) %>% summarise(varJun=sum(variance.jun, na.rm=TRUE),
+                                                      varMar=sum(variance.mar, na.rm=TRUE),
+                                                      varDec=sum(variance.dec, na.rm=TRUE))
+
+tmp.tots <- tmp.join %>% summarise(varJun=sum(variance.jun, na.rm=TRUE),
+                       varMar=sum(variance.mar, na.rm=TRUE),
+                       varDec=sum(variance.dec, na.rm=TRUE)
+                       ) %>% mutate(deltaJunMar=varJun-varMar,
+                                    deltaMarDec=varMar-varDec)
+
+tmp.by.delta <- tmp.join.filt %>% mutate(dir=ifelse(deltaJunMar<0,'l',ifelse(deltaJunMar>0,'g','e'))) %>%
+  select(-contains(".mar"), -contains("delta"))
+
+
+tmp.tots.by.delta <- tmp.by.delta %>% group_by(dir) %>% summarise(t=sum(variance.jun))
+# NA = new this quarter
+
+
+
+tmp.tots.by.delta
+
+write_xlsx(tmp.by.delta, "variances_by_delta.xlsx")
+
+# all$all.data %>% select(name, code, baseline_start, baseline_end, target_start, target_end, total_float, wbs, status, act_work_qty) %>% view()
+
+```
+

@@ -2,6 +2,7 @@
 import csv
 import os
 import sys
+import numpy as np
 import pandas as pd
 import networkx as nx
 import graphviz as gv
@@ -49,6 +50,8 @@ def wbs_name(tab, wbs_id):
     
     full_short.reverse()
     full_long.reverse()
+    if type(full_short[0])==np.int64: full_short=[str(i) for i in full_short]
+    #if type(full_long)==np.int64: full_long=str(full_long)
     return '.'.join(full_short), full_short, full_long
 
 

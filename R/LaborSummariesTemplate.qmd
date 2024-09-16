@@ -1,7 +1,7 @@
 ---
-title: "LaborSummaries20240426"
+title: "LaborSummariesFull"
 subtitle: "Labor Charge Report"
-date: "04/15/2024"
+date: "09/09/2024"
 number-sections: true
 format: 
   pdf:
@@ -39,17 +39,17 @@ library(knitr)
 #| tbl-cap: "Heading"
 
 
-filt.st<-as.Date("2024-01-01")
+filt.st<-as.Date("2023-06-01")
 #filt.st<-as.Date("2023-10-01")
-filt.en<-as.Date("2024-04-22")
-filt.asof<- as.Date("2024-01-01")
+filt.en<-as.Date("2024-08-11")
+filt.asof<- as.Date("2023-06-01")
 #filt.asof<- as.Date("2023-10-01")
-filt.name<- "FY24Q2"
+filt.name<- "FY23-24"
 
 #sched.name <- "WS2404"
 #sched.base <- "BL2404"
-sched.name <- "WS2312"
-sched.base <- "BCRBL2"
+sched.name <- "WS2408"
+sched.base <- "BL2408BCR010"
 
 file.suffix <- paste(sched.name, filt.st,filt.en, sep='_')
 ```
@@ -174,6 +174,15 @@ tmp2.rc<- person.comp.r %>% ungroup() %>% #filter(ctc!="Q1903.01") %>%
   group_by(src,role.type, role.cat, week)%>% summarise(hours=sum(ihours)) %>%
   arrange(src,role.type, role.cat,  week) %>% 
   group_by(src,role.type, role.cat) %>% mutate(chours=cumsum(hours))
+
+# by ctc by week
+tmp2.ctc<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
+  select(src,ctc, week, ihours=hours) %>%
+  group_by(src,ctc, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,ctc,  week) %>% 
+  group_by(src,ctc) %>% mutate(chours=cumsum(hours))
+
+
 ```
 
 # Cumulative project hours
@@ -414,6 +423,20 @@ make.table.dep(filter(people.joined, total.kr==0 & total.p6>0))
 ```
 
 Note that there is not perfect alignment with P6 and Kronos with regards to names of people (assignments) and roles, so this must be taken into account when looking at these sums and the next three tables. The tables of hours for this section can be seen in @tbl-unsched, @tbl-outside, and @tbl-nohours.
+
+```{r}
+#| echo: false
+#| label: tbl-ctchours
+#| tbl-cap: "Summary by CTC."
+#| 
+
+kable(tmp2.ctc %>% ungroup %>% group_by(ctc, src) %>% summarise(th=sum(hours))
+      ,
+    booktabs=TRUE, format.args=optlist) %>%
+    kable_styling(latex_options = "hold_position", font_size=8)
+
+```
+
 
 # Charges by department
 
