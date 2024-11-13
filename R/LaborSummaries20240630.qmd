@@ -50,7 +50,7 @@ filt.asof<- as.Date("2024-03-24")
 filt.name<- "FY24Q3"
 
 sched.name <- "WS2408"
-sched.base <- "BL2408"
+sched.base <- "BL2408BCR010"
 #sched.name <- "WS2312"
 #sched.base <- "BCRBL2"
 

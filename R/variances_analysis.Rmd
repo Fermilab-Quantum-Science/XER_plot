@@ -16,13 +16,8 @@ library(MAGIS100PM)
 ```
 
 ```{r}
-filt.st<-as.Date("2024-04-01")
-filt.en<-as.Date("2024-07-04")
-filt.asof<- as.Date("2024-04-01")
-filt.name<- "FY24Q3"
-
 sched.name <- "WS2408"
-sched.base <- "BL2408"
+sched.base <- "BL2408BCR010"
 
 all <- get.all.schedule(sched.name)
 all <- apply.baseline.schedule(all, sched.base)
@@ -30,14 +25,312 @@ charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
 
+labor <- bin.labor(tasks.people)
+costs <- bin.expenses(all$all.data)
+```
+
+```{r}
+filt.st<-as.Date("2024-04-01")
+filt.en<-as.Date("2024-07-01")
+filt.name<- "FY24Q3"
+filt.st<-as.Date("2024-01-01")
+filt.en<-as.Date("2024-04-01")
+filt.name<- "FY24Q2"
+#filt.st<-as.Date("2023-10-01")
+#filt.en<-as.Date("2024-01-01")
+#filt.name<- "FY24Q1"
+filt.st<-as.Date("2023-10-01")
+filt.en<-as.Date("2024-07-01")
+filt.name<- "FY24"
+
+filt.asof<- filt.st
+```
+
+The Export spreadsheet comes from Sarah.
+The HoursJoined comes from LaborSummariesTemplate.qmd.
+
+Expenditure overhead with MSA or M&S is for material purchases
+Expenditure overhead comes in many flavors:
+ - FRINGE / PROGRAM SUPPORT
+ - VAC / OPTO
+ - MSA / M&S
+ - CSS / G&A
+ There are TIME WORKED MONTHLY and WEEKLY, POSTDOC, and CONSTRUCTION ENGINEERING.
+ There are MATERIAL PURCHASES and FREIGHT.
+ PROFESSIONAL SERVICES is Jan.
+ 
+ ALLOC|FRINGE will get nearly all overhead.
+ 
+ 
+ By the way, CSS = Common Site Support.
+
+```{r warning=FALSE}
+print(getwd())
+tmp.taskcode.map <- read_xlsx("../CostVarianceAnalysis/TaskCodeMapping.xlsx")
+
+exported.all<- read_xlsx("../../finance/Export_Q1903_JUN-24_2024.xlsx",sheet="fnd_gfm_14805829") %>%
+  select(Task,ExpendType=`Expnd Type`, ItemDate=`Item Date`, 
+         Who=`Employee/Supplier`, Quantity, 
+         FuncBurdenedCost=`Proj Func Burdened Cost`, 
+         BurdenedCost=`Project Burdened Cost`, ExpendOrg=`Expnd Org`)  %>%
+  mutate(person=str_split_i(Who,", ",i=1)) %>%
+  mutate(org=str_split_i(ExpendOrg," - ",i=1), ctc_old=str_split_i(Task,".Q",i=1)) %>%
+  mutate(q=quarter(ItemDate, fiscal_start=10), y=fiscal.year(ItemDate), m=fiscal.month(ItemDate)) %>%
+  mutate(month=floor_date(ItemDate,unit="month",week_start=1)) %>%
+  mutate(quarter=floor_date(ItemDate,unit="quarter",week_start=1)) %>% 
+  left_join(tmp.taskcode.map, by=join_by(ctc_old)) %>% rename(ctc=ctc_new)
+
+
+
+exported <- exported.all %>% filter(ItemDate>=filt.st, ItemDate<filt.en)
+
+# this is fixed: it is to gather the assigned area, desc, kind to each person
+# this file covered FY24 through Q3
+tmp.hr <- read_xlsx("../CostVarianceAnalysis/HoursJoined2023-10-012024-09-23_labeled.xlsx", sheet="Sheet3")%>% rename(person='Row Labels') 
+person.area <- tmp.hr %>% select(person, Area, Desc, Kind)
+
+exported <- exported %>%
+  left_join(person.area, by=join_by(person))
+
+# add ctc to this
+# this file covered FY24 through Q3
+tmp.hr.task <- read_xlsx("../CostVarianceAnalysis/HoursWeekTask2023-10-012024-07-01R.xlsx", sheet="Sheet1") %>%
+  filter(week>=filt.st, week<filt.en) %>%
+  mutate(q=quarter(week, fiscal_start=10), y=fiscal.year(week), m=fiscal.month(week)) %>%
+  mutate(month=floor_date(week,unit="month",week_start=1)) %>%
+  mutate(quarter=floor_date(week,unit="quarter",week_start=1)) %>%
+  left_join(select(all$all.data, task_id, ctc, category, group), by=join_by(task_id)) 
+
+tmp.hr.joined <- read_xlsx("../CostVarianceAnalysis/HoursJoined2023-10-012024-07-01R.xlsx", sheet="Sheet1") %>%
+  filter(week>=filt.st, week<filt.en) %>%
+  mutate(q=quarter(week, fiscal_start=10), y=fiscal.year(week), m=fiscal.month(week)) %>%
+  mutate(month=floor_date(week,unit="month",week_start=1)) %>%
+  mutate(quarter=floor_date(week,unit="quarter",week_start=1))
+
+# only write if there are issues.
+#write_xlsx(exported, "../CostVarianceAnalysis/ExportedLabeled.xlsx")
+#write_xlsx(tmp.hr.task, "../CostVarianceAnalysis/HoursWeekTask.xlsx")
+#write_xlsx(tmp.hr.joined, "../CostVarianceAnalysis/HoursJoined.xlsx")
+
+```
+
+Note: Temples and Vasonis come in from HoursJoined as Q1903.01 and Q1903.04, and in exported they come in as .06 and .05.
+
+```{r warning=FALSE}
+
+tmp.ex.sum <- exported %>% 
+  group_by(y,q, ctc, person) %>% summarise(tot.cost=sum(BurdenedCost), tot.quant=sum(Quantity)) 
+tmp.hr.sum <- tmp.hr.joined %>%
+  group_by(y,q, ctc, Last.Name) %>% summarise(tot.p6=sum(total.p6), tot.kr=sum(total.kr), tot.diff=sum(Diff))
+tmp.ex.hr <-tmp.ex.sum  %>% full_join(tmp.hr.sum, by=join_by(y,q,ctc,person==Last.Name))
+
+# only write these out if there are issues.
+#write_xlsx(tmp.ex.hr, "../CostVarianceAnalysis/JoinedExpP6.xlsx")
+
+```
+
+need to look at person-ExpendOrg-ctc-BurdenedCost 
+to see if anyone is in multiple orgs. Also to see if all LOE can be filted out.
+person-ExpendOrg is one-to-one.
+
+Below is consistent with Q3 current period actual costs of $537K for Q1903.02 and .04.
+The Q3 total hours from the export is 1058 not included Q1903.01.
+
+
+The schedule HoursWorkTask sheet says there should have been 1940 hours worked.
+
+HoursWorkTask has task_id, which links to tasksrc$taskid, 
+links to roles\$role_name and rsrc\$rsrc_name
+
+For export data:
+Total hours with LOE:
+Total hours without LOE:
+Total cost of labor:
+Total burden cost with LOE:
+Total burden cost without LOE:
+
+
+This needs to be updated per quarter print
+
+```{r}
+
+# total cost of everything
+j.a<-exported %>% #filter(!str_detect(ctc,"Q1903.0[16]")) %>% 
+  group_by(q,ExpendOrg,person, ctc) %>% summarise(tot=sum(BurdenedCost)) %>%
+   ungroup() %>% group_by(q) %>% 
+  summarise(all.tot=sum(tot))
+
+# total cost of project without LOE
+j.b<-exported %>% filter(!str_detect(ctc,"Q1903.0[16]")) %>% 
+  group_by(q,ExpendOrg,person, ctc) %>% summarise(tot=sum(BurdenedCost)) %>%
+  ungroup() %>% group_by(q) %>% 
+  summarise(all.tot=sum(tot))
+
+# total hours and burdened cost (without overhead) without LOE
+j.c<-exported %>% ungroup() %>% filter(!str_detect(ctc,"Q1903.0[16]")) %>% 
+  filter(str_detect(ExpendType, "TIME|ENGINEER|POST")) %>% 
+  #group_by(person, ExpendType) %>%
+  group_by(q) %>% 
+  summarise(tot.q=sum(Quantity), tot.b=sum(BurdenedCost))
+
+# total hours and burdened cost (without overhead) with LOE
+j.d<-exported %>% ungroup() %>% #filter(ctc!='Q1903.xx') %>% 
+  filter(str_detect(ExpendType, "TIME|ENGINEER|POST")) %>% 
+  #group_by(person, ExpendType) %>%
+  group_by(q) %>% 
+  summarise(tot.q=sum(Quantity), tot.b=sum(BurdenedCost))
+
+# M&S costs including overhead (no LOE)
+j.e<-exported %>% ungroup() %>% filter(!str_detect(ctc,"Q1903.0[16]")) %>% 
+  filter(str_detect(ExpendType, "MATERIAL|FREIGHT|MSA|M&S|PROFESS|CIVIL|TRAVEL|LABS|FABRI|EQUIP")) %>% 
+  #group_by(person, ExpendType) %>% 
+  group_by(q) %>% 
+  summarise(tot.q=sum(Quantity), tot.b=sum(BurdenedCost))
+
+# Costs/Hours excluding M&S (no LOE)
+j.f<-exported %>% ungroup() %>% filter(!str_detect(ctc,"Q1903.0[16]")) %>% 
+  filter(!str_detect(ExpendType, "MATERIAL|FREIGHT|MSA|M&S|PROFESS|CIVIL|TRAVEL|LABS|FABRI|EQUIP")) %>% 
+  #group_by(person, ExpendType) %>%
+  group_by(q) %>% 
+  summarise(tot.q=sum(Quantity), tot.b=sum(BurdenedCost))
+
+# Costs/Hours excluding M&S (with LOE)
+j.g<-exported %>% ungroup() %>% #filter(!str_detect(ctc,"Q1903.0[16]")) %>% 
+  filter(!str_detect(ExpendType, "MATERIAL|FREIGHT|MSA|M&S|PROFESS|CIVIL|TRAVEL|LABS|FABRI|EQUIP")) %>% 
+  #group_by(person, ExpendType) %>%
+  group_by(q) %>% 
+  summarise(tot.q=sum(Quantity), tot.b=sum(BurdenedCost))
+
+print(paste("Cost of everything:",j.a))
+print(paste("Cost of everything no LOE:",j.b))
+print(paste("Hours/Cost no overhead without LOE:",j.c[[1]],j.c[[2]]))
+print(paste("Hours/Cost no overhead with LOE:",j.d[[1]],j.d[[2]]))
+print(paste("Hours/Cost M&S with overhead no LOE:",j.e[[1]],j.e[[2]]))
+print(paste("Hours/Cost no M&S, no LOE:",j.f[[1]],j.f[[2]]))
+print(paste("Hours/Cost no M&S, with LOE:",j.g[[1]],j.g[[2]]))
+```
+
+```{r}
+#exported.all %>% ungroup() %>% 
+#  group_by(ExpendOrg, ItemDate, ExpendType, Who) %>% 
+#  summarise(tot.cost=sum(BurdenedCost), tot.quant=sum(Quantity))  %>% view()
+
+#exported %>% ungroup() %>% 
+#  group_by(ExpendOrg) %>% 
+#  summarise(tot.cost=sum(BurdenedCost), tot.quant=sum(Quantity))  %>% view()
+
+ending <- paste(filt.st,filt.en,"R.xlsx",sep='')
+
+cost.tab <- data.frame(ctc=c('Q1903.02','Q1903.04','Q1903.05','Q1903.08'),overhead=c(2.2,2.2,1.3,1.3))
+
+charged.time.q3 <- exported %>% ungroup() %>% filter(!str_detect(ctc,'Q1903.0[16]')) %>% 
+  filter(str_detect(ExpendType, "TIME|ENGINEER|POST")) %>%
+  group_by(ExpendOrg, person, q,ctc, Area, Desc) %>% summarise(tot.hours=sum(Quantity), tot.cost=sum(BurdenedCost)) %>% 
+  left_join(cost.tab, by=join_by(ctc)) %>% mutate(tot.val=tot.cost*overhead + tot.cost) 
+
+# only write if there are issues
+#write_xlsx(charged.time.q3, paste("q3_charged_time",ending, sep=''))
+
+charged.time.q3 %>% view("charged_time") %>% ungroup() %>% summarise(rtot=sum(tot.val))
+
+sum.hr.task <- tmp.hr.task %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
+  group_by(code, name) %>% summarise(tot.hours=sum(hsum)) #%>% 
+#  view() %>% ungroup() %>% summarise(rtot=sum(tot.hours))
+
+# look at M&S spending
+exported %>% ungroup() %>% filter(!str_detect(ctc,"Q1903.0[16]")) %>%
+ filter(str_detect(ExpendType, "MATERIAL|FREIGHT|MSA|M&S|PROFESS|CIVIL|TRAVEL|LABS")&!str_detect(org,"ISD|ETD")) %>% view('MS-spending')
+
+exported %>% ungroup() %>% 
+  filter(org=="ISD") %>% 
+  filter(!str_detect(ExpendType, 'M&S|MSA|CIVIL|MATERIAL|FREIGHT')) %>% 
+  group_by(ExpendOrg, Who, ExpendType) %>% 
+  summarise(tot.cost=sum(BurdenedCost), tot.quant=sum(Quantity)) %>% view()
+#  ungroup() %>% summarise(t=sum(tot.cost))
 
 ```
 
 
 ```{r}
+# this is interesting processing of data, but overheads are by expendature type and rules.
 
-tmp.vars <- read_xlsx("../../CPRs/variances_March_June_2024.xlsx")
+# Example: ETD for people cost
+#exported %>% filter(str_detect(ExpendOrg,"ETD"), !is.na(Who)) %>% group_by(ItemDate, ExpendType, Who) %>% summarise(tot=sum(BurdenedCost)) #%>% view()
+#exported %>% filter(str_detect(ExpendOrg,"ISD"), !is.na(Who)) %>% group_by(ItemDate, ExpendType, Who) %>% summarise(tot=sum(BurdenedCost)) #%>% view()
+tmp.sum.who <- exported %>% filter(!is.na(Who)) %>% group_by(org, Who) %>% summarise(tot.burden=sum(BurdenedCost)) #%>% view()
 
+# ETD for overhead cost
+#exported %>% filter(str_detect(ExpendOrg,"ETD"), is.na(Who)) %>% group_by(ItemDate) %>% summarise(tot=sum(BurdenedCost)) %>% arrange(ItemDate) #%>% view()
+#exported %>% filter(str_detect(ExpendOrg,"ISD"), is.na(Who)) %>% group_by(ItemDate) %>% summarise(tot=sum(BurdenedCost)) %>% arrange(ItemDate) #%>% view()
+tmp.sum.oh <- exported %>% filter(is.na(Who)) %>% group_by(org) %>% summarise(tot.burden=sum(BurdenedCost)) #%>% view()
+
+#exported %>% filter(!is.na(Who)) %>% group_by(ItemDate, Who) %>% summarise(tot=sum(BurdenedCost)) %>% arrange(ItemDate) #%>% view()
+
+tmp.who.oh <- tmp.sum.who %>% left_join(tmp.sum.oh, by=join_by(org)) %>% view("who-oh")
+
+#exported %>% filter(str_detect(Who,"ECS")) %>% view()
+
+
+#examples
+# Alyssa
+#exported %>% ungroup() %>% filter(ctc=='Q1903.01', str_detect(ExpendOrg,'DO')) %>% arrange(ItemDate) %>% view()
+# by task code and full org name
+#exported %>% ungroup() %>% group_by(ctc,ExpendOrg) %>% summarise(tot.q=sum(Quantity), tot.b=sum(BurdenedCost)) %>% view()
+
+```
+
+
+So what do we have after this?   
+Hours as claimed per quarter per task. 
+
+
+
+```{r}
+
+trans.period <- data.frame(readQ=c("Q1","Q2","Q3"), q=c(1,2,3), y=c(2024, 2024, 2024))
+
+tmp.vars <- bind_rows(list(
+  Q1=read_xlsx("../CostVarianceAnalysis/VariancesFY24.xlsx", sheet="FY24Q1"),
+  Q2=read_xlsx("../CostVarianceAnalysis/VariancesFY24.xlsx", sheet="FY24Q2"),
+  Q3=read_xlsx("../CostVarianceAnalysis/VariancesFY24.xlsx", sheet="FY24Q3")),
+  .id="readQ") %>%
+  left_join(trans.period, by=join_by(readQ))
+
+
+tmp.hr.task %>% left_join(tmp.vars, by=join_by(y,q,code)) %>% view()
+
+```
+
+
+```{r}
+p6.by.week.task<- labor$by.week.ctc %>% ungroup() %>% filter(week>=filt.st&week<filt.en) %>%
+    select(week, hours=dl.hours, Full.Name=person, task_id, ctc=ctc, role=Role) %>%
+    group_by(ctc, Full.Name, task_id, role, week) %>% summarise(tot.hours=sum(hours)) %>% 
+    ungroup() %>% 
+  
+    mutate(LOE=ctc=='Q1903.01')%>%
+    mutate(role.new=if_else(LOE=='TRUE'&role!="RA", "LOE", role)) %>%
+  mutate(Full.Name=if_else(is.na(Full.Name),role.new,Full.Name)) %>%
+  mutate(Last.Name=toupper(str_split_i(Full.Name,", ",i=1))) %>% 
+  mutate(q=quarter(week, fiscal_start=10), y=fiscal.year(week), m=fiscal.month(week)) %>%
+  select(-Full.Name) %>%
+  
+  #left_join(select(all$all.data, task_id, ctc, code, name, category, group), by=join_by(task_id)) %>% 
+  left_join(select(all$all.data, task_id, code, name, category, group), by=join_by(task_id)) %>% 
+  left_join(tmp.vars%>%select(-name), by=join_by(y,q,code)) %>%
+  mutate(PercClaim=if_else(is.na(PercClaim),1.0,PercClaim), scaled.tot.hours=tot.hours * PercClaim) %>%
+  
+    group_by(y,ctc, Last.Name, code,name, role, q) %>% summarise(sum.hours=sum(tot.hours), sum.scaled=sum(scaled.tot.hours))
+  
+#write_xlsx(p6.by.week.task, "../CostVarianceAnalysis/HoursQuarterPersonTask.xlsx")
+
+p6.by.week.task%>% group_by(y,q) %>% summarise(tot=sum(sum.hours), tot.scaled=sum(sum.scaled))
+
+```
+
+
+
+```{r}
 tmp.var.mar <- filter(tmp.vars, month=="March")
 tmp.var.jun <- filter(tmp.vars,month=="June") 
 tmp.var.dec <- filter(tmp.vars,month=="December")

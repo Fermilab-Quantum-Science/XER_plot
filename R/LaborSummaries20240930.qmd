@@ -1,7 +1,7 @@
 ---
 title: "LaborSummariesFull"
 subtitle: "Labor Charge Report"
-date: "09/09/2024"
+date: "11/11/2024"
 number-sections: true
 format: 
   pdf:
@@ -39,22 +39,23 @@ library(knitr)
 #| tbl-cap: "Heading"
 
 
-filt.st<-as.Date("2024-10-01")
+filt.st<-as.Date("2024-09-01")
 filt.asof<- filt.st
 filt.en<-as.Date("2025-10-01")
 
 #filt.st<-as.Date("2023-10-01")
 #filt.asof<- as.Date("2023-10-01")
 
-filt.name<- "FY24"
+filt.name<- "FY25Q1"
 
 #sched.name <- "WS2404"
 #sched.base <- "BL2404"
-sched.name <- "WS2408CR3"
+sched.name <- "WS2409"
 #sched.name <- "WS2408"
-sched.base <- "BL2408BCR010"
+sched.base <- "BL2409"
 
 file.suffix <- paste(sched.name, filt.st,filt.en, sep='_')
+
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -110,7 +111,7 @@ tpt.FY<- labor$by.week.person.task %>%
   #filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person)) %>%
   left_join(all$tasks%>%select(task_id, task_name, task_code, target_start_date, target_end_date), by=join_by(task_id))
-write_xlsx(tpt.FY%>% filter(FY %in% c(2024, 2025)), paste(base.path,"output/TPT_FY24_25.xlsx",sep=''))
+#write_xlsx(tpt.FY%>% filter(FY %in% c(2024, 2025)), paste(base.path,"output/TPT_",filt.name, "_FY24_25.xlsx",sep=''))
 
 ```
 
@@ -222,12 +223,17 @@ tmp2.pc.qtr.sum <- tmp2.pc.qtr.sum %>%
          Diff=total.p6-total.kr,
          Frac=total.kr/total.p6)
 
+
+
 #write_xlsx(tmp2.pc.qtr.sum, paste("HoursJoined",ending,sep=''))
 
 NoCR.hours.joined<- tmp2.pc.qtr.sum
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+
+
 # handling of FY24 for summary purposes
 person.tasks.FY24<- labor$by.week.all %>% filter(week>=filt.st&week<filt.en) %>%
   #filter(FY %in% c(2024)) %>%
@@ -237,7 +243,9 @@ person.tasks.FY24<- labor$by.week.all %>% filter(week>=filt.st&week<filt.en) %>%
     mutate(role.new=if_else(LOE=='TRUE'&Role!="RA", "LOE", Role)) %>%
   mutate(Full.Name=if_else(is.na(person),role.new,person)) %>%
   mutate(Last.Name=toupper(str_split_i(Full.Name,", ",i=1))) %>% 
-  select(-Full.Name)
+  select(-Full.Name) %>% 
+  left_join(all$all.data%>% select(task_id, task_code=code, task_name=name), join_by(task_id)) %>% 
+  mutate(hours=dl.hours, activity=paste(task_code,task_name))
 
 person.tasks.FY24.sum <- person.tasks.FY24 %>%
   group_by(week, ctc, Last.Name, task_id) %>%
@@ -250,12 +258,12 @@ person.tasks.FY24.sum <- person.tasks.FY24 %>%
 person.tasks.merged <- left_join(tmp2.pc.qtr.sum, person.tasks.FY24.sum, by=join_by(week, ctc, Last.Name))
 
 write_xlsx(person.tasks.FY24, paste("LaborTasks",ending,sep=''))
-write_xlsx(person.tasks.merged, paste("HoursJoinedTasks",ending,sep=''))
+#write_xlsx(person.tasks.merged, paste("HoursJoinedTasks",ending,sep=''))
 
 jbk.tmp <- labor$by.week.task %>% ungroup() %>% 
   filter(week>=filt.st&week<filt.en, hsum>0) %>%
   left_join(select(all$all.data, task_id, code, name, rsrc_type),by=join_by(task_id))
-write_xlsx(jbk.tmp, paste("HoursWeekTask",ending,sep=''))
+#write_xlsx(jbk.tmp, paste("HoursWeekTask",ending,sep=''))
 
 
 # the last of these is no good ("HoursJoinedTasks").   Probably better to try
