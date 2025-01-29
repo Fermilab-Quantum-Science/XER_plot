@@ -18,7 +18,7 @@ library(MAGIS100PM)
 
 
 ```{r}
-sched.name <- "WS2409"
+sched.name <- "WS2412"
 sched.base <- "BL2409"
 
 #all <- get.all.schedule("BLBCR")
@@ -388,6 +388,10 @@ persons.FY25<- labor$by.week.person %>%
 #write_xlsx(persons.FY25, paste(base.path,"persons_FY25.xlsx",sep=''))
 ```
 
+This is the section for looksing at the labor in the schedule by week by person.
+It also has the dataset for looking at labor per resource category (ENG, SCI, TECH).
+
+The resources.plot() is used to checking resource leveling (with or without LOE).
 
 
 ```{r}
@@ -395,28 +399,43 @@ persons.FY25<- labor$by.week.person %>%
 # select(week, hours=dl.hours, Full.Name=person, department=code, ctc=ctc, role=Role)
 
 # handling of FY24 for summary purposes
-person.tasks.FY24<- labor$by.week.all %>%
-  filter(FY %in% c(2024)) %>%
+person.tasks.FY25<- labor$by.week.all %>%
+  filter(FY > 2024) %>%
   mutate(month=floor_date(week,unit="month",week_start=1)) %>%
   mutate(quarter=floor_date(week,unit="quarter",week_start=1)) %>%
   mutate(LOE=ctc=='Q1903.01')%>%
     mutate(role.new=if_else(LOE=='TRUE'&Role!="RA", "LOE", Role)) %>%
   mutate(Full.Name=if_else(is.na(person),role.new,person)) %>%
   mutate(Last.Name=toupper(str_split_i(Full.Name,", ",i=1))) %>% 
-  select(-Full.Name)
-
-person.tasks.FY24.sum <- person.tasks.FY24 %>%
-  group_by(Last.Name, quarter, task_id) %>%
-  summarise(hrs=sum(dl.hours)) %>% 
-  mutate(ftes=hrs/(1805)) %>%
-  #filter(!is.na(person)) %>%
-  #left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) ) %>%
+  select(-Full.Name) %>%
+  rename(hours=dl.hours, target_start=s, target_end=e) %>% 
   left_join(all$all.data%>% select(task_id, code, name), join_by(task_id))
 
-person.tasks.FY24.sum %>% view()
+person.tasks.FY25.sum <- person.tasks.FY25 %>%
+  filter(!str_detect(name,"LOE")) %>%
+  group_by(FY, week, rsrc) %>%
+  summarise(hsum=sum(hours)) %>% 
+  mutate(ftes=hsum/(1805))
+  #filter(!is.na(person)) %>%
+  #left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) ) %>%
+  #left_join(all$all.data%>% select(task_id, code, name), join_by(task_id))
 
+t2<-resources.plot(person.tasks.FY25.sum)
+print(t2)
 
-#write_xlsx(person.tasks.FY24, paste(base.path,"tasks_FY24.xlsx",sep=''))
+#person.tasks.FY25 %>% 
+#  filter(str_detect(name,"LOE")) %>%
+#  group_by(FY, week, rsrc, Last.Name) %>%
+#  summarise(hsum=sum(hours)) %>% view()
+
+person.tasks.FY25.sum2 <- person.tasks.FY25 %>%
+  filter(!str_detect(name,"LOE")) %>%
+  group_by(FY, week, rsrc, code.y, name) %>%
+  summarise(hsum=sum(hours)) 
+
+write_xlsx(person.tasks.FY25, paste(base.path,"AllYearCR/labor_rsrc.xlsx",sep=''))
+write_xlsx(person.tasks.FY25.sum, paste(base.path,"AllYearCR/labor_rsrc_sum.xlsx",sep=''))
+write_xlsx(person.tasks.FY25.sum2, paste(base.path,"AllYearCR/labor_sum_task.xlsx",sep=''))
 
 ```
 
@@ -603,18 +622,24 @@ tmp2.person.ctc %>% group_by(src,Last.Name, FY, ctc, month) %>%
 view()
 
 ```
-
+This is the section that deals with the carryover spending and also 
+used to know when we run our of funds for all CR or budget cut.
 
 ```{r}
+cs.version <- '20240117'
+
 jbk.1 <- costs$target.by.week %>% ungroup() %>% arrange(week) %>%
   filter(week>as.Date("2024-10-01")) %>%
   mutate(cumu.cost=cumsum(hsum))
+write_xlsx(jbk.1, paste(base.path,"AllYearCR/Carryoverspending",cs.version,".xlsx",sep=''))
 #write_xlsx(jbk.1, "CarryoverSpending.xlsx")
 
 jbk.2 <- costs$target.by.week.task %>% ungroup() %>% 
   filter(week>as.Date("2024-10-01"), hsum>0) %>%
   mutate(cumu.cost=cumsum(hsum)) %>%
-  left_join(select(all$all.data, code, name, rsrc_type, status, target_start, target_end),by=join_by(code))
+  left_join(select(all$all.data, code, name, rsrc_type, status, target_start, target_end, total_cost, total_float, free_float),by=join_by(code)) %>% 
+  mutate(total_float=total_float/8, free_float=free_float/8)
+write_xlsx(jbk.2, paste(base.path,"AllYearCR/CarryoverspendingWithTask",cs.version,".xlsx",sep=''))
 #write_xlsx(jbk.2, "CarryoverSpendingWithTaskCR3d.xlsx")
 
 #jbk.2.NoCR <- jbk.2
@@ -622,7 +647,10 @@ jbk.2 <- costs$target.by.week.task %>% ungroup() %>%
 jbk.3 <- labor$by.week.task %>% ungroup() %>% 
   filter(week>as.Date("2024-10-01"), hsum>0) %>% 
   left_join(select(all$all.data, task_id, code, name, rsrc_type),by=join_by(task_id))
+write_xlsx(jbk.3, paste(base.path,"AllYearCR/HoursWeekTask",cs.version,".xlsx",sep=''))
 #write_xlsx(jbk.3, "HoursWeekTask.xlsx")
+
+# need labor$by.week.role: week, FY, rsrc, task_id
 ```
 
 look at all the unstarted tasks

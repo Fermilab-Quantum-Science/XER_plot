@@ -18,10 +18,11 @@ library(MAGIS100PM)
 ```{r}
 
 #sched_name <- "WS2309"
-sched_name <- "WS2408"
+#sched_name <- "WS2408"
+sched_name <- "WS2412"
 # note: if using WS schedule, the target dates need to be adjusted using the baseline
 all.orig <- get.all.schedule(sched_name)
-all <- apply.baseline.schedule(all.orig, "BL2408")
+all <- apply.baseline.schedule(all.orig, "BL2409")
 
 alldata<- all$all.data %>% filter(dur>0) %>%
   filter(target_start>as.Date('2022-10-01')) 

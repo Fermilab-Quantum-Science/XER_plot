@@ -20,8 +20,8 @@ library(MAGIS100PM)
 
 
 ```{r}
-all <- get.all.schedule("WS2408")
-all <- apply.baseline.schedule(all, "BL2408BCR010")
+all <- get.all.schedule("WS2409")
+all <- apply.baseline.schedule(all, "BL2409")
 #all$all.data <- all$all.data %>% filter(area==11)
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
@@ -57,7 +57,7 @@ carryover  $5,018,000 $ 0		 $3,382,000 	 $4,000,000 	 $4,000,000 	 $3,295,832
 d.laser.atom.interactions <- as.Date("2027-04-02")
 #d.last.reporting.date <- as.Date("2023-09-30")
 #d.last.reporting.date <- as.Date("2023-12-31")
-d.last.reporting.date <- as.Date("2024-06-30")
+d.last.reporting.date <- as.Date("2024-09-30")
 d.now = as.Date(now())
 
 pmp <- data.frame(
@@ -82,7 +82,8 @@ max.planned <- max(pmp$planned)
 
 fyears <- data.frame(
   names=c("FY24", "FY25", "FY26", "FY27", "Last Status", "Now", "Project End" ),
-  dates=c( as.Date("2023-10-01"), as.Date("2024-10-01"), as.Date("2025-10-01"), as.Date("2026-10-01"),d.last.reporting.date, d.now, d.laser.atom.interactions),
+  dates=c( as.Date("2023-10-01"), as.Date("2024-10-01"), as.Date("2025-10-01"), as.Date("2026-10-01"),
+           d.last.reporting.date, d.now, d.laser.atom.interactions),
   colors=c("yellow","yellow","yellow","yellow","lightblue","lightblue","lightblue"),
   alphas=c(1.0,1.0,1.0,.4,.4,.4,.4),
   ypos=c(min.planned, min.planned, min.planned, min.planned,max.planned+1e6, 8e6, min.planned+1e6)
@@ -92,14 +93,30 @@ max.dates <- max(fyears$dates)
 min.dates <- min(fyears$dates)
 
 fcosts <- data.frame(
-  colors=c("grey70","grey70","grey75","grey75","grey75","grey75",
-           "grey80","grey80","grey90","grey90","grey90","grey90"),
-  costs=c(15715738.00, 19731336.00, 16279373, 17203460, 16771287, 16150319, 
-          16052283,15691757, 15915541,15752059, 15764280,15714400),
-  names=c("PMP Planned Work", "PMP Guidance", "EAC Jun24", "BAC Jun24", "EAC Mar24", "BAC Mar24", 
-          "EAC Dec23", "BAC Dec23", "EAC Sep23", "BAC Sep23", "EAC Jun23", "BAC Jun23"),
+  colors=c("grey70","grey70",
+           "grey75","grey75",
+           "grey78","grey78",
+           "grey80","grey80",
+           "grey85","grey85",
+           "grey90","grey90",
+           "grey91","grey91"),
+  costs=c(15715738.00, 19731336.00,
+          16320000.,17264000,
+          16279373, 17203460, 
+          16771287, 16150319, 
+          16052283,15691757, 
+          15915541,15752059, 
+          15764280,15714400),
+  names=c("PMP Planned Work", "PMP Guidance", 
+          "EAC Sep24", "BAC Sep24",
+          "EAC Jun24", "BAC Jun24",
+          "EAC Mar24", "BAC Mar24", 
+          "EAC Dec23", "BAC Dec23", 
+          "EAC Sep23", "BAC Sep23", 
+          "EAC Jun23", "BAC Jun23"),
   xpos=c(min.dates, min.dates, max.dates, max.dates, max.dates, max.dates, 
-         max.dates, max.dates, max.dates, max.dates, max.dates, max.dates)
+         max.dates, max.dates, max.dates, max.dates, max.dates, max.dates,
+         max.dates, max.dates)
 )
 
 fcprs <- read_xlsx("../../Finance/SummaryCPRs.xlsx")
@@ -137,7 +154,7 @@ Show probably add a third line that is the current baseline.
 Other is really the PMP schedule (BL2307)
 
 ```{r}
-baseline.current <- get.all.schedule("BL2408BCR010")
+baseline.current <- get.all.schedule("BL2409")
 #baseline.current <- get.all.schedule("WS2312")
 #baseline.current$all.data <- baseline.current$all.data %>% filter(area==11)
 
@@ -172,7 +189,7 @@ WS.monthly <- WS.monthly %>%
 BL.monthly <- baseline.current.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  mutate(prerollup=week<as.Date("2023-03-03"), from="2406.Baseline") 
+  mutate(prerollup=week<as.Date("2023-03-03"), from="2409.Baseline") 
 
 PMP.monthly <- baseline.pmp.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%

@@ -1,7 +1,7 @@
 ---
 title: "LaborSummariesFull"
 subtitle: "Labor Charge Report"
-date: "09/09/2024"
+date: "12/31/2024"
 number-sections: true
 format: 
   pdf:
@@ -39,18 +39,18 @@ library(knitr)
 #| tbl-cap: "Heading"
 
 
-filt.st<-as.Date("2023-10-01")
+filt.st<-as.Date("2024-09-29")
 filt.asof<- filt.st
-filt.en<-as.Date("2024-10-01")
+filt.en<-as.Date("2024-12-31")
 
 #filt.st<-as.Date("2023-10-01")
 #filt.asof<- as.Date("2023-10-01")
 
-filt.name<- "FY24"
+filt.name<- "FY25Q1"
 
 #sched.name <- "WS2404"
 #sched.base <- "BL2404"
-sched.name <- "WS2409"
+sched.name <- "WS2412"
 #sched.name <- "WS2408"
 sched.base <- "BL2409"
 
@@ -222,7 +222,7 @@ tmp2.pc.qtr.sum <- tmp2.pc.qtr.sum %>%
          Diff=total.p6-total.kr,
          Frac=total.kr/total.p6)
 
-#write_xlsx(tmp2.pc.qtr.sum, paste("HoursJoined",ending,sep=''))
+write_xlsx(tmp2.pc.qtr.sum, paste("HoursJoined",ending,sep=''))
 
 NoCR.hours.joined<- tmp2.pc.qtr.sum
 ```
@@ -232,7 +232,7 @@ NoCR.hours.joined<- tmp2.pc.qtr.sum
 
 # this is not just FY24 anymore.   It is bounded by filt.st/filt.en 
 # it also renames some of the badly named columns
-person.tasks.FY24<- labor$by.week.all %>% filter(week>=filt.st&week<filt.en) %>%
+person.tasks.FY25<- labor$by.week.all %>% filter(week>=filt.st&week<filt.en) %>%
   #filter(FY %in% c(2024)) %>%
   mutate(month=floor_date(week,unit="month",week_start=1)) %>%
   mutate(quarter=floor_date(week,unit="quarter",week_start=1)) %>%
@@ -246,7 +246,7 @@ person.tasks.FY24<- labor$by.week.all %>% filter(week>=filt.st&week<filt.en) %>%
          target_start=s, target_end=e)
 
 
-person.tasks.FY24.sum <- person.tasks.FY24 %>%
+person.tasks.FY25.sum <- person.tasks.FY25 %>%
   group_by(week, ctc, Last.Name, task_id) %>%
   summarise(hrs=sum(dl.hours)) %>% 
   mutate(ftes=hrs/(1805)) %>%
@@ -254,15 +254,15 @@ person.tasks.FY24.sum <- person.tasks.FY24 %>%
   #left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) ) %>%
   left_join(all$all.data%>% select(task_id, code, name), join_by(task_id))
 
-person.tasks.merged <- left_join(tmp2.pc.qtr.sum, person.tasks.FY24.sum, by=join_by(week, ctc, Last.Name))
+person.tasks.merged <- left_join(tmp2.pc.qtr.sum, person.tasks.FY25.sum, by=join_by(week, ctc, Last.Name))
 
-write_xlsx(person.tasks.FY24, paste("LaborTasks",ending,sep=''))
-#write_xlsx(person.tasks.merged, paste("HoursJoinedTasks",ending,sep=''))
+write_xlsx(person.tasks.FY25, paste("LaborTasks",ending,sep=''))
+write_xlsx(person.tasks.merged, paste("HoursJoinedTasks",ending,sep=''))
 
 jbk.tmp <- labor$by.week.task %>% ungroup() %>% 
   filter(week>=filt.st&week<filt.en, hsum>0) %>%
   left_join(select(all$all.data, task_id, code, name, rsrc_type),by=join_by(task_id))
-#write_xlsx(jbk.tmp, paste("HoursWeekTask",ending,sep=''))
+write_xlsx(jbk.tmp, paste("HoursWeekTask",ending,sep=''))
 
 
 # the last of these is no good ("HoursJoinedTasks").   Probably better to try
@@ -478,7 +478,7 @@ If we define unscheduled work in P6 as an entry for a week that has charged hour
 - The difference between scheduled and unscheduled is `r sum(filter(people.joined, Scheduled==FALSE)$total.kr) - sum(people.joined$total.kr)`.
 -->
 ```
-```{r}
+```{r message=FALSE, warning=FALSE}
 #| echo: false
 #| label: tbl-unsched
 #| tbl-cap: "unscheduled hours"
@@ -503,7 +503,7 @@ make.table.dep(unsched)
 make.table.dep(outside_range)
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #| echo: false
 #| label: tbl-nohours
 #| tbl-cap: "No hours charged"
@@ -513,7 +513,7 @@ make.table.dep(filter(people.joined, total.kr==0 & total.p6>0))
 
 Note that there is not perfect alignment with P6 and Kronos with regards to names of people (assignments) and roles, so this must be taken into account when looking at these sums and the next three tables. The tables of hours for this section can be seen in @tbl-unsched, @tbl-outside, and @tbl-nohours.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #| echo: false
 #| label: tbl-ctchours
 #| tbl-cap: "Summary by CTC."

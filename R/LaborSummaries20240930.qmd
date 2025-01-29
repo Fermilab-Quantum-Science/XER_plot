@@ -1,7 +1,7 @@
 ---
 title: "LaborSummariesFull"
 subtitle: "Labor Charge Report"
-date: "11/11/2024"
+date: "11/19/2024"
 number-sections: true
 format: 
   pdf:
@@ -39,9 +39,9 @@ library(knitr)
 #| tbl-cap: "Heading"
 
 
-filt.st<-as.Date("2024-09-01")
+filt.st<-as.Date("2024-07-01")
 filt.asof<- filt.st
-filt.en<-as.Date("2025-10-01")
+filt.en<-as.Date("2025-01-01")
 
 #filt.st<-as.Date("2023-10-01")
 #filt.asof<- as.Date("2023-10-01")

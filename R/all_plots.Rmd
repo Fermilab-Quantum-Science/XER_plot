@@ -23,11 +23,11 @@ library(MAGIS100PM)
 #all.orig <- get.all.schedule("WS2309")
 #all.orig <- get.all.schedule("WS2312")
 #all.orig <- get.all.schedule("WS2404")
-all.orig <- get.all.schedule("WS2408")
+all.orig <- get.all.schedule("WS2412")
 # note: if using WS schedule, the target dates need to be adjusted using the baseline
 #all <- apply.baseline.schedule(all.orig, "BCRBL2")
 #all <- apply.baseline.schedule(all.orig, "BL2404")
-all <- apply.baseline.schedule(all.orig, "BL2408BCR010")
+all <- apply.baseline.schedule(all.orig, "BL2409")
 
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
@@ -44,9 +44,9 @@ costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%
 
 ```{r}
 fte<- FTE.plots(labor$by.day.all%>%filter(code!='other'))
-activities<- activities.plot(all$all.data, start.date=as.Date('2024-08-01'),end.date=as.Date('2025-10-01'))
-milestones<- milestones.plot(all$all.data, exclude.future=FALSE, earliest.date = as.Date("2024-10-01"), latest.date = as.Date("2025-10-01"))
-resources<- resources.plot(labor$by.week, device="png")
+activities<- activities.plot(all$all.data, start.date=as.Date('2024-09-01'),end.date=as.Date('2025-02-01'))
+milestones<- milestones.plot(all$all.data, exclude.future=FALSE, earliest.date = as.Date("2024-08-01"), latest.date = as.Date("2025-10-01"))
+resources<- resources.plot(labor$by.week, device="pdf")
 proc<- procurements.plot(all, en=Sys.Date()+weeks(8*4))
 reviews<- reviews.plot(all$all.data, start.date=as.Date("2024-10-01"), end.date=as.Date("2025-10-01"))
 ```
@@ -83,7 +83,7 @@ print(reviews)
 This is a test for plotting over the T2 milestones
 ```{r}
 milestones<- milestones.filter(all$all.data%>%filter(str_detect(name,"T2 ")),exclude.future=FALSE,
-                               earliest.date = as.Date("2023-03-01"), latest.date = as.Date("2024-12-30"))
+                               earliest.date = as.Date("2023-03-01"), latest.date = as.Date("2025-02-01"))
 max_end<- tmp %>% slice_max(target_end,n=1,with_ties = FALSE) %>% pull(target_end)
 min_end<- tmp %>% slice_min(target_end,n=1,with_ties = FALSE) %>% pull(target_end)
 

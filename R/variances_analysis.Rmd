@@ -16,12 +16,17 @@ library(MAGIS100PM)
 ```
 
 ```{r}
-sched.name <- "WS2408"
-sched.base <- "BL2408BCR010"
+sched.name <- "WS2412"
+sched.base <- "BL2409"
 
 all <- get.all.schedule(sched.name)
 all <- apply.baseline.schedule(all, sched.base)
 charges <- get.all.kronos()
+
+# test cleanup of charges, what distinct rows of Fermi.ID, Transaction.Date, Charge.Task.Code
+# distinct(Fermi.ID, Transaction.Date, Charge.Task.Code, .keep_all=TRUE) %>% 
+# this distinct thing is now in the library function get.all.kronos 
+
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
 
@@ -30,18 +35,18 @@ costs <- bin.expenses(all$all.data)
 ```
 
 ```{r}
-filt.st<-as.Date("2024-04-01")
-filt.en<-as.Date("2024-07-01")
-filt.name<- "FY24Q3"
-filt.st<-as.Date("2024-01-01")
-filt.en<-as.Date("2024-04-01")
-filt.name<- "FY24Q2"
+#filt.st<-as.Date("2024-04-01")
+#filt.en<-as.Date("2024-07-01")
+#filt.name<- "FY24Q3"
+#filt.st<-as.Date("2024-01-01")
+#filt.en<-as.Date("2024-04-01")
+#filt.name<- "FY24Q2"
 #filt.st<-as.Date("2023-10-01")
 #filt.en<-as.Date("2024-01-01")
 #filt.name<- "FY24Q1"
-filt.st<-as.Date("2023-10-01")
-filt.en<-as.Date("2024-07-01")
-filt.name<- "FY24"
+filt.st<-as.Date("2024-09-29")
+filt.en<-as.Date("2024-12-31")
+filt.name<- "FY25Q1"
 
 filt.asof<- filt.st
 ```
@@ -68,7 +73,8 @@ Expenditure overhead comes in many flavors:
 print(getwd())
 tmp.taskcode.map <- read_xlsx("../CostVarianceAnalysis/TaskCodeMapping.xlsx")
 
-exported.all<- read_xlsx("../../finance/Export_Q1903_JUN-24_2024.xlsx",sheet="fnd_gfm_14805829") %>%
+#exported.all<- read_xlsx("../../finance/Export_Q1903_JUN-24_2024.xlsx",sheet="fnd_gfm_14805829") %>%
+exported.all<- read_xlsx("../../finance/Export_Q1903_FY25 Q1_2025.01.17.xlsx",sheet="fnd_gfm_14953851") %>%
   select(Task,ExpendType=`Expnd Type`, ItemDate=`Item Date`, 
          Who=`Employee/Supplier`, Quantity, 
          FuncBurdenedCost=`Proj Func Burdened Cost`, 
@@ -83,10 +89,14 @@ exported.all<- read_xlsx("../../finance/Export_Q1903_JUN-24_2024.xlsx",sheet="fn
 
 
 exported <- exported.all %>% filter(ItemDate>=filt.st, ItemDate<filt.en)
+```
+
+```{r}
+
 
 # this is fixed: it is to gather the assigned area, desc, kind to each person
 # this file covered FY24 through Q3
-tmp.hr <- read_xlsx("../CostVarianceAnalysis/HoursJoined2023-10-012024-09-23_labeled.xlsx", sheet="Sheet3")%>% rename(person='Row Labels') 
+tmp.hr <- read_xlsx("../CostVarianceAnalysis/HoursJoined2024-09-292024-12-31_labeled.xlsx", sheet="Sheet3")%>% rename(person='Row Labels') 
 person.area <- tmp.hr %>% select(person, Area, Desc, Kind)
 
 exported <- exported %>%
@@ -94,14 +104,14 @@ exported <- exported %>%
 
 # add ctc to this
 # this file covered FY24 through Q3
-tmp.hr.task <- read_xlsx("../CostVarianceAnalysis/HoursWeekTask2023-10-012024-07-01R.xlsx", sheet="Sheet1") %>%
+tmp.hr.task <- read_xlsx("../CostVarianceAnalysis/HoursWeekTask2024-09-292024-12-31R.xlsx", sheet="Sheet1") %>%
   filter(week>=filt.st, week<filt.en) %>%
   mutate(q=quarter(week, fiscal_start=10), y=fiscal.year(week), m=fiscal.month(week)) %>%
   mutate(month=floor_date(week,unit="month",week_start=1)) %>%
   mutate(quarter=floor_date(week,unit="quarter",week_start=1)) %>%
   left_join(select(all$all.data, task_id, ctc, category, group), by=join_by(task_id)) 
 
-tmp.hr.joined <- read_xlsx("../CostVarianceAnalysis/HoursJoined2023-10-012024-07-01R.xlsx", sheet="Sheet1") %>%
+tmp.hr.joined <- read_xlsx("../CostVarianceAnalysis/HoursJoined2024-09-292024-12-31R.xlsx", sheet="Sheet1") %>%
   filter(week>=filt.st, week<filt.en) %>%
   mutate(q=quarter(week, fiscal_start=10), y=fiscal.year(week), m=fiscal.month(week)) %>%
   mutate(month=floor_date(week,unit="month",week_start=1)) %>%
@@ -392,6 +402,27 @@ tmp.tots.by.delta
 write_xlsx(tmp.by.delta, "variances_by_delta.xlsx")
 
 # all$all.data %>% select(name, code, baseline_start, baseline_end, target_start, target_end, total_float, wbs, status, act_work_qty) %>% view()
+
+```
+
+Extras
+the distinct call was added directly to the load all kronos library function.
+
+```{r}
+nam="KOWALKOWSKI"
+#nam='VALERIO'
+
+
+charges %>% 
+  filter(Last.Name==nam, Timecard.Start>as.Date("2024-10-01"), Timecard.Start<as.Date("2024-12-31")) %>%
+  group_by(Timecard.Start, Last.Name) %>% summarise(h=sum(Hours)) %>%
+  view("kronos_jbk") # %>% group_by(Last.Name) %>% summarise(tot=sum(h))
+
+exported %>% filter(person==nam) %>% 
+  group_by(ItemDate, Who) %>% summarise(h=sum(Quantity)) %>% 
+  view("exp_jbk") #%>% group_by(Who) %>% summarise(tot=sum(h))
+
+exported %>% filter(ItemDate==as.Date("2024-10-31")) %>% arrange(ExpendOrg) %>%view()
 
 ```
 
