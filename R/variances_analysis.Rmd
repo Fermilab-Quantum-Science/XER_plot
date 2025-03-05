@@ -96,6 +96,7 @@ exported <- exported.all %>% filter(ItemDate>=filt.st, ItemDate<filt.en)
 
 # this is fixed: it is to gather the assigned area, desc, kind to each person
 # this file covered FY24 through Q3
+tmp.pl <- read_xlsx("../CostVarianceAnalysis/people_labels.xlsx", sheet="Sheet1") 
 tmp.hr <- read_xlsx("../CostVarianceAnalysis/HoursJoined2024-09-292024-12-31_labeled.xlsx", sheet="Sheet3")%>% rename(person='Row Labels') 
 person.area <- tmp.hr %>% select(person, Area, Desc, Kind)
 

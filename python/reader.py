@@ -290,7 +290,7 @@ class GNode:
         self.late = (self.status=='TK_Active' or self.status=='TK_NotStart') and tmp_end<now
         self.delayed = (self.status=='TK_NotStart') and tmp_start<now
         #print(f'flag = {tmp_late}, {tmp_delayed}')
-        self.fontcolor = 'yellow' if self.late else 'white' if self.delayed else 'black'
+        self.fontcolor = 'black' #'yellow' if self.late else 'white' if self.delayed else 'black'
         self.shape = 'box3d' if self.drv=='Y' else 'rect' if self.typ=='M' else 'ellipse'
 
 

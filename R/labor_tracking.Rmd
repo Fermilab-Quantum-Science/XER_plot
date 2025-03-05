@@ -1,0 +1,233 @@
+---
+title: "Labor Tracking Tool"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(lubridate)
+library(RColorBrewer)
+
+library(MAGIS100PM)
+```
+
+```{r}
+sched.name <- "WS2412R"
+sched.base <- "WS2412R"
+
+all <- get.all.schedule(sched.name)
+all <- apply.baseline.schedule(all, sched.base)
+charges <- get.all.kronos()
+
+# test cleanup of charges, what distinct rows of Fermi.ID, Transaction.Date, Charge.Task.Code
+# distinct(Fermi.ID, Transaction.Date, Charge.Task.Code, .keep_all=TRUE) %>% 
+# this distinct thing is now in the library function get.all.kronos 
+
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+
+labor <- bin.labor(tasks.people)
+costs <- bin.expenses(all$all.data)
+```
+
+```{r}
+filt.st<-as.Date(now())
+filt.en<-filt.st + months(3)
+filt.bk<-filt.st - months(2)
+filt.name<- paste("LaborTracking",month(filt.st, label=TRUE, abbr=FALSE))
+filt.asof<- filt.st
+
+ending <- paste("_LaborTracking",filt.st,"_",filt.en,".xlsx",sep='')
+```
+
+This pull all the records that fall in our range using the expect
+
+```{r message=FALSE, warning=FALSE}
+#| echo: false
+
+p6.hours<- labor$by.week.all %>% ungroup() %>% 
+  filter(week>=filt.bk & week<=filt.en) %>%
+  select(task_id, week, hours=dl.hours, Full.Name=person, department=code, ctc=ctc, role=Role) %>%
+  mutate(LOE=ctc=='Q1903.01')%>%
+  mutate(role.new=if_else(LOE=='TRUE'&role!="RA", "LOE", role)) %>%
+  mutate(Full.Name=if_else(is.na(Full.Name),role.new,Full.Name)) %>%
+  mutate(Last.Name=toupper(str_split_i(Full.Name,", ",i=1))) %>% 
+  #select(-Full.Name) %>%
+  mutate(period=if_else(week<filt.st, "before","after"))
+
+p6.hours.sum <- p6.hours %>% 
+  select(period, person=Full.Name, task_id, ctc, hours) %>% 
+  group_by(period, person, task_id, ctc) %>% 
+  summarise(total_hours=sum(hours)) %>%
+  arrange(person) %>% 
+  pivot_wider(names_from=period, values_from=total_hours)
+```
+
+```{r}
+kr.hours<- charges %>% 
+  filter(Timecard.Start>=filt.bk & Timecard.Start<filt.en) %>%
+  select(Full.Name, Last.Name, week=Timecard.Start, hours=Hours, ctc=taskcode, department=DSC, role=Role) %>%
+  mutate(LOE=ctc=='Q1903.01') %>%
+  mutate(role.new=if_else(LOE=='TRUE'&!is.na(ctc), "LOE", role)) %>%
+  mutate(period=if_else(week<filt.st, "PastHoursCharged","HoursChargedAfterReportDate"))
+
+kr.hours.sum <- kr.hours %>% 
+  select(period, person=Full.Name, TaskCode=ctc, hours) %>% 
+  group_by(period, person, TaskCode) %>% 
+  summarise(HoursCharged=sum(hours)) %>%
+  mutate(HoursCharged=as.integer(HoursCharged)) %>%
+  arrange(person,TaskCode) %>% 
+  pivot_wider(names_from=period, values_from=HoursCharged) %>%
+  view()
+
+
+person.comp <- bind_rows(p6=p6.hours, kronos=kr.hours, .id="src")
+
+```
+
+The task records we are interested in
+
+```{r}
+
+int.future <- interval(filt.st, filt.en)
+int.past <- interval(filt.bk, filt.st)
+
+p6.rsrc <- tasks.people %>%
+  filter(target_start_date<=filt.en & target_end_date>=filt.bk) %>% 
+  select(task_id, target_start_date, target_end_date, target_qty, role_name, rsrc_name)
+
+p6.tasks <- all$all.data %>% 
+  filter(target_start<=filt.en & target_end>=filt.bk) %>% 
+  select(task_id,ctc, wbs, code, name, target_start, target_end, status,dur)
+
+p6.recs <- p6.tasks %>% 
+  left_join(p6.rsrc, by=join_by(task_id)) %>% 
+  filter(ctc!="Q1903.01" | is.na(ctc)) %>% 
+  mutate(kind=if_else(str_detect(name,"M&S"),"4-M&S",
+                      if_else(str_detect(name,"Milestone"),"3-Milestone",
+                              if_else(str_detect(wbs,"00."),"5-In_Kind","1-Normal")))) %>%
+  mutate(person=if_else(kind=="1-Normal",role_name, substr(kind,3,20))) %>%
+  mutate(kind=if_else(is.na(person), "2-Title", kind)) %>%
+  mutate(person=if_else(is.na(person),rsrc_name, person)) %>%
+  mutate(status = case_when(status=="TK_NotStart" ~ "Not Started", 
+                           status=="TK_Active" ~ "Active",
+                           status=="TK_Complete" ~ "Complete",
+                           TRUE ~ "Unknown")) %>% 
+  left_join(p6.hours.sum, by=join_by(person, task_id, ctc)) %>% 
+  select(Person=person, TaskDescription=name, TaskCode=ctc, WBS=wbs, 
+         Activity=code, WorkingSchedStart=target_start, WorkingSchedEnd=target_end,
+         ScheduledHours=target_qty, Status=status, kind, 
+         HoursBefore=before, HoursAfter=after) %>%
+  mutate(TotalScheduledHours=as.integer(ScheduledHours),
+         ScheduledHoursUpcoming=as.integer(HoursAfter),
+         ScheduledHoursToDate=as.integer(HoursBefore)) %>%
+  arrange(kind, Person, WBS, WorkingSchedStart) %>%
+  select(-kind, -Status, -HoursBefore,-HoursAfter,-ScheduledHours) %>% 
+  mutate(KronosHours=NA, EstimatedFinishDate=NA,notes='') %>% 
+  view()
+
+```
+
+```{r}
+p6.reviews <- all$all.data %>% 
+  filter(target_start<=filt.en & target_end>=filt.bk) %>% 
+  select(Activity=code, Description=name,TaskCode=ctc, WBS=wbs,
+         WorkingSchedStart=target_start, WorkingSchedEnd=target_end, 
+         status) %>%
+  filter(str_detect(Description,"[Rr]eview")) %>%
+  mutate(status = case_when(status=="TK_NotStart" ~ "Not Started", 
+                           status=="TK_Active" ~ "Active",
+                           status=="TK_Complete" ~ "Complete",
+                           TRUE ~ "Unknown")) %>% 
+  mutate(kind = case_when(str_detect(Description,"[Ff]inal") ~ "Final", 
+                          str_detect(Description,"[Pp]reliminary") ~ "Preliminary",
+                          TRUE ~ "Unknown")) %>% 
+  arrange(WorkingSchedStart)%>%
+
+  view()
+
+```
+
+Add title tab with Report Date (filt.st), past date (filt.bk), future date(filt.en)
+
+
+```{r}
+
+report.title <- data.frame(Name=c('ReportDate', 'PastDate', 'FutureDate'),
+                           Value=c(filt.st, filt.bk, filt.en))
+
+write_xlsx(list(People=p6.recs,Charges=kr.hours.sum, Reviews=p6.reviews, TitleSheet=report.title), 
+           paste("Report",ending,sep=''))
+
+```
+
+Below is example code for comparing kronos with p6 hours
+
+```{r}
+roles.table <- get.roles.table()
+person.comp.r <- left_join(person.comp, roles.table, by=join_by(role))
+
+# by ctc by person adding month and fiscal year
+tmp2.person.ctc<- person.comp.r %>% ungroup() %>%
+  select(src,Last.Name, ctc, week, ihours=hours) %>%
+  group_by(src,Last.Name, ctc, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,Last.Name, ctc,  week) %>% 
+  group_by(src,Last.Name, ctc) %>% mutate(chours=cumsum(hours)) %>%
+  mutate(month=floor_date(week,unit="month",week_start=1)) %>%
+  mutate(quarter=floor_date(week,unit="quarter",week_start=1)) %>%
+  mutate(FY.orig=fiscal.from.date(week), FY=fiscal.date.adjust(week,FY.orig))
+
+tmp2.person.ctc.sum.qtr <- tmp2.person.ctc %>% 
+  group_by(src,Last.Name, FY, ctc, week) %>%
+  summarise(tot.hours=sum(hours))
+
+
+tmp2.pc.qtr.sum<- full_join(filter(tmp2.person.ctc.sum.qtr, src=="kronos"),
+                            filter(tmp2.person.ctc.sum.qtr, src=="p6"),
+                            suffix=c(".kr",".p6"),
+                            by=join_by(Last.Name, FY, ctc, week)) %>%
+  select(-starts_with("src.")) %>% ungroup()
+
+tmp2.pc.qtr.sum <- tmp2.pc.qtr.sum %>% 
+    mutate(Scheduled=!is.na(tot.hours.p6)) %>%
+  mutate(total.p6=replace_na(tot.hours.p6,0),
+         total.kr=replace_na(tot.hours.kr,0),
+         Diff=total.p6-total.kr,
+         Frac=total.kr/total.p6)
+
+#write_xlsx(tmp2.pc.qtr.sum, paste("HoursJoined",ending,sep=''))
+
+person.tasks.FY25<- labor$by.week.all %>% filter(week>=filt.st&week<filt.en) %>%
+  #filter(FY %in% c(2024)) %>%
+  mutate(month=floor_date(week,unit="month",week_start=1)) %>%
+  mutate(quarter=floor_date(week,unit="quarter",week_start=1)) %>%
+  mutate(LOE=ctc=='Q1903.01')%>%
+    mutate(role.new=if_else(LOE=='TRUE'&Role!="RA", "LOE", Role)) %>%
+  mutate(Full.Name=if_else(is.na(person),role.new,person)) %>%
+  mutate(Last.Name=toupper(str_split_i(Full.Name,", ",i=1))) %>% 
+  select(-Full.Name) %>% 
+  left_join(all$all.data%>% select(task_id, task_code=code, task_name=name), join_by(task_id)) %>% 
+  mutate(hours=dl.hours, activity=paste(task_code,task_name), 
+         target_start=s, target_end=e)
+
+
+person.tasks.FY25.sum <- person.tasks.FY25 %>%
+  group_by(week, ctc, Last.Name, task_id) %>%
+  summarise(hrs=sum(dl.hours)) %>% 
+  mutate(ftes=hrs/(1805)) %>%
+  #filter(!is.na(person)) %>%
+  #left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person) ) %>%
+  left_join(all$all.data%>% select(task_id, code, name), join_by(task_id))
+
+person.tasks.merged <- left_join(tmp2.pc.qtr.sum, person.tasks.FY25.sum, by=join_by(week, ctc, Last.Name))
+
+#write_xlsx(person.tasks.FY25, paste("LaborTasks",ending,sep=''))
+#write_xlsx(person.tasks.merged, paste("HoursJoinedTasks",ending,sep=''))
+
+
+```
+
