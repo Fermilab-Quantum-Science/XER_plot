@@ -23,12 +23,12 @@ library(MAGIS100PM)
 #all.orig <- get.all.schedule("WS2309")
 #all.orig <- get.all.schedule("WS2312")
 #all.orig <- get.all.schedule("WS2404")
-all.orig <- get.all.schedule("WS2412R")
+all.orig <- get.all.schedule("WS2503")
 # note: if using WS schedule, the target dates need to be adjusted using the baseline
 #all <- apply.baseline.schedule(all.orig, "BCRBL2")
 #all <- apply.baseline.schedule(all.orig, "BL2404")
 #all <- apply.baseline.schedule(all.orig, "BL2409")
-all <- apply.baseline.schedule(all.orig, "WS2412R")
+all <- apply.baseline.schedule(all.orig, "BL2412")
 
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
@@ -142,3 +142,20 @@ tmp.variances <- read_xlsx("../variancesFY25Q1.xlsx")
 tmp.simpler4 <- tmp.variances %>% left_join(tmp.simpler4, by=join_by(ActivityID==code))
 
 ```
+
+
+```{r}
+
+tmp.simpler4 <- all$all.data %>% 
+  select(code, name, total_float, target_start, target_end, expected_end, start, finish, actual_start, actual_end, wbs, wbs_high, wbs_low, status) %>%
+  mutate(total_float=total_float/8)  %>% 
+  arrange(target_end, total_float, wbs) %>%
+  #filter(total_float<80) %>% 
+  #filter(target_end < as.Date("2025-12-31") & target_end > as.Date("2025-03-01")) %>%
+  #filter(str_detect(wbs,"00.")) %>%
+  #filter(str_detect(name, "Source")) %>%
+  view()
+
+
+```
+

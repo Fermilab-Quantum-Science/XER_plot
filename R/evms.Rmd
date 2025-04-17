@@ -20,8 +20,8 @@ library(MAGIS100PM)
 
 
 ```{r}
-all <- get.all.schedule("WS2409")
-all <- apply.baseline.schedule(all, "BL2409")
+all <- get.all.schedule("WS2412")
+all <- apply.baseline.schedule(all, "BL2412")
 #all$all.data <- all$all.data %>% filter(area==11)
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)

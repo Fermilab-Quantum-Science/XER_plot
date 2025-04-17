@@ -1,0 +1,109 @@
+---
+title: "Plot low float tasks"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(stringr)
+library(lubridate)
+library(RColorBrewer)
+
+library(MAGIS100PM)
+```
+
+
+```{r}
+
+sched_name <- "WS2412"
+# note: if using WS schedule, the target dates need to be adjusted using the baseline
+all.orig <- get.all.schedule(sched_name)
+all <- apply.baseline.schedule(all.orig, "BL2412")
+
+alldata<- all$all.data %>% 
+  filter(total_float<=(8*5*4*2)) %>%
+  filter(target_start>=as.Date('2024-10-01')) 
+
+alldata.tmp <- alldata
+```
+
+This is the prototype visual schedule. 
+
+Here are the name mappings:
+
+* user_text5 = label.shape
+* user_text4 = category
+* user_text6 = label
+* user_text1 = ctc
+
+```{r}
+tmp<-alldata.tmp
+tmp$code <- reorder(tmp$code, tmp$target_start)
+tmp$label.shape<-replace(tmp$label.shape,is.na(tmp$label.shape),"NA")
+
+box.brew <- brewer.pal(12,"Set3")
+box.cols <- c(box.brew[6], box.brew[2], box.brew[2])
+
+gp<-ggplot(tmp, aes(xmin=target_start, xmax=target_end, 
+                   y= code, #ymin = 0, ymax = 0+.8, 
+                   fill = area, colour=factor(area))) +
+
+  #geom_rect(aes(xmin=target_start, xmax=target_end, ymin=0, ymax=0+.8), inherit.aes=FALSE,  fill=box.cols, alpha=.4) +
+  # colour=c("lightyellow","green","blue"),
+  #geom_text(data=box.spans, aes(x=mid.x,y=mid.y, label=label, angle=90),inherit.aes=FALSE, size=2) +
+  
+  geom_vline(aes(xintercept=as.Date("2023-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2024-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2025-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2026-10-01")))+
+  #geom_rect(aes(ymin = y-.4, ymax = y+.4)) +
+  scale_y_discrete("label") +
+  scale_x_date(name="date", date_breaks='1 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90), axis.text.y=element_text(size=4.0)) + 
+  #geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3
+  geom_text(aes(x = target_start, label = name, hjust="left",vjust="bottom"), size=.8, nudge_y=.3) +
+  geom_linerange(linewidth=.55)#+
+  #scale_fill_brewer(palette="Set3")
+  
+print(gp)
+#ggsave(gp, filename=paste(base.path,'/output/VSfloat-',sched_name,'.png',sep=''), width=12, height=12, units='in', device="png")
+ggsave(gp, filename=paste(base.path,'/output/VSfloat-',sched_name,'.pdf',sep=''), width=12, height=12, units='in', device="pdf")
+
+```
+
+
+```{r}
+alt.tmp<-alldata.tmp
+alt.tmp$label.shape<-replace(alt.tmp$label.shape,is.na(alt.tmp$label.shape),"NA")
+
+gp<-ggplot(alt.tmp%>%filter(label.shape!="skip" & compact.label!="NA" & !is.na(compact.label)), aes(xmin=target_start, xmax=target_end, 
+                   y= compact.label,# ymin = g, ymax = g+.8, 
+                   fill = compact.cat)) +
+
+  geom_vline(aes(xintercept=as.Date("2023-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2024-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2025-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2026-10-01")))+
+  geom_rect(aes(ymin = b-.4, ymax = b+.4)) +
+
+  scale_y_discrete("label") +
+  scale_x_date(name="date", date_breaks='2 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+
+  geom_text(aes(x = target_start, label = code, hjust="left",vjust="bottom"), 
+            size=.5, position=position_dodge2(width=.8)) +
+  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', 
+                 linewidth=.05,  position=position_dodge2(width=.8)) + 
+  scale_fill_brewer(palette="Set3") + 
+  labs(fill="Category")
+  
+print(gp)
+ggsave(gp, filename=paste(base.path,'/output/VS-condensed-',sched_name,'.png',sep=''), width=12, height=12, units='in', device="png")
+ggsave(gp, filename=paste(base.path,'/output/VS-condensed-',sched_name,'.pdf',sep=''), width=8, height=8, units='in', device="pdf")
+
+```
+
+
+

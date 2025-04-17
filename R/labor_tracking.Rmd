@@ -16,10 +16,10 @@ library(MAGIS100PM)
 ```
 
 ```{r}
-sched.name <- "WS2412R"
-sched.base <- "WS2412R"
+sched.name <- "WS2503"
+sched.base <- "BL2412"
 
-all <- get.all.schedule(sched.name)
+all <- get.all.schedule(sched.name) 
 all <- apply.baseline.schedule(all, sched.base)
 charges <- get.all.kronos()
 
@@ -35,9 +35,11 @@ costs <- bin.expenses(all$all.data)
 ```
 
 ```{r}
+months.forward <- 3
+months.back <- 2
 filt.st<-as.Date(now())
-filt.en<-filt.st + months(3)
-filt.bk<-filt.st - months(2)
+filt.en<-filt.st + months(months.forward)
+filt.bk<-filt.st - months(months.back)
 filt.name<- paste("LaborTracking",month(filt.st, label=TRUE, abbr=FALSE))
 filt.asof<- filt.st
 
@@ -154,11 +156,30 @@ p6.reviews <- all$all.data %>%
 
 Add title tab with Report Date (filt.st), past date (filt.bk), future date(filt.en)
 
+Total Scheduled Hours = Hours for entire duration of task
+Scheduled Hours Upcoming = Hours scheduled for next 3 months
+Scheduled Hours to Date = Calculated hours that should have been used by the report date.  Ideally these will match Kronos Hours, and differences are useful to know.
+Kronos Hours = People are asked to assign hours to each task from the total listed on “Charges” tab
+Estimated Finish = Provide update if end date listed is not realistic.
+Notes = Let us know how we can help.  Examples include missing resources or requirements, or suggested BCR, or needs attention in any way.
 
 ```{r}
 
-report.title <- data.frame(Name=c('ReportDate', 'PastDate', 'FutureDate'),
-                           Value=c(filt.st, filt.bk, filt.en))
+report.title <- data.frame(Name=c('ReportDate', 'PastDate', 'FutureDate',
+                                  'Total Scheduled Hours', 
+                                  'Scheduled Hours Upcoming', 
+                                  'Scheduled Hours to Date',
+                                  'Kronos Hours', 
+                                  'Estimated Finish', 
+                                  'Notes'),
+                           Value=c(as.character(filt.st), as.character(filt.bk), as.character(filt.en),
+                                   'Hours for entire duration of task',
+                                   paste('Hours scheduled for next',months.forward,'months'),
+                                   'Calculated hours that should have been used by the report date.  Ideally these will match Kronos Hours, and differences are useful to know',
+                                   'People are asked to assign hours to each task from the total listed on “Charges” tab',
+                                   'Provide update if end date listed is not realistic',
+                                   'Let us know how we can help.  Examples include missing resources or requirements, or suggested BCR, or needs attention in any way'
+                                   ))
 
 write_xlsx(list(People=p6.recs,Charges=kr.hours.sum, Reviews=p6.reviews, TitleSheet=report.title), 
            paste("Report",ending,sep=''))

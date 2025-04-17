@@ -88,6 +88,7 @@ def make_task_graph(tables, args):
             , early_start=r['early_start_date'], early_end=r['early_end_date']
             , late_start=r['late_start_date'], late_end=r['late_end_date']
             , actual_start=r['act_start_date'], actual_end=r['act_end_date']
+            , expected_end=r['expect_end_date']
             , driving_flag=r['driving_path_flag'] 
             , status=r['status_code']
             , task_type=r['task_type']
@@ -246,13 +247,13 @@ def filter_by_paths(g, ps, later_id, earlier_id):
 class GNode:
     header = ['code', 'name', 'wbs', 'area', 'status', 'drv_flag','task_type', 'type', 'rsrc_type', 'cost','dur', 
               'category', 'group', 'wbs_high', 'wbs_low', 'task_id', 'total_float', 'free_float',
-              'target_start', 'target_end', 'early_start','early_end','late_start','late_end','actual_start','actual_end']
+              'target_start', 'target_end', 'early_start','early_end','late_start','late_end','actual_start','actual_end', 'expected_end']
 
     def record(self):
         return [self.n, self.name, self.wbs, self.area, self.status, self.drv, self.task_type, self.typ, 
                 self.rsrc, self.cost, self.dur, self.category, self.group, self.wbs_high, self.wbs_low, self.task_id,
                 self.total_float_hr, self.free_float_hr,
-                self.t_start, self.t_end, self.e_start, self.e_end, self.l_start, self.l_end,self.a_start, self.a_end]
+                self.t_start, self.t_end, self.e_start, self.e_end, self.l_start, self.l_end,self.a_start, self.a_end, self.ex_end]
 
     def __init__(self,g,n):
         #print(f'building GNode for {n}')
@@ -267,6 +268,7 @@ class GNode:
         self.l_start=g.nodes[n]['late_start']
         self.a_start=g.nodes[n]['actual_start']
         self.a_end=g.nodes[n]['actual_end']
+        self.ex_end=g.nodes[n]['expected_end']
         self.name=g.nodes[n]['name']
         self.dur=g.nodes[n]['target_dur_hr']
         self.total_float_hr=g.nodes[n]['total_float_hr']
@@ -295,12 +297,12 @@ class GNode:
 
 
     def long_name(self):
-        rc = f"{self.typ}/{self.n}\n{self.name}\nTS={self.t_start} / TE={self.t_end}"
-        if self.t_start!=self.e_start or self.t_end!=self.e_end:
-            rc = rc + f'\nES={self.e_start} / EE={self.e_end}' 
-        if self.t_start!=self.l_start or self.t_end!=self.l_end:
-            rc = rc + f'\nLS={self.l_start} / LE={self.l_end}'
-        rc = rc + f"\nwbs={self.wbs} / drv={self.drv} / dur={self.dur} / stat={self.status} / float={self.total_float_hr}"
+        rc = f"{self.typ}/{self.n}\n{self.name}\nStart={self.t_start} / End={self.t_end}"
+        #if self.t_start!=self.e_start or self.t_end!=self.e_end:
+        #    rc = rc + f'\nES={self.e_start} / EE={self.e_end}' 
+        #if self.t_start!=self.l_start or self.t_end!=self.l_end:
+        #    rc = rc + f'\nLS={self.l_start} / LE={self.l_end}'
+        rc = rc + f"\nwbs={self.wbs} / drv={self.drv} / dur={self.dur} / stat={self.status} / float={self.total_float_hr/8}"
         if self.cost != '-' or self.rsrc != '-':
             rc = rc + f"\ncost={self.cost}/rsrc={self.rsrc}"
         return rc
@@ -357,7 +359,7 @@ def filter_driving(g,args):
     anp=set()
     # nodes is list of (node_num, node_data)
     for n in g.nodes(data=True):
-        if n[1]['driving_flag']=='Y': 
+        if n[1]['total_float_hr']<=(8*5*4*2): 
             anp.add(n[0])
             #for e in g.in_edges(n[0]):
             #    anp.add(e[0])

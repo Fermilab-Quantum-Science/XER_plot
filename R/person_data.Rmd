@@ -19,7 +19,7 @@ library(MAGIS100PM)
 
 ```{r}
 sched.name <- "WS2412"
-sched.base <- "BL2409"
+sched.base <- "BL2412"
 
 #all <- get.all.schedule("BLBCR")
 all <- get.all.schedule(sched.name)
