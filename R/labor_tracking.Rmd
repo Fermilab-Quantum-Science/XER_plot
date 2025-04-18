@@ -38,8 +38,9 @@ costs <- bin.expenses(all$all.data)
 months.forward <- 3
 months.back <- 2
 filt.st<-as.Date(now())
+filt.ws<-as.Date("2025-03-31")
 filt.en<-filt.st + months(months.forward)
-filt.bk<-filt.st - months(months.back)
+filt.bk<-as.Date("2025-03-05")  # filt.st - months(months.back)
 filt.name<- paste("LaborTracking",month(filt.st, label=TRUE, abbr=FALSE))
 filt.asof<- filt.st
 
@@ -83,8 +84,9 @@ kr.hours.sum <- kr.hours %>%
   summarise(HoursCharged=sum(hours)) %>%
   mutate(HoursCharged=as.integer(HoursCharged)) %>%
   arrange(person,TaskCode) %>% 
-  pivot_wider(names_from=period, values_from=HoursCharged) %>%
-  view()
+  pivot_wider(names_from=period, values_from=HoursCharged) 
+#%>%
+#  view()
 
 
 person.comp <- bind_rows(p6=p6.hours, kronos=kr.hours, .id="src")
@@ -99,12 +101,13 @@ int.future <- interval(filt.st, filt.en)
 int.past <- interval(filt.bk, filt.st)
 
 p6.rsrc <- tasks.people %>%
-  filter(target_start_date<=filt.en & target_end_date>=filt.bk) %>% 
+  #filter(target_start_date<=filt.en & target_end_date>=filt.bk) %>% 
+  filter(start<=filt.en & finish>=filt.bk) %>% 
   select(task_id, target_start_date, target_end_date, target_qty, role_name, rsrc_name)
 
 p6.tasks <- all$all.data %>% 
-  filter(target_start<=filt.en & target_end>=filt.bk) %>% 
-  select(task_id,ctc, wbs, code, name, target_start, target_end, status,dur)
+  filter(start<=filt.en & finish>=filt.bk) %>% 
+  select(task_id,ctc, wbs, code, name, start, finish, status,dur)
 
 p6.recs <- p6.tasks %>% 
   left_join(p6.rsrc, by=join_by(task_id)) %>% 
@@ -121,24 +124,26 @@ p6.recs <- p6.tasks %>%
                            TRUE ~ "Unknown")) %>% 
   left_join(p6.hours.sum, by=join_by(person, task_id, ctc)) %>% 
   select(Person=person, TaskDescription=name, TaskCode=ctc, WBS=wbs, 
-         Activity=code, WorkingSchedStart=target_start, WorkingSchedEnd=target_end,
+         Activity=code, WorkingSchedStart=start, WorkingSchedEnd=finish,
          ScheduledHours=target_qty, Status=status, kind, 
          HoursBefore=before, HoursAfter=after) %>%
   mutate(TotalScheduledHours=as.integer(ScheduledHours),
          ScheduledHoursUpcoming=as.integer(HoursAfter),
          ScheduledHoursToDate=as.integer(HoursBefore)) %>%
   arrange(kind, Person, WBS, WorkingSchedStart) %>%
-  select(-kind, -Status, -HoursBefore,-HoursAfter,-ScheduledHours) %>% 
-  mutate(KronosHours=NA, EstimatedFinishDate=NA,notes='') %>% 
-  view()
+  #select(-kind, -Status, -HoursBefore,-HoursAfter,-ScheduledHours) %>% 
+  select(-kind, -HoursBefore,-HoursAfter,-ScheduledHours) %>% 
+  mutate(KronosHours=NA, EstimatedFinishDate=NA,notes='') 
+#%>% 
+#  view()
 
 ```
 
 ```{r}
 p6.reviews <- all$all.data %>% 
-  filter(target_start<=filt.en & target_end>=filt.bk) %>% 
+  filter(start<=filt.en & finish>=filt.bk) %>% 
   select(Activity=code, Description=name,TaskCode=ctc, WBS=wbs,
-         WorkingSchedStart=target_start, WorkingSchedEnd=target_end, 
+         WorkingSchedStart=start, WorkingSchedEnd=finish, 
          status) %>%
   filter(str_detect(Description,"[Rr]eview")) %>%
   mutate(status = case_when(status=="TK_NotStart" ~ "Not Started", 
@@ -148,9 +153,9 @@ p6.reviews <- all$all.data %>%
   mutate(kind = case_when(str_detect(Description,"[Ff]inal") ~ "Final", 
                           str_detect(Description,"[Pp]reliminary") ~ "Preliminary",
                           TRUE ~ "Unknown")) %>% 
-  arrange(WorkingSchedStart)%>%
-
-  view()
+  arrange(WorkingSchedStart)
+#%>%
+#  view()
 
 ```
 
@@ -165,14 +170,14 @@ Notes = Let us know how we can help.  Examples include missing resources or requ
 
 ```{r}
 
-report.title <- data.frame(Name=c('ReportDate', 'PastDate', 'FutureDate',
+report.title <- data.frame(Name=c('ReportDate', 'PastDate', 'FutureDate', 'WorkingScheduleDate',
                                   'Total Scheduled Hours', 
                                   'Scheduled Hours Upcoming', 
                                   'Scheduled Hours to Date',
                                   'Kronos Hours', 
                                   'Estimated Finish', 
                                   'Notes'),
-                           Value=c(as.character(filt.st), as.character(filt.bk), as.character(filt.en),
+                           Value=c(as.character(filt.st), as.character(filt.bk), as.character(filt.en), as.character(filt.ws),
                                    'Hours for entire duration of task',
                                    paste('Hours scheduled for next',months.forward,'months'),
                                    'Calculated hours that should have been used by the report date.  Ideally these will match Kronos Hours, and differences are useful to know',
@@ -188,7 +193,7 @@ write_xlsx(list(People=p6.recs,Charges=kr.hours.sum, Reviews=p6.reviews, TitleSh
 
 Below is example code for comparing kronos with p6 hours
 
-```{r}
+#```{r}
 roles.table <- get.roles.table()
 person.comp.r <- left_join(person.comp, roles.table, by=join_by(role))
 
@@ -233,7 +238,7 @@ person.tasks.FY25<- labor$by.week.all %>% filter(week>=filt.st&week<filt.en) %>%
   select(-Full.Name) %>% 
   left_join(all$all.data%>% select(task_id, task_code=code, task_name=name), join_by(task_id)) %>% 
   mutate(hours=dl.hours, activity=paste(task_code,task_name), 
-         target_start=s, target_end=e)
+         start=s, finish=e)
 
 
 person.tasks.FY25.sum <- person.tasks.FY25 %>%
@@ -250,5 +255,5 @@ person.tasks.merged <- left_join(tmp2.pc.qtr.sum, person.tasks.FY25.sum, by=join
 #write_xlsx(person.tasks.merged, paste("HoursJoinedTasks",ending,sep=''))
 
 
-```
+#```
 
