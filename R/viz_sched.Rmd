@@ -17,15 +17,13 @@ library(MAGIS100PM)
 
 ```{r}
 
-#sched_name <- "WS2309"
-#sched_name <- "WS2408"
-sched_name <- "WS2412"
+sched_name <- "WS2503"
 # note: if using WS schedule, the target dates need to be adjusted using the baseline
 all.orig <- get.all.schedule(sched_name)
 all <- apply.baseline.schedule(all.orig, "BL2412")
 
 alldata<- all$all.data %>% filter(dur>0) %>%
-  filter(target_start>as.Date('2022-10-01')) 
+  filter(start>as.Date('2022-10-01')) 
 ```
 ISSUE: the g, a, and c are causing problem.   Fix them before continuing.
 
@@ -133,7 +131,7 @@ alldata.tmp <- alldata.tmp %>%
 
 box.ys <- data.frame(category=c("Assembly","Shaft installation", "Shaft installation"), label=c("Assembly of modular sections", "Final shaft work", "Modular section and connection node installation"), ord=c(34,33,32), low=c(24,12,1), high=c(28,30,31))
                      # low=c(7,5,4), high=c(11,23,34))
-box.xs <- alldata.tmp%>%filter(label.shape=="Box") %>% select(name, label, target_start, target_end,ord) %>% group_by(ord) %>% summarise(mi=min(target_start), mx=max(target_end))
+box.xs <- alldata.tmp%>%filter(label.shape=="Box") %>% select(name, label, start, finish,ord) %>% group_by(ord) %>% summarise(mi=min(start), mx=max(finish))
 box.spans <- left_join(box.ys, box.xs, by=join_by(ord)) %>% mutate(mid.x=mi+(mx-mi)/2, mid.y=low+(high-low)/2)
 
 #alldata$label<-as.factor(alldata$label)
@@ -158,7 +156,7 @@ tmp$label.shape<-replace(tmp$label.shape,is.na(tmp$label.shape),"NA")
 box.brew <- brewer.pal(12,"Set3")
 box.cols <- c(box.brew[6], box.brew[2], box.brew[2])
 
-gp<-ggplot(tmp%>%filter(label.shape!="skip"), aes(xmin=target_start, xmax=target_end, 
+gp<-ggplot(tmp%>%filter(label.shape!="skip"), aes(xmin=start, xmax=finish, 
                    y= label,# ymin = g, ymax = g+.8, 
                    fill = category)) +
 
@@ -174,9 +172,9 @@ gp<-ggplot(tmp%>%filter(label.shape!="skip"), aes(xmin=target_start, xmax=target
   scale_y_discrete("label") +
   scale_x_date(name="date", date_breaks='1 month', date_labels = "%b %y") +
   theme(axis.text.x = element_text(angle = 90)) + 
-  #geom_text(aes(x = as.Date(target_start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3
-  geom_text(aes(x = target_start, label = code, hjust="left",vjust="bottom"), size=.5, position=position_dodge2(width=.8)) +
-  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', linewidth=.05, position=position_dodge2(width=.8))+
+  #geom_text(aes(x = as.Date(start), label = wbs), nudge_x=39.6, nudge_y=.2, size=3
+  geom_text(aes(x = start, label = code, hjust="left",vjust="bottom"), size=.5, position=position_dodge2(width=.8)) +
+  geom_linerange(aes(xmin = start, xmax = finish), colour='blue', linewidth=.05, position=position_dodge2(width=.8))+
   scale_fill_brewer(palette="Set3")
   
 print(gp)
@@ -190,7 +188,7 @@ ggsave(gp, filename=paste(base.path,'/output/VS-',sched_name,'.pdf',sep=''), wid
 alt.tmp<-alldata.tmp
 alt.tmp$label.shape<-replace(alt.tmp$label.shape,is.na(alt.tmp$label.shape),"NA")
 
-gp<-ggplot(alt.tmp%>%filter(label.shape!="skip" & compact.label!="NA" & !is.na(compact.label)), aes(xmin=target_start, xmax=target_end, 
+gp<-ggplot(alt.tmp%>%filter(label.shape!="skip" & compact.label!="NA" & !is.na(compact.label)), aes(xmin=start, xmax=finish, 
                    y= compact.label,# ymin = g, ymax = g+.8, 
                    fill = compact.cat)) +
 
@@ -204,9 +202,9 @@ gp<-ggplot(alt.tmp%>%filter(label.shape!="skip" & compact.label!="NA" & !is.na(c
   scale_x_date(name="date", date_breaks='2 month', date_labels = "%b %y") +
   theme(axis.text.x = element_text(angle = 90)) + 
 
-  geom_text(aes(x = target_start, label = code, hjust="left",vjust="bottom"), 
+  geom_text(aes(x = start, label = code, hjust="left",vjust="bottom"), 
             size=.5, position=position_dodge2(width=.8)) +
-  geom_linerange(aes(xmin = target_start, xmax = target_end), colour='blue', 
+  geom_linerange(aes(xmin = start, xmax = finish), colour='blue', 
                  linewidth=.05,  position=position_dodge2(width=.8)) + 
   scale_fill_brewer(palette="Set3") + 
   labs(fill="Category")

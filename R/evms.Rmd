@@ -20,7 +20,7 @@ library(MAGIS100PM)
 
 
 ```{r}
-all <- get.all.schedule("WS2412")
+all <- get.all.schedule("WS2503")
 all <- apply.baseline.schedule(all, "BL2412")
 #all$all.data <- all$all.data %>% filter(area==11)
 charges <- get.all.kronos()
@@ -54,15 +54,13 @@ carryover  $5,018,000 $ 0		 $3,382,000 	 $4,000,000 	 $4,000,000 	 $3,295,832
 
 
 ```{r}
-d.laser.atom.interactions <- as.Date("2027-04-02")
-#d.last.reporting.date <- as.Date("2023-09-30")
-#d.last.reporting.date <- as.Date("2023-12-31")
-d.last.reporting.date <- as.Date("2024-09-30")
+d.laser.atom.interactions <- as.Date("2027-09-13")
+d.last.reporting.date <- as.Date("2025-03-31")
 d.now = as.Date(now())
 
 pmp <- data.frame(
   names=c("Actuals+March23","FY23 Q3-4", "FY24", "FY25", "FY26", "project end", "FY27")
-  ,dates=c("2023-04-01", "2023-10-01", "2024-10-01", "2025-09-30", "2026-09-30", "2027-04-02", "2027-09-30")
+  ,dates=c("2023-04-01", "2023-10-01", "2024-10-01", "2025-09-30", "2026-09-30", d.laser.atom.interactions, "2027-09-30")
   ,planned=c(3913740,2146677,1768276,3073656,3317993,1495395,0)
   ,guidance=c(5400000,1000000,2000000,4000000,4000000,3331336,0)
   ,planned.carryover=c(3899212,1488355,2283370, 3274925, 3310015, 1495395,0)
@@ -94,13 +92,17 @@ min.dates <- min(fyears$dates)
 
 fcosts <- data.frame(
   colors=c("grey70","grey70",
-           "grey75","grey75",
+           "grey72","grey72",
+           "grey74","grey74",
+           "grey76","grey76",
            "grey78","grey78",
            "grey80","grey80",
            "grey85","grey85",
            "grey90","grey90",
            "grey91","grey91"),
   costs=c(15715738.00, 19731336.00,
+          17588191., 17018979.,
+          17626546., 17018979.,
           16320000.,17264000,
           16279373, 17203460, 
           16771287, 16150319, 
@@ -108,6 +110,8 @@ fcosts <- data.frame(
           15915541,15752059, 
           15764280,15714400),
   names=c("PMP Planned Work", "PMP Guidance", 
+          "EAC Mar25", "BAC Mar25",
+          "EAC Dec24", "BAC Dec24",
           "EAC Sep24", "BAC Sep24",
           "EAC Jun24", "BAC Jun24",
           "EAC Mar24", "BAC Mar24", 
@@ -116,10 +120,10 @@ fcosts <- data.frame(
           "EAC Jun23", "BAC Jun23"),
   xpos=c(min.dates, min.dates, max.dates, max.dates, max.dates, max.dates, 
          max.dates, max.dates, max.dates, max.dates, max.dates, max.dates,
-         max.dates, max.dates)
+         max.dates, max.dates, max.dates, max.dates, max.dates, max.dates)
 )
 
-fcprs <- read_xlsx("../../Finance/SummaryCPRs.xlsx")
+fcprs <- read_xlsx("../../Finance/SummaryCPRs.xlsx", sheet="CPR_Summary")
 fcprs <- fcprs %>% filter(str_detect(Name,"Totals")) %>% arrange(End.Date)
 fcprs <- fcprs %>% mutate(Period=as.Date(Period), Completion.Date=as.Date(Completion.Date))
 fcprs.p <- pivot_longer(fcprs, c("BCWS", "BCWP", "ACWP", "BAC", "EAC"))
@@ -154,12 +158,16 @@ Show probably add a third line that is the current baseline.
 Other is really the PMP schedule (BL2307)
 
 ```{r}
-baseline.current <- get.all.schedule("BL2409")
-#baseline.current <- get.all.schedule("WS2312")
+baseline.current <- get.all.schedule("BL2412")
+prior.forecast <- "2503.Forecast"
 #baseline.current$all.data <- baseline.current$all.data %>% filter(area==11)
 
 baseline.current.costs <- bin.expenses(baseline.current$all.data)
-baseline.pmp <- get.all.schedule("BL2307")
+# NOTE: BL2307 and BL2308 have the same internal project numbers.
+# BL2308 was rerun to add the expected_date and a new other calculated 
+# dates, such as start and finish.
+#baseline.pmp <- get.all.schedule("BL2307")
+baseline.pmp <- get.all.schedule("BL2308")
 baseline.pmp.costs <- bin.expenses(baseline.pmp$all.data)
 
 # JBK - adjusting to use ACWP as starting point for forecast
@@ -171,7 +179,7 @@ WS.monthly <- costs$target.by.month  %>%
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
   #mutate(prerollup=week<as.Date("2023-03-03"), from="2403.Forecast") 
-  mutate(prerollup=week<d.last.reporting.date, from="2406.Forecast") %>%
+  mutate(prerollup=week<d.last.reporting.date, from=prior.forecast) %>%
   filter(prerollup==FALSE)
 
 first.month.tot <- WS.monthly %>% slice_head() %>% pull(tot)
@@ -181,7 +189,7 @@ first.month.tot <- WS.monthly %>% slice_head() %>% pull(tot)
 WS.monthly <- WS.monthly %>% 
   add_row(week=floor_date(d.last.reporting.date,unit="month"),
           tot=latest.ACWP-first.month.tot,ctot=latest.ACWP-first.month.tot,
-          prerollup=TRUE,from="2406.Forecast" ,.before=1) %>%
+          prerollup=TRUE,from=prior.forecast ,.before=1) %>%
   mutate(ctot=cumsum(tot))
 
 
@@ -189,7 +197,7 @@ WS.monthly <- WS.monthly %>%
 BL.monthly <- baseline.current.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  mutate(prerollup=week<as.Date("2023-03-03"), from="2409.Baseline") 
+  mutate(prerollup=week<as.Date("2023-03-03"), from="2412.Baseline") 
 
 PMP.monthly <- baseline.pmp.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
@@ -258,7 +266,7 @@ filt.date <- as.Date("2028-10-02")
 filt.cost <- 30e6
 
 evms.full<- gen.evms(as.Date("2028-10-02"), 30e6)
-evms.zoom<- gen.evms(as.Date("2024-10-02"), 10e6)
+evms.zoom<- gen.evms(as.Date("2025-04-22"), 10e6)
 
 print(evms.full)
 print(evms.zoom)

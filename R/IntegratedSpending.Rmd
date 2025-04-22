@@ -1,0 +1,71 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(writexl)
+library(stringr)
+library(rlang)
+library(lubridate)
+
+library(MAGIS100PM)
+```
+
+```{r}
+sched.name <- "WS2503"
+sched.base <- "BL2412"
+
+filt.st<-as.Date("2024-10-01")
+filt.en<-as.Date("2025-10-01")
+filt.asof<- filt.st
+filt.name<- "YearlyCosts"
+
+cs.version <- '20250418'
+```
+
+
+```{r}
+
+all <- get.all.schedule(sched.name)
+all <- apply.baseline.schedule(all, sched.base)
+charges <- get.all.kronos()
+people <- get.p6.people(charges, all)
+tasks.people <- combine.tasks.people(people, all)
+labor <- bin.labor(tasks.people)
+costs <- bin.expenses(all$all.data)
+
+```
+
+This is the section that deals with the carryover spending and also 
+used to know when we run our of funds for all CR or budget cut.
+
+```{r}
+
+jbk.1 <- costs$target.by.week %>% ungroup() %>% arrange(week) %>%
+  filter(week>as.Date("2024-10-01")) %>%
+  mutate(cumu.cost=cumsum(hsum))
+
+jbk.2 <- costs$target.by.week.task %>% ungroup() %>% 
+  filter(week>as.Date("2024-10-01"), hsum>0) %>%
+  mutate(cumu.cost=cumsum(hsum)) %>%
+  left_join(select(all$all.data, code, name, rsrc_type, status, target_start, target_end, total_cost, total_float, free_float),by=join_by(code)) %>% 
+  mutate(total_float=total_float/8, free_float=free_float/8)
+
+jbk.3 <- labor$by.week.task %>% ungroup() %>% 
+  filter(week>as.Date("2024-10-01"), hsum>0) %>% 
+  left_join(select(all$all.data, task_id, code, name, rsrc_type),by=join_by(task_id))
+```
+
+```{r}
+write_xlsx(jbk.1, paste(base.path,"output/ISR_Spending",cs.version,".xlsx",sep=''))
+write_xlsx(jbk.2, paste(base.path,"output/ISR_SpendingWithTask",cs.version,".xlsx",sep=''))
+write_xlsx(jbk.3, paste(base.path,"output/ISR_HoursWithTask",cs.version,".xlsx",sep=''))
+```
+
+look at all the unstarted tasks
+

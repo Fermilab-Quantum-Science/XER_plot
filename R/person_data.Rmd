@@ -18,7 +18,7 @@ library(MAGIS100PM)
 
 
 ```{r}
-sched.name <- "WS2412"
+sched.name <- "WS2503"
 sched.base <- "BL2412"
 
 #all <- get.all.schedule("BLBCR")
@@ -621,36 +621,6 @@ tmp2.person.ctc %>% group_by(src,Last.Name, FY, ctc, month) %>%
   summarise(tot.hours=sum(hours)) %>%
 view()
 
-```
-This is the section that deals with the carryover spending and also 
-used to know when we run our of funds for all CR or budget cut.
-
-```{r}
-cs.version <- '20240117'
-
-jbk.1 <- costs$target.by.week %>% ungroup() %>% arrange(week) %>%
-  filter(week>as.Date("2024-10-01")) %>%
-  mutate(cumu.cost=cumsum(hsum))
-write_xlsx(jbk.1, paste(base.path,"AllYearCR/Carryoverspending",cs.version,".xlsx",sep=''))
-#write_xlsx(jbk.1, "CarryoverSpending.xlsx")
-
-jbk.2 <- costs$target.by.week.task %>% ungroup() %>% 
-  filter(week>as.Date("2024-10-01"), hsum>0) %>%
-  mutate(cumu.cost=cumsum(hsum)) %>%
-  left_join(select(all$all.data, code, name, rsrc_type, status, target_start, target_end, total_cost, total_float, free_float),by=join_by(code)) %>% 
-  mutate(total_float=total_float/8, free_float=free_float/8)
-write_xlsx(jbk.2, paste(base.path,"AllYearCR/CarryoverspendingWithTask",cs.version,".xlsx",sep=''))
-#write_xlsx(jbk.2, "CarryoverSpendingWithTaskCR3d.xlsx")
-
-#jbk.2.NoCR <- jbk.2
-
-jbk.3 <- labor$by.week.task %>% ungroup() %>% 
-  filter(week>as.Date("2024-10-01"), hsum>0) %>% 
-  left_join(select(all$all.data, task_id, code, name, rsrc_type),by=join_by(task_id))
-write_xlsx(jbk.3, paste(base.path,"AllYearCR/HoursWeekTask",cs.version,".xlsx",sep=''))
-#write_xlsx(jbk.3, "HoursWeekTask.xlsx")
-
-# need labor$by.week.role: week, FY, rsrc, task_id
 ```
 
 look at all the unstarted tasks
