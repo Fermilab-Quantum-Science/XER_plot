@@ -97,6 +97,9 @@ def make_task_graph(tables, args):
             , target_work_qty=r['target_work_qty']
             , total_float_hr=r['total_float_hr_cnt']
             , free_float_hr=r['free_float_hr_cnt']
+            , remain_drtn_hr_cnt=r['remain_drtn_hr_cnt']
+            , remain_work_qty=r['remain_work_qty']   
+            , remain_equip_qty=r['remain_equip_qty']
             , target_cost = rcost
             , rsrc_type = rtype
             , area=short[0]
@@ -247,13 +250,15 @@ def filter_by_paths(g, ps, later_id, earlier_id):
 class GNode:
     header = ['code', 'name', 'wbs', 'area', 'status', 'drv_flag','task_type', 'type', 'rsrc_type', 'cost','dur', 
               'category', 'group', 'wbs_high', 'wbs_low', 'task_id', 'total_float', 'free_float',
-              'target_start', 'target_end', 'early_start','early_end','late_start','late_end','actual_start','actual_end', 'expected_end']
-
+              'target_start', 'target_end', 'early_start','early_end','late_start','late_end','actual_start','actual_end', 'expected_end'
+              ,"remain_dur_hr_cnt", "remain_work_qty", "remain_equip_qty"]
+    
     def record(self):
         return [self.n, self.name, self.wbs, self.area, self.status, self.drv, self.task_type, self.typ, 
                 self.rsrc, self.cost, self.dur, self.category, self.group, self.wbs_high, self.wbs_low, self.task_id,
                 self.total_float_hr, self.free_float_hr,
-                self.t_start, self.t_end, self.e_start, self.e_end, self.l_start, self.l_end,self.a_start, self.a_end, self.ex_end]
+                self.t_start, self.t_end, self.e_start, self.e_end, self.l_start, self.l_end,self.a_start, self.a_end, self.ex_end,
+                self.remain_dur_hr_cnt, self.remain_work_qty, self.remain_equip_qty]
 
     def __init__(self,g,n):
         #print(f'building GNode for {n}')
@@ -283,6 +288,9 @@ class GNode:
         self.area=int(g.nodes[n]['area'])
         self.wbs_high=g.nodes[n]['wbs_high']
         self.wbs_low=g.nodes[n]['wbs_low']
+        self.remain_dur_hr_cnt=g.nodes[n]['remain_drtn_hr_cnt']
+        self.remain_work_qty=g.nodes[n]['remain_work_qty']   
+        self.remain_equip_qty=g.nodes[n]['remain_equip_qty']
         self.category=get_category(self.name)
         self.group=get_group(self.name, self.wbs_high, self.wbs_low)
         self.areacol=colors[self.area]

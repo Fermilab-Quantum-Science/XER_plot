@@ -1,7 +1,7 @@
 ---
 title: "LaborSummariesFull"
 subtitle: "Labor Charge Report"
-date: "09/09/2024"
+date: "06/03/2025"
 number-sections: true
 format: 
   pdf:
@@ -39,20 +39,19 @@ library(knitr)
 #| tbl-cap: "Heading"
 
 
-filt.st<-as.Date("2023-10-01")
+filt.st<-as.Date("2025-04-01")
 filt.asof<- filt.st
-filt.en<-as.Date("2024-10-01")
+filt.en<-as.Date("2025-10-01")
 
 #filt.st<-as.Date("2023-10-01")
 #filt.asof<- as.Date("2023-10-01")
 
-filt.name<- "FY24"
+filt.name<- "FY25"
 
 #sched.name <- "WS2404"
 #sched.base <- "BL2404"
-sched.name <- "WS2412"
-#sched.name <- "WS2408"
-sched.base <- "BL2412"
+sched.name <- "WSBCR013"
+sched.base <- "BLBCR013"
 
 file.suffix <- paste(sched.name, filt.st,filt.en, sep='_')
 ```
@@ -626,7 +625,8 @@ make.plot(ADNotTech_names)
 #| label: fig-otherADs
 #| fig-cap: "Cumulative Hours other people in AD"
 
-make.plot(otherAD_names)
+if (otherAD_names!="") {
+make.plot(otherAD_names) }
 ```
 
 ```{r message=FALSE, warning=FALSE}

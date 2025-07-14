@@ -16,8 +16,14 @@ library(MAGIS100PM)
 ```
 
 ```{r}
-sched.name <- "WS2503"
-sched.base <- "BL2412"
+#sched.name <- "WS2503"
+#sched.base <- "BL2412"
+
+#sched.base <- "WS2503"
+#sched.name <- "WS2505BPS2"
+
+sched.base <- "BLBCR013"
+sched.name <- "WSBCR013"
 
 all <- get.all.schedule(sched.name) 
 all <- apply.baseline.schedule(all, sched.base)
@@ -33,7 +39,53 @@ tasks.people <- combine.tasks.people(people, all)
 labor <- bin.labor(tasks.people)
 costs <- bin.expenses(all$all.data)
 ```
+remainder of FY25
+```{r}
+filt.st<-as.Date(now())
+filt.ws<-as.Date(now())
+filt.en<-as.Date("2025-10-01")
+filt.bk<-filt.st - weeks(1)
+filt.name<- paste("LaborTracking",month(filt.st, label=TRUE, abbr=FALSE))
+filt.asof<- filt.st
 
+ending <- paste("_LaborFY25BCR13",filt.st,"_",filt.en,".xlsx",sep='')
+
+int.future <- interval(filt.st, filt.en)
+int.past <- interval(filt.bk, filt.st)
+```
+
+
+FY26
+```{r}
+filt.st<-as.Date("2025-10-01")
+filt.ws<-as.Date("2025-10-01")
+filt.en<-as.Date("2026-10-01")
+filt.bk<-filt.st - weeks(1)
+filt.name<- paste("LaborTrackingBPS2",month(filt.st, label=TRUE, abbr=FALSE))
+filt.asof<- filt.st
+
+ending <- paste("_LaborFY26BPS2",filt.st,"_",filt.en,".xlsx",sep='')
+
+int.future <- interval(filt.st, filt.en)
+int.past <- interval(filt.bk, filt.st)
+```
+
+FY27
+```{r}
+filt.st<-as.Date("2026-10-01")
+filt.ws<-as.Date("2026-10-01")
+filt.en<-as.Date("2027-10-01")
+filt.bk<-filt.st - weeks(1)
+filt.name<- paste("LaborTrackingBPS2",filt.st,"_",filt.en,".xlsx",sep='')
+filt.asof<- filt.st
+
+ending <- paste("_LaborFY27BPS2",filt.st,"_",filt.en,".xlsx",sep='')
+
+int.future <- interval(filt.st, filt.en)
+int.past <- interval(filt.bk, filt.st)
+```
+
+Labor checking range
 ```{r}
 months.forward <- 3
 months.back <- 2
@@ -44,7 +96,10 @@ filt.bk<-as.Date("2025-03-05")  # filt.st - months(months.back)
 filt.name<- paste("LaborTracking",month(filt.st, label=TRUE, abbr=FALSE))
 filt.asof<- filt.st
 
-ending <- paste("_LaborTracking",filt.st,"_",filt.en,".xlsx",sep='')
+ending <- paste("_LaborTrackingBCR013",filt.st,"_",filt.en,".xlsx",sep='')
+
+int.future <- interval(filt.st, filt.en)
+int.past <- interval(filt.bk, filt.st)
 ```
 
 This pull all the records that fall in our range using the expect
@@ -68,6 +123,9 @@ p6.hours.sum <- p6.hours %>%
   summarise(total_hours=sum(hours)) %>%
   arrange(person) %>% 
   pivot_wider(names_from=period, values_from=total_hours)
+
+p6.hours.sum.task <- p6.hours.sum %>% 
+  left_join(all$all.data%>% select(task_id, code, name, start, finish, total_float, remain_dur_hr_cnt, remain_work_qty, remain_equip_qty, baseline_start, baseline_end), by=join_by(task_id))
 ```
 
 ```{r}
@@ -96,9 +154,6 @@ person.comp <- bind_rows(p6=p6.hours, kronos=kr.hours, .id="src")
 The task records we are interested in
 
 ```{r}
-
-int.future <- interval(filt.st, filt.en)
-int.past <- interval(filt.bk, filt.st)
 
 p6.rsrc <- tasks.people %>%
   #filter(target_start_date<=filt.en & target_end_date>=filt.bk) %>% 
@@ -186,7 +241,7 @@ report.title <- data.frame(Name=c('ReportDate', 'PastDate', 'FutureDate', 'Worki
                                    'Let us know how we can help.  Examples include missing resources or requirements, or suggested BCR, or needs attention in any way'
                                    ))
 
-write_xlsx(list(People=p6.recs,Charges=kr.hours.sum, Reviews=p6.reviews, TitleSheet=report.title), 
+write_xlsx(list(People=p6.recs,Charges=kr.hours.sum, Reviews=p6.reviews, TitleSheet=report.title, ExtraInfo=p6.hours.sum.task), 
            paste("Report",ending,sep=''))
 
 ```

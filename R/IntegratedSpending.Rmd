@@ -16,18 +16,72 @@ library(lubridate)
 library(MAGIS100PM)
 ```
 
+current working schedule
 ```{r}
 sched.name <- "WS2503"
 sched.base <- "BL2412"
 
-filt.st<-as.Date("2024-10-01")
-filt.en<-as.Date("2025-10-01")
+filt.st<-as.Date("2026-10-01")
+filt.en<-as.Date("2027-10-06")
 filt.asof<- filt.st
-filt.name<- "YearlyCosts"
+filt.name<- "YearlyCostsFY27"
 
-cs.version <- '20250418'
+cs.version <- 'FY27'
 ```
 
+BPS scenario for FY26
+```{r}
+sched.base <- "WS2503"
+sched.name <- "WS2505BPS2"
+
+filt.st<-as.Date("2025-10-01")
+filt.en<-as.Date("2026-10-06")
+filt.asof<- filt.st
+filt.name<- "YearlyCostsFY26B"
+
+cs.version <- 'FY26B'
+```
+
+BPS scenario for FY27
+```{r}
+sched.base <- "WS2503"
+sched.name <- "WS2505BPS2"
+
+filt.st<-as.Date("2026-10-01")
+filt.en<-as.Date("2027-10-06")
+filt.asof<- filt.st
+filt.name<- "YearlyCostsFY27B"
+
+cs.version <- 'FY27B'
+```
+
+Current BL and WS (with BCRs 12 and 13)
+M&S for FY26, 27, 28, and rest of 25
+```{r}
+sched.base <- "BL2506"
+sched.name <- "WS2506"
+
+filt.st<-as.Date("2025-06-01")
+filt.en<-as.Date("2028-10-06")
+filt.asof<- filt.st
+filt.name<- "YearlyCostsFY25on"
+
+cs.version <- 'FY25onwards'
+```
+
+BL and WS from our scenario (BPS2)
+M&S for FY26, 27, 28, and rest of 25
+```{r}
+sched.base <- "WS2503"
+sched.name <- "WS2505BPS2"
+
+filt.st<-as.Date("2025-06-01")
+filt.en<-as.Date("2028-10-06")
+filt.asof<- filt.st
+filt.name<- "YearlyCostsFY25onBPS2"
+
+cs.version <- 'FY25onwardsBPS2'
+```
 
 ```{r}
 
@@ -47,17 +101,19 @@ used to know when we run our of funds for all CR or budget cut.
 ```{r}
 
 jbk.1 <- costs$target.by.week %>% ungroup() %>% arrange(week) %>%
-  filter(week>as.Date("2024-10-01")) %>%
+  filter(week>=as.Date(filt.st)) %>%
   mutate(cumu.cost=cumsum(hsum))
 
 jbk.2 <- costs$target.by.week.task %>% ungroup() %>% 
-  filter(week>as.Date("2024-10-01"), hsum>0) %>%
+  filter(week>=as.Date(filt.st), hsum>0) %>%
   mutate(cumu.cost=cumsum(hsum)) %>%
-  left_join(select(all$all.data, code, name, rsrc_type, status, target_start, target_end, total_cost, total_float, free_float),by=join_by(code)) %>% 
+  left_join(select(all$all.data, code, name, rsrc_type, status, target_start, target_end, start, finish, total_cost, total_float, free_float),by=join_by(code)) %>% 
   mutate(total_float=total_float/8, free_float=free_float/8)
 
+#jbk.2 %>% mutate(cumu_tot=cumsum(total_cost)) %>% view()
+
 jbk.3 <- labor$by.week.task %>% ungroup() %>% 
-  filter(week>as.Date("2024-10-01"), hsum>0) %>% 
+  filter(week>=as.Date(filt.st), hsum>0) %>% 
   left_join(select(all$all.data, task_id, code, name, rsrc_type),by=join_by(task_id))
 ```
 
@@ -68,4 +124,19 @@ write_xlsx(jbk.3, paste(base.path,"output/ISR_HoursWithTask",cs.version,".xlsx",
 ```
 
 look at all the unstarted tasks
+
+```{r}
+all$all.data %>% 
+  select(code, name, start, finish, rsrc_type, wbs,area, wbs_low, category, label) %>% 
+  filter(area==0, start>as.Date("2025-01-01"), !str_detect(name, "ilestone")) %>% 
+  arrange(wbs, start) %>% 
+  view()
+```
+
+```{r}
+all$all.data %>% 
+  select(code, name, start, finish, rsrc_type, wbs,area, wbs_low, category, label) %>% 
+  filter(area==0, start>as.Date("2025-06-01"), !str_detect(name, "ilestone")) %>% 
+  arrange(finish, wbs) %>% view()
+```
 
