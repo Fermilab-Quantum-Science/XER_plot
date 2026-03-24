@@ -13,6 +13,7 @@ library(stringr)
 library(rlang)
 library(lubridate)
 library(scales)
+library(mgcv)
 
 library(MAGIS100PM)
 ```
@@ -20,18 +21,21 @@ library(MAGIS100PM)
 
 
 ```{r}
-all <- get.all.schedule("WS2503")
-all <- apply.baseline.schedule(all, "BL2412")
+all <- get.all.schedule("WS2602")
+all <- apply.baseline.schedule(all, "BL2602")
 #all$all.data <- all$all.data %>% filter(area==11)
 charges <- get.all.kronos()
 people <- get.p6.people(charges, all)
 tasks.people <- combine.tasks.people(people, all)
 ```
+charges %>% group_by(Full.Name, Function.Role, Function.Category) %>% summarise(tot=sum(Hours)) %>% view()
+
+tasks.people%>% select(role_name, task_id) %>% left_join(all$tasks%>%select(task_id, task_code, task_name, target_start_date), join_by(task_id)) %>% view()
 
 ```{r}
 labor <- bin.labor(tasks.people)
 costs <- bin.expenses(all$all.data)
-costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
+costs.week <- costs$target.by.week%>% filter(FY>=2023&FY<=2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
 ```
 
 
@@ -54,17 +58,19 @@ carryover  $5,018,000 $ 0		 $3,382,000 	 $4,000,000 	 $4,000,000 	 $3,295,832
 
 
 ```{r}
-d.laser.atom.interactions <- as.Date("2027-09-13")
-d.last.reporting.date <- as.Date("2025-03-31")
+d.laser.atom.interactions <- as.Date("2028-03-08")
+d.last.reporting.date <- as.Date("2026-01-31")
 d.now = as.Date(now())
 
+# from Budget Table-101223.xlsx
+
 pmp <- data.frame(
-  names=c("Actuals+March23","FY23 Q3-4", "FY24", "FY25", "FY26", "project end", "FY27")
-  ,dates=c("2023-04-01", "2023-10-01", "2024-10-01", "2025-09-30", "2026-09-30", d.laser.atom.interactions, "2027-09-30")
-  ,planned=c(3913740,2146677,1768276,3073656,3317993,1495395,0)
-  ,guidance=c(5400000,1000000,2000000,4000000,4000000,3331336,0)
-  ,planned.carryover=c(3899212,1488355,2283370, 3274925, 3310015, 1495395,0)
-  ,guidance.carryover=c(3899212,1488355,3382000-369567, 4000000,4000000, 3295832,0)
+  names=c("Actuals+March23","FY23 Q3-4", "FY24", "FY25", "FY26", "FY27", "FY28", "project end")
+  ,dates=c("2023-04-01", "2023-10-01", "2024-09-30", "2025-09-30", "2026-09-30", "2027-09-30", "2028-9-30", d.laser.atom.interactions)
+  ,planned= c(3900000,1490000,2280000,3270000,3310000,1500000,0,0)
+  ,guidance=c(5400000,1000000,2000000,4000000,4000000,3300000,0,0)
+  ,planned.carryover= c(3899212,1488355,2283370, 3274925, 3310015, 1495395,0,0)
+  ,guidance.carryover=c(3899212,1488355,3382000-369567, 4000000,4000000, 3295832,0,0)
   ) %>% 
   mutate(
     cumu.planned=cumsum(planned)
@@ -79,16 +85,20 @@ min.planned <- first(pmp$planned)
 max.planned <- max(pmp$planned)
 
 fyears <- data.frame(
-  names=c("FY24", "FY25", "FY26", "FY27", "Last Status", "Now", "Project End" ),
-  dates=c( as.Date("2023-10-01"), as.Date("2024-10-01"), as.Date("2025-10-01"), as.Date("2026-10-01"),
+  names=c("FY24", "FY25", "FY26", "FY27", "FY28", 
+          "Last Status", "Now", "Project End" ),
+  dates=c( as.Date("2023-10-01"), as.Date("2024-10-01"), 
+           as.Date("2025-10-01"), as.Date("2026-10-01"), as.Date("2027-10-01"),
            d.last.reporting.date, d.now, d.laser.atom.interactions),
-  colors=c("yellow","yellow","yellow","yellow","lightblue","lightblue","lightblue"),
-  alphas=c(1.0,1.0,1.0,.4,.4,.4,.4),
-  ypos=c(min.planned, min.planned, min.planned, min.planned,max.planned+1e6, 8e6, min.planned+1e6)
+  colors=c("yellow","yellow","yellow","yellow","yellow","lightblue","lightblue","lightblue"),
+  alphas=c(1.0,1.0,1.0,1.0,.4,.4,.4,.4),
+  ypos=c(min.planned, min.planned, min.planned, min.planned, min.planned,max.planned+1e6, 8e6, min.planned+1e6)
 )
 
 max.dates <- max(fyears$dates)
 min.dates <- min(fyears$dates)
+```
+# new plan:  display only the EAC / BAC data, not the PMP info
 
 fcosts <- data.frame(
   colors=c("grey70","grey70",
@@ -123,13 +133,22 @@ fcosts <- data.frame(
          max.dates, max.dates, max.dates, max.dates, max.dates, max.dates)
 )
 
-fcprs <- read_xlsx("../../Finance/SummaryCPRs.xlsx", sheet="CPR_Summary")
-fcprs <- fcprs %>% filter(str_detect(Name,"Totals")) %>% arrange(End.Date)
-fcprs <- fcprs %>% mutate(Period=as.Date(Period), Completion.Date=as.Date(Completion.Date))
-fcprs.p <- pivot_longer(fcprs, c("BCWS", "BCWP", "ACWP", "BAC", "EAC"))
+```{r}
+fcprs <- read_xlsx("../../Finance/SummaryCPRs.xlsx", sheet="CPR_Summary") %>%
+  filter(str_detect(Name,"Totals")) %>% arrange(End.Date) %>%
+  mutate(Period=as.Date(Period), Completion.Date=as.Date(Completion.Date)) %>%
+  mutate(ETC=EAC-ACWP) %>%
+  mutate(CC=(19.73e6-EAC)) %>%
+  mutate(PCWTG=CC/ETC)  #%>% 
+  #slice_head(n=-1)
+
+fcprs.p <- pivot_longer(fcprs, c("BCWS", "BCWP", "ACWP", "BAC", "EAC", "ETC", "CC"))
 
 
 #print(ggplot(pmp, aes(x=timestamps, y=cumu.guidance)) + geom_line())
+#print(ggplot(fcprs, aes(Period, y=PCWTG)) + geom_line())
+#print(ggplot(fcprs, aes(Period, y=ETC)) + geom_line())
+#print(ggplot(fcprs, aes(Period, y=CC)) + geom_line())
 
 ```
 
@@ -158,8 +177,8 @@ Show probably add a third line that is the current baseline.
 Other is really the PMP schedule (BL2307)
 
 ```{r}
-baseline.current <- get.all.schedule("BL2412")
-prior.forecast <- "2503.Forecast"
+baseline.current <- get.all.schedule("BL2602b")
+prior.forecast <- "2602.Forecast"
 #baseline.current$all.data <- baseline.current$all.data %>% filter(area==11)
 
 baseline.current.costs <- bin.expenses(baseline.current$all.data)
@@ -178,7 +197,7 @@ latest.ACWP <- fcprs %>% slice_max(Period) %>% pull(ACWP)
 WS.monthly <- costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  #mutate(prerollup=week<as.Date("2023-03-03"), from="2403.Forecast") 
+  #mutate(prerollup=week<as.Date("2023-03-03"), from="2506.Forecast") 
   mutate(prerollup=week<d.last.reporting.date, from=prior.forecast) %>%
   filter(prerollup==FALSE)
 
@@ -197,7 +216,7 @@ WS.monthly <- WS.monthly %>%
 BL.monthly <- baseline.current.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
   mutate(ctot=cumsum(tot)) %>%
-  mutate(prerollup=week<as.Date("2023-03-03"), from="2412.Baseline") 
+  mutate(prerollup=week<as.Date("2023-03-03"), from="2602.Baseline") 
 
 PMP.monthly <- baseline.pmp.costs$target.by.month  %>% 
   arrange(week) %>% group_by(week) %>% summarise(tot=sum(hsum)) %>%
@@ -205,7 +224,88 @@ PMP.monthly <- baseline.pmp.costs$target.by.month  %>%
   mutate(prerollup=week<as.Date("2023-03-03"), from="2307.PMP") 
 
 monthly=rbind(WS.monthly, BL.monthly, PMP.monthly)
+
 ```
+```{r}
+library(timevis)
+tline<-read_excel("../../Review20260217/timelines.xlsx") %>%
+  mutate(start=as_date(start)) %>%
+  mutate(content=str_replace(content, "<br>"," ")) %>%
+  filter(start>parse_date("2024-09-01")&start<parse_date("2026-02-03"), is.na(end))
+```
+
+```{r}
+only.forecast <- monthly %>% filter(from==prior.forecast)
+max.cost <- only.forecast %>% pull(ctot) %>% max()
+ETC <- fcprs %>% slice_tail(n=1) %>% pull(ETC) #+ 313000
+guidance <- 19731336
+first.cost <- WS.monthly %>% slice(2:2) %>% pull(tot)
+EAC.adjust <- 430518
+
+monthly.bdown <- WS.monthly %>% 
+  #mutate(cremain=max.cost-cumsum(tot))%>%
+  #mutate(cremain=ETC-cumsum(lag(tot, default=0))) %>%
+  mutate(tot = (tot+(EAC.adjust+first.cost) / nrow(monthly.bdown))) %>%
+  filter(prerollup==FALSE, week<as.Date("2028-04-15")) %>%
+  mutate(cremain=ETC-cumsum(lag(tot, default=0))) #%>%
+  #left_join(only.T, by=join_by(week==date))
+
+date.fit <- gam(cremain ~ s(as.numeric(week), k=20, bs="cs"), method = "REML", data = monthly.bdown)
+only.T <- all$all.data%>%
+  filter(str_detect(name,"T[012]"), start>parse_date("2026-05-01")&start<parse_date("2028-04-15")) %>% 
+  select(name, start) %>% mutate(week=as.numeric(start)) 
+only.T$cremain <- predict(date.fit, newdata=only.T)
+
+
+g5d<- ggplot(monthly.bdown,
+                 aes(x=week, colour=from)) + 
+
+  geom_text(data=only.T, aes(x=start, y=cremain, angle=80, label=name, hjust="left",vjust="top"),
+           size=2.5,inherit.aes=FALSE, check_overlap = TRUE, nudge_y=1.2e3) +
+  #geom_point(data=only.T, aes(x=start, y=cremain), inherit.aes=FALSE,size=1.0) +
+
+    geom_line(data=fcprs.p%>%filter(str_detect(name,"ETC|CC")
+                                  #Period!=parse_date("2026-02-02")
+                                  ), 
+            aes(x=Period, y=value, colour=name), 
+            inherit.aes = FALSE)+ #, show.legend = FALSE) + 
+  geom_line(aes(y=cremain)) +
+  
+  geom_vline(data=tline, mapping=aes(xintercept=start), start, alpha=.5) +
+  geom_text(data=tline, aes(x=start, y=4e6, angle=90, label=content, hjust="left",vjust="top"),
+           size=2.5,inherit.aes=FALSE, check_overlap = TRUE, nudge_y=1e3) +
+  geom_text(data=fcprs %>% slice_tail(n=1) %>% mutate(PCWTG=round(PCWTG*100,2),pP=paste(PCWTG,"% cont on WTG\n$",round(CC,0)," cost contingency", sep='')), 
+            aes(x=Period, y=CC, label=pP, hjust="left"),inherit.aes = FALSE,size=3.0,nudge_x=20)+
+
+  #geom_line(aes(y=ctot)) +
+  scale_x_date(name="Date (by month)", date_breaks='2 month', date_labels = "%b %y") +
+  scale_y_continuous(name="Remaining Costs", n.breaks=10, 
+                     labels=label_number(scale=1e-6,accuracy=.1,prefix="$", suffix="M")) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+print(ggplot(fcprs %>% mutate(ch=PCWTG), aes(x=Period, y=ch)) + geom_line() + geom_point() +
+    scale_x_date(name="Date (by month)", date_breaks='2 month', date_labels = "%b %y") +
+  theme(axis.text.x = element_text(angle = 90))
+)
+print(g5d)
+```
+
+```{r}
+ggsave("ETC_CCb.pdf",g5d, device="pdf", units="in", width=11, height=5)
+
+```
+
+
+The EAC adjustment total from 2/17/2026 is $430,500.
+Pick out the maximum of each schedule in monthly (baseline, forecast).
+Use the max from forecast to calulate the work to go burn down 
+starting at ETC and subtracting the monthly cost from the max forecast.
+This should be a separate plot of ETC, contingency burn down.
+The PMs usually add the right-side Y axis of % contingency WTG.
+All three are available now in fcprs.p.
+
 
 ```{r}
 # need to use the ggplot function definition functions for this,
@@ -220,30 +320,33 @@ vline_labeled <- function(value, label="", col="black", alpha=1.0, ...)
 gen.evms <- function(filt.date, filt.cost)
 {
 
+  
 filt.data <- list(
   months = monthly %>% filter(prerollup==FALSE & week<filt.date),
   pmp = pmp %>% filter( dates<filt.date),
   fyears = fyears %>% filter( dates<filt.date),
   fcprs = fcprs.p %>% filter( Period<filt.date & Period>=as.Date("2023-01-01")),
-  fcosts = fcosts %>% filter( xpos<filt.date & costs<filt.cost)
+  fcosts = fcprs %>% filter( End.Date<=filt.date & EAC<filt.cost & BAC<filt.cost)
 )
 
 g5d<- ggplot(filt.data$months,
                  aes(x=week, colour=from)) + 
   
-  geom_ribbon(data=filt.data$pmp, aes(x=dates,ymin=cumu.planned, ymax=cumu.guidance),
-              inherit.aes=FALSE, fill="lightyellow",alpha=.6) +
-  geom_ribbon(data=filt.data$pmp, aes(x=dates,ymin=cumu.planned.co, ymax=cumu.guidance.co),
-              inherit.aes=FALSE, fill="orange",alpha=.2) +
+  # this is out of date
+  #geom_ribbon(data=filt.data$pmp, aes(x=dates,ymin=cumu.planned, ymax=cumu.guidance),
+  #            inherit.aes=FALSE, fill="lightyellow",alpha=.6) +
+  #geom_ribbon(data=filt.data$pmp, aes(x=dates,ymin=cumu.planned.co, ymax=cumu.guidance.co),
+  #            inherit.aes=FALSE, fill="orange",alpha=.2) +
   
   geom_vline(data=filt.data$fyears, aes(xintercept=dates), alpha=1.0, colour=filt.data$fyears$colors) +
   geom_text(data=filt.data$fyears, aes(x=dates,y=ypos, label=names, hjust="left",vjust="top"),
             size=3,inherit.aes=FALSE, check_overlap = TRUE, nudge_y=-1e5) +
   # width=8.0
   
-  geom_hline(data=filt.data$fcosts, aes(yintercept=costs), colour=filt.data$fcosts$colors)+
-  geom_text(data=filt.data$fcosts, aes(y=costs,x=xpos, label=names, hjust="left",vjust="bottom"),
-            size=2.5,inherit.aes=FALSE, check_overlap = TRUE, nudge_y=1e5) +
+  # the horizonal lines need work - is it worthwhile?
+  #geom_hline(data=filt.data$fcosts, aes(yintercept=costs), colour=filt.data$fcosts$color)+
+  #geom_text(data=filt.data$fcosts, aes(y=costs,x=xpos, label=names, hjust="left",vjust="bottom"),
+  #          size=2.5,inherit.aes=FALSE, check_overlap = TRUE, nudge_y=1e5) +
 
   geom_point(data=filt.data$fcprs%>%filter(!str_detect(name,"BAC|EAC")), aes(x=Period, y=value, colour=name), inherit.aes = FALSE, show.legend = TRUE) + 
   geom_line(data=filt.data$fcprs%>%filter(!str_detect(name,"BAC|EAC")), aes(x=Period, y=value, colour=name), inherit.aes = FALSE, show.legend = FALSE) + 
@@ -262,11 +365,11 @@ g5d
 
 ```{r}
 
-filt.date <- as.Date("2028-10-02")
+filt.date <- as.Date("2028-04-01")
 filt.cost <- 30e6
 
 evms.full<- gen.evms(as.Date("2028-10-02"), 30e6)
-evms.zoom<- gen.evms(as.Date("2025-04-22"), 10e6)
+evms.zoom<- gen.evms(as.Date("2025-12-31"), 10e6)
 
 print(evms.full)
 print(evms.zoom)

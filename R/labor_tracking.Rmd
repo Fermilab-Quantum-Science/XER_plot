@@ -16,14 +16,14 @@ library(MAGIS100PM)
 ```
 
 ```{r}
-#sched.name <- "WS2503"
-#sched.base <- "BL2412"
+sched.name <- "WS2602b"
+sched.base <- "BL2602b"
 
 #sched.base <- "WS2503"
 #sched.name <- "WS2505BPS2"
 
-sched.base <- "BLBCR013"
-sched.name <- "WSBCR013"
+#sched.base <- "BLBCR013"
+#sched.name <- "WSBCR013"
 
 all <- get.all.schedule(sched.name) 
 all <- apply.baseline.schedule(all, sched.base)
@@ -40,15 +40,15 @@ labor <- bin.labor(tasks.people)
 costs <- bin.expenses(all$all.data)
 ```
 remainder of FY25
-```{r}
+```
 filt.st<-as.Date(now())
 filt.ws<-as.Date(now())
-filt.en<-as.Date("2025-10-01")
+filt.en<-as.Date("2025-11-01")
 filt.bk<-filt.st - weeks(1)
 filt.name<- paste("LaborTracking",month(filt.st, label=TRUE, abbr=FALSE))
 filt.asof<- filt.st
 
-ending <- paste("_LaborFY25BCR13",filt.st,"_",filt.en,".xlsx",sep='')
+ending <- paste("_LaborExtraFull",filt.st,"_",filt.en,".xlsx",sep='')
 
 int.future <- interval(filt.st, filt.en)
 int.past <- interval(filt.bk, filt.st)
@@ -56,22 +56,22 @@ int.past <- interval(filt.bk, filt.st)
 
 
 FY26
-```{r}
+```
 filt.st<-as.Date("2025-10-01")
-filt.ws<-as.Date("2025-10-01")
+filt.ws<-as.Date("2025-09-30")
 filt.en<-as.Date("2026-10-01")
 filt.bk<-filt.st - weeks(1)
-filt.name<- paste("LaborTrackingBPS2",month(filt.st, label=TRUE, abbr=FALSE))
+filt.name<- paste("LaborTrackingFY26",month(filt.st, label=TRUE, abbr=FALSE))
 filt.asof<- filt.st
 
-ending <- paste("_LaborFY26BPS2",filt.st,"_",filt.en,".xlsx",sep='')
+ending <- paste("_LaborFY26_",filt.st,"_",filt.en,".xlsx",sep='')
 
 int.future <- interval(filt.st, filt.en)
 int.past <- interval(filt.bk, filt.st)
 ```
 
 FY27
-```{r}
+```
 filt.st<-as.Date("2026-10-01")
 filt.ws<-as.Date("2026-10-01")
 filt.en<-as.Date("2027-10-01")
@@ -87,16 +87,16 @@ int.past <- interval(filt.bk, filt.st)
 
 Labor checking range
 ```{r}
-months.forward <- 3
-months.back <- 2
+months.forward <- 3*12
+months.back <- 1
 filt.st<-as.Date(now())
-filt.ws<-as.Date("2025-03-31")
-filt.en<-filt.st + months(months.forward)
-filt.bk<-as.Date("2025-03-05")  # filt.st - months(months.back)
+filt.ws<-as.Date("2026-02-06")
+filt.en<-filt.st %m+% months(months.forward)
+filt.bk<-filt.st %m-% months(months.back)
 filt.name<- paste("LaborTracking",month(filt.st, label=TRUE, abbr=FALSE))
 filt.asof<- filt.st
 
-ending <- paste("_LaborTrackingBCR013",filt.st,"_",filt.en,".xlsx",sep='')
+ending <- paste("_LaborTrackingLOE_",filt.st,"_",filt.en,".xlsx",sep='')
 
 int.future <- interval(filt.st, filt.en)
 int.past <- interval(filt.bk, filt.st)
@@ -245,6 +245,18 @@ write_xlsx(list(People=p6.recs,Charges=kr.hours.sum, Reviews=p6.reviews, TitleSh
            paste("Report",ending,sep=''))
 
 ```
+
+```
+
+ltr.all <- all$all.data %>% select(code, start,finish, total_float, baseline_start, baseline_end, area)
+ltr.e <- read_xlsx("../LaborTrackingTool/Communication with engineers/Report_LaborTrackingQ3Aug2025-08-14_2025-11-14.xlsx","ExtraInfo")
+# the Variances tab below comes from the CPR, but cannot be read directly.
+ltr.v <- read_xlsx("../LaborTrackingTool/Communication with engineers/Report_LaborTrackingQ3Aug2025-08-14_2025-11-14.xlsx","Variances")
+ltr.ev <- ltr.v %>% left_join(ltr.all,by=join_by(ActivityID==code), multiple="first") %>% mutate(dist=start-baseline_start)
+
+ggplot(ltr.ev%>% filter(dist!=0), aes(x=dist)) + geom_histogram(bins=50)
+```
+
 
 Below is example code for comparing kronos with p6 hours
 

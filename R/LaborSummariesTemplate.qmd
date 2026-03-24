@@ -39,19 +39,16 @@ library(knitr)
 #| tbl-cap: "Heading"
 
 
-filt.st<-as.Date("2025-04-01")
+#filt.st<-as.Date("2025-04-01")
+filt.st<-as.Date("2025-10-01")
 filt.asof<- filt.st
-filt.en<-as.Date("2025-10-01")
-
-#filt.st<-as.Date("2023-10-01")
+filt.en<-as.Date("2028-05-01")
 #filt.asof<- as.Date("2023-10-01")
 
-filt.name<- "FY25"
+filt.name<- "FYRemain"
 
-#sched.name <- "WS2404"
-#sched.base <- "BL2404"
-sched.name <- "WSBCR013"
-sched.base <- "BLBCR013"
+sched.name <- "WS2602"
+sched.base <- "BL2602"
 
 file.suffix <- paste(sched.name, filt.st,filt.en, sep='_')
 ```
@@ -93,7 +90,7 @@ tasks.people <- combine.tasks.people(people, all)
 labor <- bin.labor(tasks.people)
 costs <- bin.expenses(all$all.data)
 costs.week <- costs$target.by.week%>%
-  filter(FY>=2023&FY<2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
+  filter(FY>=2025&FY<=2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -102,15 +99,16 @@ costs.week <- costs$target.by.week%>%
 # labor <- bin.labor(tasks.people)
 
 tpt.FY<- labor$by.week.person.task %>%
-  filter(FY>2022) %>%
+  filter(FY>2025) %>%
   group_by(type,person,task_id, FY)%>%
   summarise(hrs=sum(dl.hours)) %>% 
   mutate(ftes=hrs/(1805)) %>%
   #filter(!is.na(person)) %>%
   left_join(people%>%select(person=role_name, type=rsrc_name, DSC),join_by(type,person)) %>%
-  left_join(all$tasks%>%select(task_id, task_name, task_code, target_start_date, target_end_date), by=join_by(task_id))
-write_xlsx(tpt.FY%>% filter(FY %in% c(2024, 2025)), paste(base.path,"output/TPT_FY24_25.xlsx",sep=''))
+  left_join(all$all.data%>%select(task_id, code, name, start, finish, label, wbs, wbs_low), by=join_by(task_id))
 
+write_xlsx(tpt.FY%>% filter(FY>2025),
+          paste(base.path,"output/TPT_FY26onwards.xlsx",sep=''))
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -175,6 +173,13 @@ tmp2.c<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
 
 # by role by category by week
 tmp2.rc<- person.comp.r %>% ungroup() %>% #filter(ctc!="Q1903.01") %>%
+  select(src,role.type, role.cat, week, ihours=hours) %>%
+  group_by(src,role.type, role.cat, week)%>% summarise(hours=sum(ihours)) %>%
+  arrange(src,role.type, role.cat,  week) %>% 
+  group_by(src,role.type, role.cat) %>% mutate(chours=cumsum(hours))
+
+# by role by category by week
+tmp2.rcn<- person.comp.r %>% ungroup() %>% filter(ctc!="Q1903.01") %>%
   select(src,role.type, role.cat, week, ihours=hours) %>%
   group_by(src,role.type, role.cat, week)%>% summarise(hours=sum(ihours)) %>%
   arrange(src,role.type, role.cat,  week) %>% 
@@ -364,8 +369,9 @@ print(person.g6)
 #| fig-width: 6.5
 #| fig-height: 5
 
+# WARNING!!! this is using rcn instead of rc.  rcn excludes LOE!!!!!!
 
-person.g7<- ggplot(tmp2.rc,aes(x=week, y=chours, colour=src)) + 
+person.g7<- ggplot(tmp2.rcn,aes(x=week, y=chours, colour=src)) + 
   geom_line() +
   #scale_color_hue(labels = c("Kronos", "p6")) +
   theme(axis.text.x = element_text(angle = 90), legend.position = "top") +

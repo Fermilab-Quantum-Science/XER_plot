@@ -6,6 +6,7 @@ import os
 class Fake:
     earlier_code='A0100000'
     later_code='A1503600'
+    cutoff=None
     output_format='png'
     #date_part='Dec2022Current'
     #date_part='Dec22WSCurrent'
@@ -31,6 +32,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-e","--earlier-code", default=Fake.earlier_code, dest="earlier_code",help="Earliest task code to track back to")
     parser.add_argument("-l","--later-code", default=Fake.later_code, dest="later_code",help="Latest task code to starting tracking back from")
+    parser.add_argument("-c","--cutoff", type=int, default=Fake.cutoff, dest="cutoff",help="cutoff depth for paths (earlier to later)")
     parser.add_argument("-f","--format", default=Fake.output_format, dest="output_format",help="Output format for viewing graph (png/pdf)")
     parser.add_argument("-x","--datepart", default=Fake.date_part, dest="date_part",help="Date part of the XER tables we are reading")
     parser.add_argument("-s","--special", default=Fake.special, dest="special",help="List of task codes to show as squares in graph (comma separated)")

@@ -361,13 +361,17 @@ def render_all(g,args):
     reduced = "wr" if args.do_reduction else "wor"
     fname=f'../output/nx_{args.wbs_item}_{reduced}'
     #dot.render(fname+'.dot', view=False).replace('\\', '/')
-    dot.render(fname, view=args.render).replace('\\', '/')
+    if args.render:
+        dot.render(fname, view=True).replace('\\', '/')
+    else:
+        dot.render(fname, view=False).replace('\\', '/')
+
 
 def filter_driving(g,args):
     anp=set()
     # nodes is list of (node_num, node_data)
     for n in g.nodes(data=True):
-        if n[1]['total_float_hr']<=(8*5*4*2): 
+        if n[1]['total_float_hr']<=(56*8): 
             anp.add(n[0])
             #for e in g.in_edges(n[0]):
             #    anp.add(e[0])
@@ -418,7 +422,7 @@ if __name__ == "__main__":
     # otherwise track from later id back to earlier id
     later_id=tables['TASK'].loc[tables['TASK']['task_code']==args.later_code].task_id.iloc[0]
     earlier_id=tables['TASK'].loc[tables['TASK']['task_code']==args.earlier_code].task_id.iloc[0]
-    ps = nx.all_simple_paths(g_init, later_id, earlier_id)
+    ps = nx.all_simple_paths(g_init, later_id, earlier_id, args.cutoff)
     g = filter_by_paths(g, ps, later_id, earlier_id)
     render_all(g,args)
     print(f'number of simple paths: {len(list(ps))}')

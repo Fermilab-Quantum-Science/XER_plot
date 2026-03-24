@@ -18,11 +18,11 @@ library(MAGIS100PM)
 
 
 ```{r}
-all.orig <- get.all.schedule("WS2503")
-all <- apply.baseline.schedule(all.orig, "BL2412")
+all.orig <- get.all.schedule("WS2602")
+all <- apply.baseline.schedule(all.orig, "BL2602")
 
-filt.st<-as.Date("2024-10-01")
-filt.en<-as.Date("2025-10-01")
+filt.st<-as.Date("2023-10-01")
+filt.en<-as.Date("2028-04-30")
 filt.asof<- filt.st
 filt.name<- "AllPlots"
 
@@ -35,7 +35,7 @@ tasks.people <- combine.tasks.people(people, all)
 
 labor <- bin.labor(tasks.people)
 costs <- bin.expenses(all$all.data)
-costs.week <- costs$target.by.week%>% filter(FY>=2025&FY<2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
+costs.week <- costs$target.by.week%>% filter(FY>=2025&FY<=2028)%>%group_by(FY)%>%mutate(csum=cumsum(hsum))
 ```
 
 The resources plot is the one that produces the resource leveling plot per job function
@@ -44,9 +44,10 @@ The resources plot is the one that produces the resource leveling plot per job f
 fte<- FTE.plots(labor$by.day.all%>%filter(code!='other'))
 activities<- activities.plot(all$all.data, start.date=filt.st,end.date=filt.en)
 milestones<- milestones.plot(all$all.data, exclude.future=FALSE, earliest.date=filt.st, latest.date=filt.en)
-resources<- resources.plot(labor$by.week, device="pdf")
+resources<- resources.plot(labor$by.week%>%filter(rsrc%in%c('ENG','TECH'), FY>=2025),
+                           device="pdf")
 proc<- procurements.plot(all, en=Sys.Date()+weeks(8*4))
-reviews<- reviews.plot(all$all.data, start.date=filt.st, end.date=filt.st+months(6))
+reviews<- reviews.plot(all$all.data, start.date=filt.st, end.date=filt.st%m+%months(6))
 ```
 
 ```{r}
@@ -109,9 +110,10 @@ This is a function to pull out important fields with a filter
 ```{r}
 
 tmp.simpler <- all$all.data %>%
-  select(code, name, total_float, target_start, target_end, start, finish, wbs, wbs_high, wbs_low) %>% 
+  select(code, name, total_float, status, start, finish, target_start, target_end, baseline_start, baseline_end, start, finish, wbs, wbs_high, wbs_low) %>% 
   mutate(total_float=total_float/8) %>% 
-  filter(total_float < 40, target_start>=now()) %>% 
+  #filter(total_float < 40, target_start>=now()) %>% 
+  filter(target_start>=as.Date("2024-01-01")) %>% 
   arrange(target_start, total_float, wbs) # %>% view()
 
 #write_xlsx(tmp.simpler, "low_float.xlsx")
@@ -147,7 +149,7 @@ tmp.simpler3 <- all$all.data %>%
 
 ```
 
-```{r}
+```
 
 tmp.simpler4 <- all$all.data %>%
   select(code, name, total_float, target_start, target_end, start, finish, wbs, wbs_high, wbs_low) %>% 
@@ -162,16 +164,50 @@ tmp.simpler4 <- tmp.variances %>% left_join(tmp.simpler4, by=join_by(ActivityID=
 
 ```{r}
 
-tmp.simpler4 <- all$all.data %>% 
-  select(code, name, total_float, target_start, target_end, expected_end, start, finish, actual_start, actual_end, wbs, wbs_high, wbs_low, status) %>%
+tmp.simpler4 <- all$all.data %>%
+  #filter(wbs%in%c("11.07", "14.04")) %>% # electrical
+  #filter(wbs%in%c("13.01", "14.05")) %>% # interlocks
+  #filter(wbs%in%c("00.")) %>% 
+  #filter(str_detect(name, 'SVT|Procure|M&S'), area!=0, area!=1, status!="TK_Complete") %>% 
+  #filter(!str_detect(name, "(L)")) %>% 
+  #filter(str_detect(name, "^T. Milestone:")) %>% 
+  #filter(str_detect(name,"Install")) %>%
+  #filter(str_detect(name,"agneti")) %>%
+  #filter(str_detect(name,"Slow|slow|sensors|DAQ")) %>%
+  #filter(str_detect(wbs_high,"In Kind")) %>%
+  select(code, name, 
+         start, finish
+         ,status
+         #,target_start, target_end 
+         , baseline_start
+         ,wbs, wbs_high, wbs_low
+         ,total_float
+         ,total_cost
+         , area
+         , ctc
+         , category, label
+         #,expected_end 
+         #,actual_start, actual_end 
+         ) %>%
+  mutate(PM=str_detect(name,"Procurement Milestone")) %>%
   mutate(total_float=total_float/8)  %>% 
-  arrange(target_end, total_float, wbs) %>%
+  #arrange(PM, label, start) %>%
+  arrange(start) %>%
   #filter(total_float<80) %>% 
   #filter(target_end < as.Date("2025-12-31") & target_end > as.Date("2025-03-01")) %>%
   #filter(str_detect(wbs,"00.")) %>%
   #filter(str_detect(name, "Source")) %>% 
-  view()
+  view('all')
 
+#write_xlsx(tmp.simpler4, "procurements2.xlsx")
+
+
+```
+
+```{r}
+resources<- resources.plot(labor$by.week %>% filter(rsrc %in% c("ENG","TECH"), week>parse_date("2025-09-28")),
+                           device="pdf")
+print(resources)
 
 ```
 

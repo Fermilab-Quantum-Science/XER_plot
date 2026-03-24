@@ -17,13 +17,13 @@ library(MAGIS100PM)
 
 ```{r}
 
-sched_name <- "WS2503"
+sched_name <- "WS2602"
 # note: if using WS schedule, the target dates need to be adjusted using the baseline
 all.orig <- get.all.schedule(sched_name)
-all <- apply.baseline.schedule(all.orig, "BL2412")
+all <- apply.baseline.schedule(all.orig, "BL2602")
 
 alldata<- all$all.data %>% filter(dur>0) %>%
-  filter(start>as.Date('2022-10-01')) 
+  filter(start>as.Date('2025-10-01')) 
 ```
 ISSUE: the g, a, and c are causing problem.   Fix them before continuing.
 
@@ -168,6 +168,7 @@ gp<-ggplot(tmp%>%filter(label.shape!="skip"), aes(xmin=start, xmax=finish,
   geom_vline(aes(xintercept=as.Date("2024-10-01")))+
   geom_vline(aes(xintercept=as.Date("2025-10-01")))+
   geom_vline(aes(xintercept=as.Date("2026-10-01")))+
+  geom_vline(aes(xintercept=as.Date("2027-10-01")))+
   geom_rect(aes(ymin = a-.4, ymax = a+.4)) +
   scale_y_discrete("label") +
   scale_x_date(name="date", date_breaks='1 month', date_labels = "%b %y") +
@@ -196,22 +197,27 @@ gp<-ggplot(alt.tmp%>%filter(label.shape!="skip" & compact.label!="NA" & !is.na(c
   geom_vline(aes(xintercept=as.Date("2024-10-01")))+
   geom_vline(aes(xintercept=as.Date("2025-10-01")))+
   geom_vline(aes(xintercept=as.Date("2026-10-01")))+
-  geom_rect(aes(ymin = b-.4, ymax = b+.4)) +
+  geom_vline(aes(xintercept=as.Date("2027-10-01")))+
+  geom_rect(aes(ymin = b-.2, ymax = b+.2)) +
 
   scale_y_discrete("label") +
   scale_x_date(name="date", date_breaks='2 month', date_labels = "%b %y") +
   theme(axis.text.x = element_text(angle = 90)) + 
 
-  geom_text(aes(x = start, label = code, hjust="left",vjust="bottom"), 
-            size=.5, position=position_dodge2(width=.8)) +
-  geom_linerange(aes(xmin = start, xmax = finish), colour='blue', 
-                 linewidth=.05,  position=position_dodge2(width=.8)) + 
+  #geom_text(aes(x = start, label = code, hjust="left",vjust="bottom"), 
+  #          size=.5, position=position_dodge2(width=.8)) +
+  #geom_linerange(aes(xmin = start, xmax = finish), colour='blue', 
+  #               linewidth=.05,  position=position_dodge2(width=.8)) + 
   scale_fill_brewer(palette="Set3") + 
   labs(fill="Category")
   
 print(gp)
-ggsave(gp, filename=paste(base.path,'/output/VS-condensed-',sched_name,'.png',sep=''), width=12, height=12, units='in', device="png")
-ggsave(gp, filename=paste(base.path,'/output/VS-condensed-',sched_name,'.pdf',sep=''), width=8, height=8, units='in', device="pdf")
+ggsave(gp, filename=paste(base.path,'/output/VS-condensed-',sched_name,'.png',sep=''),
+       device="png")
+       #width=12, height=12, units='in', device="png")
+ggsave(gp, filename=paste(base.path,'/output/VS-condensed-',sched_name,'.pdf',sep=''),
+       device="pdf")
+       #width=8, height=8, units='in', device="pdf")
 
 ```
 
